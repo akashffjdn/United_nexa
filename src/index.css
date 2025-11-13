@@ -1,0 +1,57 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* LIGHT THEME */
+    --background: 210 20% 98%;            /* soft gray */
+    --foreground: 210 30% 15%;            /* dark slate text */
+    --card: 0 0% 100%;                    /* white */
+    --card-foreground: 210 30% 15%;
+    --primary: 174 72% 45%;               /* teal-500 */
+    --primary-foreground: 0 0% 100%;      /* white */
+    --secondary: 210 40% 96%;             /* light slate */
+    --secondary-foreground: 210 30% 15%;
+    --destructive: 0 84% 60%;             /* red-600 */
+    --destructive-foreground: 0 0% 100%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 46%;
+    --accent: 174 72% 45%;                /* teal */
+    --accent-foreground: 0 0% 100%;
+    --border: 210 30% 90%;
+    --input: 210 30% 90%;
+    --ring: 174 72% 45%;
+  }
+
+  /* DARK THEME */
+  .dark {
+    --background: 215 48% 11%;            /* navy-900 */
+    --foreground: 210 40% 98%;            /* slate-50 */
+    --card: 215 40% 17%;                  /* navy-800 */
+    --card-foreground: 210 40% 98%;
+    --primary: 184 70% 50%;               /* cyan-400 */
+    --primary-foreground: 215 48% 11%;    /* dark text on cyan */
+    --secondary: 217 32% 22%;             /* navy-700 */
+    --secondary-foreground: 210 40% 98%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 210 40% 98%;
+    --muted: 217 32% 22%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 184 70% 50%;
+    --accent-foreground: 215 48% 11%;
+    --border: 217 32% 22%;
+    --input: 217 32% 25%;
+    --ring: 184 70% 50%;
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif,
+                 "Apple Color Emoji", "Segoe UI Emoji",
+                 "Segoe UI Symbol", "Noto Color Emoji";
+  }
+}
