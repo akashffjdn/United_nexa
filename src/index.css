@@ -1,8 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap');
+
+/* ADDED: Standard Tailwind colors to support the new design */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* KEPT: Your original theme variables */
 @layer base {
   :root {
     /* LIGHT THEME */
@@ -47,6 +50,7 @@
   }
 }
 
+/* KEPT: Your original body font styling */
 @layer base {
   body {
     @apply bg-background text-foreground;

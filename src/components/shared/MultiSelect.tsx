@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Check, ChevronsUpDown, X } from 'lucide-react';
 import { Button } from './Button';
 
@@ -39,13 +39,16 @@ const CommandItem = ({ onSelect, children, isSelected }: { onSelect: () => void,
 const CommandEmpty = ({ children }: { children: React.ReactNode }) => (
   <div className="p-2 text-sm text-center text-muted-foreground">{children}</div>
 );
-const CommandInput = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
-  <div className="p-2 border-b border-muted">
-    <input
-      {...props}
-      className="w-full px-3 py-2 text-sm border border-muted-foreground/30 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
-    />
-  </div>
+const CommandInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
+  (props, ref) => (
+    <div className="p-2 border-b border-muted">
+      <input
+        {...props}
+        ref={ref}
+        className="w-full px-3 py-2 text-sm border border-muted-foreground/30 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
+      />
+    </div>
+  )
 );
 
 // --- Main MultiSelect Component ---
@@ -68,6 +71,21 @@ export const MultiSelect = ({
 }: MultiSelectProps) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  
+  // --- THIS IS THE FIX ---
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open) {
+      // Auto-focus the search input when the popover opens
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100); // Small delay to ensure it's rendered
+    } else {
+      setSearch(''); // Clear search on close
+    }
+  }, [open]);
+  // --- END FIX ---
 
   const filteredOptions = options.filter(option =>
     option.label.toLowerCase().includes(search.toLowerCase())
@@ -89,8 +107,6 @@ export const MultiSelect = ({
     <Popover 
       open={open} 
       onOpenChange={setOpen}
-      // --- THIS IS THE FIX ---
-      // The Button is now correctly passed as the 'trigger' prop
       trigger={
         <Button
           type="button"
@@ -123,6 +139,7 @@ export const MultiSelect = ({
     >
       {/* Popover Content (as children) */}
       <CommandInput
+        ref={inputRef} // <-- Assign the ref
         placeholder={searchPlaceholder}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
@@ -134,7 +151,11 @@ export const MultiSelect = ({
           filteredOptions.map(option => (
             <CommandItem
               key={option.value}
-              onSelect={() => handleToggle(option.value)}
+              onSelect={() => {
+                handleToggle(option.value);
+                // We can keep the popover open for multi-selection
+                // setOpen(false); 
+              }}
               isSelected={selected.includes(option.value)}
             >
               {option.label}

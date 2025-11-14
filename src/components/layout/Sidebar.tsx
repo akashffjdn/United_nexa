@@ -1,15 +1,23 @@
 import { NavLink } from 'react-router-dom';
 // --- IMPORT NEW ICON ---
-import { Truck, Users, X, FileText, Archive } from 'lucide-react'; 
+import { 
+  Truck, 
+  Users, 
+  X, 
+  FileText, 
+  Archive, 
+  LayoutDashboard // <-- NEW ICON
+} from 'lucide-react'; 
 // --- END IMPORT ---
 
 const navLinks = [
+  // --- ADD NEW LINK ---
+  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  // --- END NEW LINK ---
   { name: 'Consignors', href: '/consignors', icon: Truck },
   { name: 'Consignees', href: '/consignees', icon: Users },
   { name: 'GC Entry', href: '/gc-entry', icon: FileText },
-  // --- ADD NEW LINK ---
   { name: 'Pending Stock', href: '/pending-stock', icon: Archive },
-  // --- END NEW LINK ---
 ];
 
 interface SidebarProps {

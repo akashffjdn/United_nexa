@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { Eye, EyeOff, Truck } from 'lucide-react';
+import { Eye, EyeOff, Truck, Mail, Lock } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
-// Make sure to place your logo at this path
 
 export const LoginScreen = () => {
   const [email, setEmail] = useState('admin@example.com');
@@ -11,7 +10,6 @@ export const LoginScreen = () => {
   
   const { login, loading, error } = useAuth();
 
-  // Button is disabled until both fields are filled
   const isButtonDisabled = !email || !password || loading;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -22,32 +20,43 @@ export const LoginScreen = () => {
       await login(email, password);
       // Navigation is handled inside AuthContext on success
     } catch (err) {
-      // Error is set in AuthContext and displayed below
+      // Error is set in AuthContext
       console.error(err);
     }
   };
 
   return (
-    // This wrapper div makes the component the "page"
-    <div className="flex items-center justify-center min-h-screen bg-muted">
-      <div className="w-full max-w-md p-8 space-y-6 bg-background rounded-lg shadow-md m-4">
-        {/* 1. Company Logo */}
-         <div className="flex justify-center items-center mb-4">
-          <Truck size={32} className="text-primary" />
-          <span className="ml-3 text-2xl font-bold text-foreground">United Transport</span>
+    <div className="relative flex items-center justify-center min-h-screen p-4 overflow-hidden bg-background">
+      {/* Background Aurora Effect */}
+      <div className="absolute top-0 left-0 w-96 h-96 bg-primary/20 rounded-full blur-3xl opacity-50 animate-pulse" />
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-cyan-500/20 rounded-full blur-3xl opacity-50 animate-pulse delay-1000" />
+      
+      {/* Login Card */}
+      <div className="relative z-10 w-full max-w-md p-8 space-y-8 bg-card/60 backdrop-blur-lg border border-border/30 rounded-2xl shadow-2xl">
+        
+        {/* Header */}
+        <div className="flex flex-col items-center text-center">
+          <div className="p-3 mb-4 bg-primary/10 border border-primary/30 rounded-full">
+            <Truck size={32} className="text-primary" />
+          </div>
+          <h1 className="text-3xl font-bold text-foreground">
+            United Transport
+          </h1>
+          <p className="text-muted-foreground">
+            Sign in 
+          </p>
         </div>
 
-        {/* 2. Login Form */}
+        {/* Login Form */}
         <form className="space-y-6" onSubmit={handleSubmit}>
+          
           {/* Email Field */}
           <div>
-            <label 
-              htmlFor="email" 
-              className="block text-sm font-medium text-muted-foreground"
-            >
+            <label htmlFor="email" className="block text-sm font-medium text-muted-foreground mb-2">
               Email Address
             </label>
-            <div className="mt-1">
+            <div className="relative">
+              <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 id="email"
                 name="email"
@@ -56,20 +65,19 @@ export const LoginScreen = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3 py-2 border border-muted-foreground/30 rounded-md shadow-sm placeholder-muted-foreground focus:outline-none focus:ring-primary focus:border-primary"
+                className="w-full pl-10 pr-3 py-3 bg-transparent border border-border/50 rounded-md placeholder-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                placeholder="you@example.com"
               />
             </div>
           </div>
 
           {/* Password Field */}
-          <div className="relative">
-            <label 
-              htmlFor="password" 
-              className="block text-sm font-medium text-muted-foreground"
-            >
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-muted-foreground mb-2">
               Password
             </label>
-            <div className="mt-1 relative">
+            <div className="relative">
+              <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 id="password"
                 name="password"
@@ -78,7 +86,8 @@ export const LoginScreen = () => {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-muted-foreground/30 rounded-md shadow-sm placeholder-muted-foreground focus:outline-none focus:ring-primary focus:border-primary"
+                className="w-full pl-10 pr-10 py-3 bg-transparent border border-border/50 rounded-md placeholder-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                placeholder="••••••••"
               />
               <button
                 type="button"
@@ -90,7 +99,7 @@ export const LoginScreen = () => {
             </div>
           </div>
 
-          {/* 3. Dynamic Refinements */}
+          {/* Options */}
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <input
@@ -99,7 +108,7 @@ export const LoginScreen = () => {
                 type="checkbox"
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
-                className="h-4 w-4 text-primary border-muted-foreground/30 rounded focus:ring-primary"
+                className="h-4 w-4 text-primary bg-transparent border-muted-foreground/30 rounded focus:ring-primary"
               />
               <label htmlFor="remember-me" className="ml-2 block text-sm text-muted-foreground">
                 Remember me
@@ -107,26 +116,26 @@ export const LoginScreen = () => {
             </div>
           </div>
 
-          {/* 4. Error Message */}
+          {/* Error Message */}
           {error && (
-            <div className="text-sm text-destructive text-center">
+            <div className="text-sm text-destructive text-center p-3 bg-destructive/10 border border-destructive/30 rounded-md">
               {error}
             </div>
           )}
 
-          {/* 5. Login Button */}
+          {/* Login Button */}
           <div>
             <button
               type="submit"
               disabled={isButtonDisabled}
-              className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium 
+              className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-lg text-sm font-medium transition-all duration-300
                 ${isButtonDisabled 
-                  ? 'bg-muted text-muted-foreground cursor-not-allowed' 
-                  : 'bg-primary text-primary-foreground hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary'
+                  ? 'bg-muted text-muted-foreground/50 cursor-not-allowed' 
+                  : 'bg-primary text-primary-foreground hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary shadow-primary/30 hover:shadow-primary/50'
                 }
               `}
             >
-              {loading ? 'Logging in...' : 'Login'}
+              {loading ? 'Authenticating...' : 'Sign In'}
             </button>
           </div>
         </form>

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react'; // <-- Added useEffect
 import { useNavigate } from 'react-router-dom';
 import { FilePenLine, Trash2, Search, Printer } from 'lucide-react';
 import { DateFilterButtons, getTodayDate, getYesterdayDate, isDateInLast7Days } from '../../components/shared/DateFilterButtons';
@@ -35,14 +35,97 @@ export const GcEntryList = () => {
   // --- Printing State ---
   const [printingJobs, setPrintingJobs] = useState<GcPrintJob[] | null>(null);
   
-  // --- Memoized Options ---
-  const consignorOptions = useMemo(() => 
+  // --- ALL OPTIONS (Memoized) ---
+  const allConsignorOptions = useMemo(() => 
     consignors.map(c => ({ value: c.id, label: c.name })), [consignors]);
     
-  const consigneeOptions = useMemo(() => 
+  const allConsigneeOptions = useMemo(() => 
     consignees.map(c => ({ value: c.id, label: c.name })), [consignees]);
     
-  const destinationOptions = useMemo(getUniqueDests, [getUniqueDests]);
+  const allDestinationOptions = useMemo(getUniqueDests, [getUniqueDests]);
+
+  // --- CASCADING FILTER LOGIC ---
+  const {
+    filteredConsignorOptions,
+    filteredConsigneeOptions,
+    filteredDestinationOptions,
+  } = useMemo(() => {
+    let relevantConsignors = new Set(consignors.map(c => c.id));
+    let relevantConsignees = new Set(consignees.map(c => c.id));
+    let relevantDests = new Set(allDestinationOptions.map(d => d.value));
+
+    // --- Step 1: Filter by Destination ---
+    if (destFilter) {
+      const gcNors = new Set(gcEntries.filter(gc => gc.destination === destFilter).map(gc => gc.consignorId));
+      const gcNees = new Set(gcEntries.filter(gc => gc.destination === destFilter).map(gc => gc.consigneeId));
+      const neeNors = new Set(consignees.filter(c => c.destination === destFilter).map(c => c.consignorId).filter(Boolean) as string[]);
+      const neeNees = new Set(consignees.filter(c => c.destination === destFilter).map(c => c.id));
+      
+      relevantConsignors = new Set([...gcNors, ...neeNors]);
+      relevantConsignees = new Set([...gcNees, ...neeNees]);
+    }
+
+    // --- Step 2: Filter by Consignor (intersect with previous results) ---
+    if (consignorFilter) {
+      const gcNees = new Set(gcEntries.filter(gc => gc.consignorId === consignorFilter).map(gc => gc.consigneeId));
+      const gcDests = new Set(gcEntries.filter(gc => gc.consignorId === consignorFilter).map(gc => gc.destination));
+      const neeNees = new Set(consignees.filter(c => c.consignorId === consignorFilter).map(c => c.id));
+      const neeDests = new Set(consignees.filter(c => c.consignorId === consignorFilter).map(c => c.destination));
+
+      const validNees = new Set([...gcNees, ...neeNees]);
+      const validDests = new Set([...gcDests, ...neeDests]);
+
+      relevantConsignees = new Set([...relevantConsignees].filter(id => validNees.has(id)));
+      relevantDests = new Set([...relevantDests].filter(dest => validDests.has(dest)));
+    }
+    
+    // --- Step 3: Filter by Consignee (intersect with previous results) ---
+    if (consigneeFilter.length > 0) {
+      const gcNors = new Set(gcEntries.filter(gc => consigneeFilter.includes(gc.consigneeId)).map(gc => gc.consignorId));
+      const gcDests = new Set(gcEntries.filter(gc => consigneeFilter.includes(gc.consigneeId)).map(gc => gc.destination));
+      const neeNors = new Set(consignees.filter(c => consigneeFilter.includes(c.id)).map(c => c.consignorId).filter(Boolean) as string[]);
+      const neeDests = new Set(consignees.filter(c => consigneeFilter.includes(c.id)).map(c => c.destination));
+
+      const validNors = new Set([...gcNors, ...neeNors]);
+      const validDests = new Set([...gcDests, ...neeDests]);
+      
+      relevantConsignors = new Set([...relevantConsignors].filter(id => validNors.has(id)));
+      relevantDests = new Set([...relevantDests].filter(dest => validDests.has(dest)));
+    }
+
+    // --- Final Output ---
+    return {
+      filteredConsignorOptions: allConsignorOptions.filter(opt => relevantConsignors.has(opt.value)),
+      filteredConsigneeOptions: allConsigneeOptions.filter(opt => relevantConsignees.has(opt.value)),
+      filteredDestinationOptions: allDestinationOptions.filter(opt => relevantDests.has(opt.value)),
+    };
+
+  }, [destFilter, consignorFilter, consigneeFilter, gcEntries, consignors, consignees, allConsignorOptions, allConsigneeOptions, allDestinationOptions]);
+
+  // --- Effects to clear dependent filters if they become invalid ---
+  useEffect(() => {
+    if (consignorFilter && !filteredConsignorOptions.find(opt => opt.value === consignorFilter)) {
+      setConsignorFilter('');
+    }
+  }, [consignorFilter, filteredConsignorOptions]);
+
+  useEffect(() => {
+    if (consigneeFilter.length > 0) {
+      const validSelected = consigneeFilter.filter(id => 
+        filteredConsigneeOptions.find(opt => opt.value === id)
+      );
+      if (validSelected.length !== consigneeFilter.length) {
+        setConsigneeFilter(validSelected);
+      }
+    }
+  }, [consigneeFilter, filteredConsigneeOptions]);
+
+  useEffect(() => {
+    if (destFilter && !filteredDestinationOptions.find(opt => opt.value === destFilter)) {
+      setDestFilter('');
+    }
+  }, [destFilter, filteredDestinationOptions]);
+
 
   // --- Filtering (Memoized) ---
   const filteredGcEntries = useMemo(() => {
@@ -182,14 +265,14 @@ export const GcEntryList = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <AutocompleteInput
             label="Filter by Destination"
-            options={destinationOptions}
+            options={filteredDestinationOptions}
             value={destFilter}
             onSelect={setDestFilter}
             placeholder="Type to search destination..."
           />
           <AutocompleteInput
             label="Filter by Consignor"
-            options={consignorOptions}
+            options={filteredConsignorOptions} 
             value={consignorFilter}
             onSelect={setConsignorFilter}
             placeholder="Type to search consignor..."
@@ -197,7 +280,7 @@ export const GcEntryList = () => {
           <div className="flex flex-col">
             <label className="block text-sm font-medium text-muted-foreground mb-1">Filter by Consignee (Multi-select)</label>
             <MultiSelect
-              options={consigneeOptions}
+              options={filteredConsigneeOptions} 
               selected={consigneeFilter}
               onChange={setConsigneeFilter}
               placeholder="Select consignees..."

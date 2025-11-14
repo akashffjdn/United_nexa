@@ -9,8 +9,12 @@ import { ConsignorList } from '../features/consignors/ConsignorList';
 import { ConsigneeList } from '../features/consignees/ConsigneeList';
 import { GcEntryList } from '../features/gc-entry/GcEntryList';
 import { GcEntryForm } from '../features/gc-entry/GcEntryForm';
-// --- GcPrintView is no longer imported ---
 import { PendingStockHistory } from '../features/pending-stock/PendingStockHistory';
+import { DashboardPage } from '../features/dashboard/DashboardPage';
+
+// --- NEW LOADING SCREEN IMPORT ---
+import { LoadingScreen } from '../components/shared/LoadingScreen';
+// --- END NEW IMPORT ---
 
 
 // This component will protect your admin routes
@@ -24,11 +28,9 @@ const ProtectedRoute = ({
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        Loading...
-      </div>
-    );
+    // --- THIS IS THE FIX ---
+    return <LoadingScreen />;
+    // --- END FIX ---
   }
 
   if (!user) {
@@ -48,7 +50,9 @@ const LoginRoute = () => {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    // --- THIS IS THE FIX ---
+    return <LoadingScreen />;
+    // --- END FIX ---
   }
 
   if (user) {
@@ -62,12 +66,15 @@ const LoginRoute = () => {
 // This component handles the logout logic
 const LogoutRoute = () => {
   const { logout } = useAuth();
+
   useEffect(() => {
     logout();
   }, [logout]);
 
-  // Will be redirected to /login by the logout function
-  return <div className="flex items-center justify-center h-screen">Logging out...</div>;
+  // --- THIS IS THE FIX ---
+  // Show loading screen while logging out
+  return <LoadingScreen />;
+  // --- END FIX ---
 }
 
 const AppRouter = () => {
@@ -77,13 +84,14 @@ const AppRouter = () => {
       <Route path="/login" element={<LoginRoute />} />
       <Route path="/logout" element={<LogoutRoute />} />
 
-      {/* --- OLD GC PRINT ROUTE REMOVED --- */}
-
       {/* Protected Admin Routes (wrapped in Layout) */}
+      
+      {/* '/' now points to the new DashboardPage */}
       <Route 
         path="/" 
-        element={<ProtectedRoute><ConsignorList /></ProtectedRoute>} 
+        element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} 
       />
+
       <Route 
         path="/consignors" 
         element={<ProtectedRoute><ConsignorList /></ProtectedRoute>} 
