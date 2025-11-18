@@ -44,7 +44,6 @@ export const ToPlacesList = () => {
     } = usePagination({ data: filteredToPlaces, initialItemsPerPage: 10 });
     
     // Calculate indices for display message
-    const indexOfLastItem = currentPage * itemsPerPage;
     // --- End Pagination Integration ---
 
 
