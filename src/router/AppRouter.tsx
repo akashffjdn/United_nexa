@@ -16,13 +16,21 @@ import { LoadingSheetEntry } from '../features/loading-sheet/LoadingSheetEntry';
 import { FromPlaceList } from '../features/from-places-entry/FromPlacesList';
 import { ToPlacesList } from '../features/to-places-entry/ToPlacesList';
 
+// --- NEW IMPORTS FOR RECENTLY ADDED MODULES ---
+import { PackingEntryList } from '../features/packing-entry/PackingUnitList';
+import { ContentList } from '../features/content-entry/ContentList';
+import { TripSheetList } from '../features/trip-sheet-entry/TripSheetList';
+import { TripSheetForm } from '../features/trip-sheet-entry/TripSheetForm';
+import { TripSheetReportView } from '../features/trip-sheet-entry/TripSheetReportView';
+// -----------------------------------------------
+
 // Import Dashboards
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { MasterDashboardPage } from '../features/dashboard/MasterDashboardPage';
 
 import { LoadingScreen } from '../components/shared/LoadingScreen';
 
-// --- NEW IMPORT ---
+// Import User Management
 import { UserList } from '../features/users/UserList';
 
 
@@ -33,7 +41,7 @@ const ProtectedRoute = ({ children, noLayout = false, requireAdmin = false }: { 
   if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   
-  // NEW: Role Check for Admin routes
+  // Role Check for Admin routes
   if (requireAdmin && user.role !== 'admin') {
     return <Navigate to="/" replace />; 
   }
@@ -78,11 +86,19 @@ const AppRouter = () => {
       {/* Pending Stock */}
       <Route path="/pending-stock" element={<ProtectedRoute><PendingStockHistory /></ProtectedRoute>} />
 
-      {/* Loading Sheet (Injected) */}
+      {/* Loading Sheet */}
       <Route path="/loading-sheet" element={<ProtectedRoute><LoadingSheetEntry /></ProtectedRoute>} />
       
-      {/* Placeholders for future Operations screens */}
-      <Route path="/trip-sheet" element={<ProtectedRoute><div className="p-8 text-xl text-muted-foreground">Trip Sheet Module (Coming Soon)</div></ProtectedRoute>} />
+      {/* --- TRIP SHEET MODULE ROUTES --- */}
+      {/* List View (Matches Sidebar Link) */}
+      <Route path="/trip-sheet" element={<ProtectedRoute><TripSheetList /></ProtectedRoute>} />
+      
+      {/* Create/Edit Forms (Matches Internal Navigation) */}
+      <Route path="/tripsheet/new" element={<ProtectedRoute><TripSheetForm /></ProtectedRoute>} />
+      <Route path="/tripsheet/edit/:id" element={<ProtectedRoute><TripSheetForm /></ProtectedRoute>} />
+      
+      {/* Report View (No Layout for Printing) */}
+      <Route path="/tripsheet/report" element={<ProtectedRoute noLayout><TripSheetReportView /></ProtectedRoute>} />
 
 
       {/* ===================================================
@@ -96,21 +112,21 @@ const AppRouter = () => {
       <Route path="/master/consignors" element={<ProtectedRoute><ConsignorList /></ProtectedRoute>} />
       <Route path="/master/consignees" element={<ProtectedRoute><ConsigneeList /></ProtectedRoute>} />
 
-      {/* From/To Places (Injected) */}
+      {/* From/To Places */}
       <Route path="/master/from-places" element={<ProtectedRoute><FromPlaceList /></ProtectedRoute>} />
       <Route path="/master/to-places" element={<ProtectedRoute><ToPlacesList /></ProtectedRoute>} />
 
-      {/* PLACEHOLDERS FOR OTHER MASTERS */}
+      {/* --- NEW MASTER ROUTES --- */}
       <Route 
         path="/master/packings" 
-        element={<ProtectedRoute><div className="p-8 text-xl font-bold text-muted-foreground">Packings Entry Screen (Under Construction)</div></ProtectedRoute>} 
+        element={<ProtectedRoute><PackingEntryList /></ProtectedRoute>} 
       />
       <Route 
         path="/master/contents" 
-        element={<ProtectedRoute><div className="p-8 text-xl font-bold text-muted-foreground">Contents Entry Screen (Under Construction)</div></ProtectedRoute>} 
+        element={<ProtectedRoute><ContentList /></ProtectedRoute>} 
       />
 
-      {/* --- NEW: USER MANAGEMENT (Admin Only) --- */}
+      {/* User Management (Admin Only) */}
       <Route 
         path="/users" 
         element={

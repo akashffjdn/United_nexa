@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-// --- NEW: User Interface ---
+// --- User Interface ---
 export interface AppUser {
   id: string;
   name: string;
@@ -9,7 +9,6 @@ export interface AppUser {
   mobile: string;
   role: 'admin' | 'user';
 }
-// --- END NEW ---
 
 export interface Consignor {
   id: string;
@@ -45,7 +44,6 @@ export interface GcEntry {
   invoiceNo: string;
   pkgDesc: string;
   marks: any;
-  marks: boolean;
   gcNo: ReactNode;
   id: string;
   gcDate: string;
@@ -92,4 +90,53 @@ export interface ToPlace {
     id: string;
     placeName: string;
     shortName: string;
+}
+
+// --- NEW TYPES FOR MASTER MODULES ---
+
+export interface PackingEntry {
+  id: string;
+  packingName: string;
+  shortName: string;
+}
+
+export interface ContentEntry {
+  id: string;
+  contentName: string;
+  shortName: string;
+}
+
+// --- NEW TYPES FOR TRIP SHEET ---
+
+export interface TripSheetGCItem {
+  gcNo: string;
+  qty: number;
+  rate: number;
+  qtyDts?: string;
+  packingDts?: string;
+  contentDts?: string;
+  consignor?: string;
+  consignee?: string;
+  amount: number;
+}
+
+export interface TripSheetEntry {
+  id: string;
+  mfNo: string;
+  tsDate: string;
+  carriers?: string;
+  fromPlace: string;
+  toPlace: string;
+  items: TripSheetGCItem[];
+  unloadPlace?: string;
+  totalAmount: number;
+  driverName?: string;
+  dlNo?: string;
+  driverMobile?: string;
+  ownerName?: string;
+  ownerMobile?: string;
+  lorryNo?: string;
+  lorryName?: string;
+  consignorid?: string; 
+  consigneeid?: string;
 }

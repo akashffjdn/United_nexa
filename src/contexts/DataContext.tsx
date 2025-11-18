@@ -1,5 +1,14 @@
 import React, { createContext, useState, useMemo, useEffect } from 'react';
-import type { Consignor, Consignee, GcEntry, FromPlace, ToPlace } from '../types';
+import type { 
+  Consignor, 
+  Consignee, 
+  GcEntry, 
+  FromPlace, 
+  ToPlace,
+  PackingEntry,
+  ContentEntry,
+  TripSheetEntry
+} from '../types';
 import { getTodayDate, getYesterdayDate } from '../utils/dateHelpers';
 
 // --- MOCK DATA ---
@@ -25,7 +34,12 @@ const MOCK_GC_ENTRIES: GcEntry[] = [
     billNo: 'B-101', billValue: "57500", tollFee: "150", freight: "1200", godownCharge: "50", statisticCharge: "10", advanceNone: "0", balanceToPay: "57500",
     quantity: "50", packing: 'BOXES', contents: 'FW', prefix: 'Case No.', fromNo: "1", netQty: "50",
     paidType: 'To Pay',
-    gcNo: undefined
+    gcNo: undefined,
+    date: '',
+    invoiceDate: '',
+    invoiceNo: '',
+    pkgDesc: '',
+    marks: undefined
   },
   {
     id: '1051', gcDate: getTodayDate(), from: 'Madurai', destination: 'Bangalore',
@@ -35,7 +49,12 @@ const MOCK_GC_ENTRIES: GcEntry[] = [
     billNo: 'B-102', billValue: "120000", tollFee: "200", freight: "2500", godownCharge: "100", statisticCharge: "10", advanceNone: "50000", balanceToPay: "70000",
     quantity: "100", packing: 'CARTONS', contents: 'SPARKLERS', prefix: 'Marks', fromNo: "1", netQty: "100",
     paidType: 'Paid',
-    gcNo: undefined
+    gcNo: undefined,
+    date: '',
+    invoiceDate: '',
+    invoiceNo: '',
+    pkgDesc: '',
+    marks: undefined
   },
 ];
 
@@ -50,14 +69,78 @@ const MOCK_TO_PLACES: ToPlace[] = [
   { id: 'tp3', placeName: 'Hyderabad', shortName: 'HYD' },
   { id: 'tp4', placeName: 'TERKHEDA', shortName: 'TRK' },
 ];
+
+const MOCK_PACKING_ENTRIES: PackingEntry[] = [
+  { id: 'p1', packingName: 'BAGS', shortName: 'BAGS' },
+  { id: 'p2', packingName: 'BOXES', shortName: 'BOXES' },
+  { id: 'p3', packingName: 'CARTONS', shortName: 'CTN' },
+  { id: 'p4', packingName: 'BUNDLES', shortName: 'BNDL' },
+];
+
+const MOCK_CONTENT_ENTRIES: ContentEntry[] = [
+  { id: 'cn1', contentName: 'FW (Fireworks)', shortName: 'FW' },
+  { id: 'cn2', contentName: 'SPARKLERS', shortName: 'SPK' },
+  { id: 'cn3', contentName: 'ATOM BOMBS', shortName: 'AB' },
+  { id: 'cn4', contentName: 'GENERAL GOODS', shortName: 'GEN' },
+];
+
+// --- NEW: MOCK DATA FOR TRIP SHEET ---
+const MOCK_TRIP_SHEETS: TripSheetEntry[] = [
+  {
+    id: '1',
+    mfNo: '1001',
+    tsDate: getYesterdayDate(),
+    fromPlace: 'Sivakasi',
+    toPlace: 'Chennai',
+    totalAmount: 57500,
+    driverName: 'Ramesh',
+    driverMobile: '9876543210',
+    lorryNo: 'TN-67-AB-1234',
+    items: [
+      {
+        gcNo: '1050',
+        qty: 50,
+        rate: 1200,
+        amount: 57500,
+        consignor: 'Standard Fireworks',
+        consignee: 'Raju Fireworks'
+      }
+    ]
+  },
+  {
+    id: '2',
+    mfNo: '1002',
+    tsDate: getTodayDate(),
+    fromPlace: 'Madurai',
+    toPlace: 'Bangalore',
+    totalAmount: 70000,
+    driverName: 'Suresh',
+    driverMobile: '9123456789',
+    lorryNo: 'KA-01-XY-5678',
+    items: [
+      {
+        gcNo: '1051',
+        qty: 100,
+        rate: 2500,
+        amount: 70000,
+        consignor: 'National Crackers',
+        consignee: 'Deepa Crackers Mart'
+      }
+    ]
+  }
+];
 // --- END MOCK DATA ---
 
-// Helper function to load data from localStorage or use mock data as a fallback
 const loadFromStorage = (key: string, mockData: any[]) => {
   try {
     const storedValue = localStorage.getItem(key);
     if (storedValue) {
-      return JSON.parse(storedValue);
+      const parsed = JSON.parse(storedValue);
+      // If stored data is an empty array, force reload from Mock Data
+      if (Array.isArray(parsed) && parsed.length === 0 && mockData.length > 0) {
+        return mockData;
+      }
+      return parsed;
     }
   } catch (e) {
     console.error(`Failed to parse ${key} from localStorage`, e);
@@ -71,6 +154,9 @@ interface DataContextType {
   gcEntries: GcEntry[];
   fromPlaces: FromPlace[];
   toPlaces: ToPlace[];
+  packingEntries: PackingEntry[];
+  contentEntries: ContentEntry[];
+  tripSheets: TripSheetEntry[];
   
   addConsignor: (consignor: Consignor) => void;
   updateConsignor: (consignor: Consignor) => void;
@@ -93,6 +179,19 @@ interface DataContextType {
   addToPlace: (toPlace: ToPlace) => void;
   updateToPlace: (toPlace: ToPlace) => void;
   deleteToPlace: (id: string) => void;
+
+  addPackingEntry: (entry: PackingEntry) => void;
+  updatePackingEntry: (entry: PackingEntry) => void;
+  deletePackingEntry: (id: string) => void;
+
+  addContentEntry: (entry: ContentEntry) => void;
+  updateContentEntry: (entry: ContentEntry) => void;
+  deleteContentEntry: (id: string) => void;
+
+  addTripSheet: (sheet: TripSheetEntry) => void;
+  updateTripSheet: (sheet: TripSheetEntry) => void;
+  deleteTripSheet: (id: string) => void;
+  getTripSheet: (id: string) => TripSheetEntry | undefined;
   
   getUniqueDests: () => { value: string, label: string }[];
   getPackingTypes: () => { value: string, label: string }[];
@@ -102,91 +201,67 @@ interface DataContextType {
 export const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider = ({ children }: { children: React.ReactNode }) => {
-  // State initialized from localStorage
   const [consignors, setConsignors] = useState<Consignor[]>(() => loadFromStorage('consignors', MOCK_CONSIGNORS));
   const [consignees, setConsignees] = useState<Consignee[]>(() => loadFromStorage('consignees', MOCK_CONSIGNEES));
   const [gcEntries, setGcEntries] = useState<GcEntry[]>(() => loadFromStorage('gcEntries', MOCK_GC_ENTRIES));
   const [fromPlaces, setFromPlaces] = useState<FromPlace[]>(() => loadFromStorage('fromPlaces', MOCK_FROM_PLACES));
   const [toPlaces, setToPlaces] = useState<ToPlace[]>(() => loadFromStorage('toPlaces', MOCK_TO_PLACES));
+  const [packingEntries, setPackingEntries] = useState<PackingEntry[]>(() => loadFromStorage('packingEntries', MOCK_PACKING_ENTRIES));
+  const [contentEntries, setContentEntries] = useState<ContentEntry[]>(() => loadFromStorage('contentEntries', MOCK_CONTENT_ENTRIES));
+  
+  // --- UPDATED: Initialize Trip Sheets with Mock Data using the smart loader ---
+  const [tripSheets, setTripSheets] = useState<TripSheetEntry[]>(() => loadFromStorage('tripSheets', MOCK_TRIP_SHEETS));
 
-  // Save to localStorage whenever data changes
   useEffect(() => { localStorage.setItem('consignors', JSON.stringify(consignors)); }, [consignors]);
   useEffect(() => { localStorage.setItem('consignees', JSON.stringify(consignees)); }, [consignees]);
   useEffect(() => { localStorage.setItem('gcEntries', JSON.stringify(gcEntries)); }, [gcEntries]);
   useEffect(() => { localStorage.setItem('fromPlaces', JSON.stringify(fromPlaces)); }, [fromPlaces]);
   useEffect(() => { localStorage.setItem('toPlaces', JSON.stringify(toPlaces)); }, [toPlaces]);
+  useEffect(() => { localStorage.setItem('packingEntries', JSON.stringify(packingEntries)); }, [packingEntries]);
+  useEffect(() => { localStorage.setItem('contentEntries', JSON.stringify(contentEntries)); }, [contentEntries]);
+  useEffect(() => { localStorage.setItem('tripSheets', JSON.stringify(tripSheets)); }, [tripSheets]);
 
-  // --- Consignor Functions ---
-  const addConsignor = (consignor: Consignor) => {
-    setConsignors(prev => [...prev, consignor]);
-  };
-  const updateConsignor = (updatedConsignor: Consignor) => {
-    setConsignors(prev => prev.map(c => c.id === updatedConsignor.id ? updatedConsignor : c));
-  };
-  const deleteConsignor = (id: string) => {
-    setConsignors(prev => prev.filter(c => c.id !== id));
-  };
+  const addConsignor = (consignor: Consignor) => setConsignors(p => [...p, consignor]);
+  const updateConsignor = (c: Consignor) => setConsignors(p => p.map(x => x.id === c.id ? c : x));
+  const deleteConsignor = (id: string) => setConsignors(p => p.filter(x => x.id !== id));
+  
+  const addConsignee = (consignee: Consignee) => setConsignees(p => [...p, consignee]);
+  const updateConsignee = (c: Consignee) => setConsignees(p => p.map(x => x.id === c.id ? c : x));
+  const deleteConsignee = (id: string) => setConsignees(p => p.filter(x => x.id !== id));
 
-  // --- Consignee Functions ---
-  const addConsignee = (consignee: Consignee) => {
-    setConsignees(prev => [...prev, consignee]);
-  };
-  const updateConsignee = (updatedConsignee: Consignee) => {
-    setConsignees(prev => prev.map(c => c.id === updatedConsignee.id ? updatedConsignee : c));
-  };
-  const deleteConsignee = (id: string) => {
-    setConsignees(prev => prev.filter(c => c.id !== id));
-  };
-
-  // --- GC Functions ---
   const getNextGcNo = () => {
     if (gcEntries.length === 0) return '1001';
     const maxId = Math.max(...gcEntries.map(gc => parseInt(gc.id, 10)).filter(num => !isNaN(num)));
     if (maxId < 1000) return '1001';
     return (maxId + 1).toString();
   };
+  const getGcEntry = (id: string) => gcEntries.find(gc => gc.id === id);
+  const addGcEntry = (gc: GcEntry) => setGcEntries(p => [...p, gc]);
+  const updateGcEntry = (gc: GcEntry) => setGcEntries(p => p.map(x => x.id === gc.id ? gc : x));
+  const deleteGcEntry = (id: string) => setGcEntries(p => p.filter(x => x.id !== id));
 
-  const getGcEntry = (id: string) => {
-    return gcEntries.find(gc => gc.id === id);
-  };
+  const addFromPlace = (fp: FromPlace) => setFromPlaces(p => [...p, fp]);
+  const updateFromPlace = (fp: FromPlace) => setFromPlaces(p => p.map(x => x.id === fp.id ? fp : x));
+  const deleteFromPlace = (id: string) => setFromPlaces(p => p.filter(x => x.id !== id));
 
-  const addGcEntry = (gcEntry: GcEntry) => {
-    setGcEntries(prev => [...prev, gcEntry]);
-  };
+  const addToPlace = (tp: ToPlace) => setToPlaces(p => [...p, tp]);
+  const updateToPlace = (tp: ToPlace) => setToPlaces(p => p.map(x => x.id === tp.id ? tp : x));
+  const deleteToPlace = (id: string) => setToPlaces(p => p.filter(x => x.id !== id));
 
-  const updateGcEntry = (updatedGcEntry: GcEntry) => {
-    setGcEntries(prev => prev.map(gc => gc.id === updatedGcEntry.id ? updatedGcEntry : gc));
-  };
+  const addPackingEntry = (entry: PackingEntry) => setPackingEntries(p => [...p, entry]);
+  const updatePackingEntry = (entry: PackingEntry) => setPackingEntries(p => p.map(x => x.id === entry.id ? entry : x));
+  const deletePackingEntry = (id: string) => setPackingEntries(p => p.filter(x => x.id !== id));
 
-  const deleteGcEntry = (id: string) => {
-    setGcEntries(prev => prev.filter(gc => gc.id !== id));
-  };
+  const addContentEntry = (entry: ContentEntry) => setContentEntries(p => [...p, entry]);
+  const updateContentEntry = (entry: ContentEntry) => setContentEntries(p => p.map(x => x.id === entry.id ? entry : x));
+  const deleteContentEntry = (id: string) => setContentEntries(p => p.filter(x => x.id !== id));
 
-  // --- From Place Functions ---
-  const addFromPlace = (fromPlace: FromPlace) => {
-    setFromPlaces(prev => [...prev, fromPlace]);
-  };
-  const updateFromPlace = (updatedFromPlace: FromPlace) => {
-    setFromPlaces(prev => prev.map(fp => fp.id === updatedFromPlace.id ? updatedFromPlace : fp));
-  };
-  const deleteFromPlace = (id: string) => {
-    setFromPlaces(prev => prev.filter(fp => fp.id !== id));
-  };
+  const addTripSheet = (sheet: TripSheetEntry) => setTripSheets(p => [...p, sheet]);
+  const updateTripSheet = (sheet: TripSheetEntry) => setTripSheets(p => p.map(x => x.mfNo === sheet.mfNo ? sheet : x));
+  const deleteTripSheet = (id: string) => setTripSheets(p => p.filter(x => x.mfNo !== id));
+  const getTripSheet = (id: string) => tripSheets.find(ts => ts.mfNo === id || ts.id === id);
 
-  // --- To Place Functions ---
-  const addToPlace = (toPlace: ToPlace) => {
-    setToPlaces(prev => [...prev, toPlace]);
-  };
-  const updateToPlace = (updatedToPlace: ToPlace) => {
-    setToPlaces(prev => prev.map(tp => tp.id === updatedToPlace.id ? updatedToPlace : tp));
-  };
-  const deleteToPlace = (id: string) => {
-    setToPlaces(prev => prev.filter(tp => tp.id !== id));
-  };
-  
-  // --- Helpers ---
   const getUniqueDests = () => {
-    // Combine destinations from To Places and Consignees
     const dests = new Set([
       ...toPlaces.map(tp => tp.placeName),
       ...consignees.map(c => c.destination),
@@ -195,53 +270,26 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     return Array.from(dests).map(d => ({ value: d, label: d }));
   };
   
-  const getPackingTypes = () => [
-    { value: 'BAGS', label: 'BAGS' },
-    { value: 'BOXES', label: 'BOXES' },
-    { value: 'CARTONS', label: 'CARTONS' },
-    { value: 'BUNDLES', label: 'BUNDLES' },
-  ];
+  const getPackingTypes = () => {
+    return packingEntries.map(p => ({ value: p.packingName, label: p.packingName }));
+  };
   
-  const getContentsTypes = () => [
-    { value: 'FW', label: 'FW (Fireworks)' },
-    { value: 'SPARKLERS', label: 'SPARKLERS' },
-    { value: 'ATOM BOMBS', label: 'ATOM BOMBS' },
-    { value: 'GENERAL GOODS', label: 'GENERAL GOODS' },
-  ];
+  const getContentsTypes = () => {
+    return contentEntries.map(c => ({ value: c.contentName, label: c.contentName }));
+  };
 
   const value = useMemo(() => ({
-    consignors,
-    consignees,
-    gcEntries,
-    fromPlaces,
-    toPlaces,
-    
-    addConsignor,
-    updateConsignor,
-    deleteConsignor,
-    
-    addConsignee,
-    updateConsignee,
-    deleteConsignee,
-    
-    getNextGcNo,
-    getGcEntry,
-    addGcEntry,
-    updateGcEntry,
-    deleteGcEntry,
-
-    addFromPlace,
-    updateFromPlace,
-    deleteFromPlace,
-
-    addToPlace,
-    updateToPlace,
-    deleteToPlace,
-    
-    getUniqueDests,
-    getPackingTypes,
-    getContentsTypes,
-  }), [consignors, consignees, gcEntries, fromPlaces, toPlaces]);
+    consignors, consignees, gcEntries, fromPlaces, toPlaces, packingEntries, contentEntries, tripSheets,
+    addConsignor, updateConsignor, deleteConsignor,
+    addConsignee, updateConsignee, deleteConsignee,
+    getNextGcNo, getGcEntry, addGcEntry, updateGcEntry, deleteGcEntry,
+    addFromPlace, updateFromPlace, deleteFromPlace,
+    addToPlace, updateToPlace, deleteToPlace,
+    addPackingEntry, updatePackingEntry, deletePackingEntry,
+    addContentEntry, updateContentEntry, deleteContentEntry,
+    addTripSheet, updateTripSheet, deleteTripSheet, getTripSheet,
+    getUniqueDests, getPackingTypes, getContentsTypes,
+  }), [consignors, consignees, gcEntries, fromPlaces, toPlaces, packingEntries, contentEntries, tripSheets]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 };

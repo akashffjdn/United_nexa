@@ -61,6 +61,11 @@ export const GcEntryForm = () => {
     fromNo: "1",
     netQty: "",
     paidType: 'To Pay',
+    date: getTodayDate(),
+    invoiceDate: getTodayDate(),
+    invoiceNo: '',
+    pkgDesc: '',
+    marks: '',
   });
   
   // --- NEW STATE for printing ---
