@@ -5,52 +5,91 @@
 @tailwind components;
 @tailwind utilities;
 
-/* KEPT: Your original theme variables */
 @layer base {
   :root {
-    /* LIGHT THEME */
-    --background: 210 20% 98%;            /* soft gray */
-    --foreground: 210 30% 15%;            /* dark slate text */
-    --card: 0 0% 100%;                    /* white */
-    --card-foreground: 210 30% 15%;
-    --primary: 174 72% 45%;               /* teal-500 */
-    --primary-foreground: 0 0% 100%;      /* white */
-    --secondary: 210 40% 96%;             /* light slate */
-    --secondary-foreground: 210 30% 15%;
-    --destructive: 0 84% 60%;             /* red-600 */
-    --destructive-foreground: 0 0% 100%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 46%;
-    --accent: 174 72% 45%;                /* teal */
-    --accent-foreground: 0 0% 100%;
-    --border: 210 30% 90%;
-    --input: 210 30% 90%;
-    --ring: 174 72% 45%;
+    /* --- PREMIUM LIGHT THEME --- */
+    /* A soft, cool white background (Platinum) */
+    --background: 210 40% 98%;
+    
+    /* Deep, rich charcoal-navy text for high readability */
+    --foreground: 222 47% 11%;
+
+    /* Pure white cards for clean separation */
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    /* ROYAL BLUE: Authoritative and trustworthy */
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+
+    /* Subtle cool gray for secondary elements */
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 11%;
+
+    /* Muted tones for disabled/inactive states */
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215 16% 47%;
+
+    /* A rich blue accent */
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222 47% 11%;
+
+    /* Sophisticated red for errors */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    /* Borders match the muted tones */
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    
+    /* Ring matches primary for cohesive focus states */
+    --ring: 221 83% 53%;
+    
+    /* Corner radius for a modern feel */
+    --radius: 0.5rem;
   }
 
-  /* DARK THEME */
+  /* --- PREMIUM DARK THEME --- */
   .dark {
-    --background: 215 48% 11%;            /* navy-900 */
-    --foreground: 210 40% 98%;            /* slate-50 */
-    --card: 215 40% 17%;                  /* navy-800 */
+    /* DEEP VOID NAVY: Richer than pure black */
+    --background: 224 71% 4%;
+    
+    /* Bright silver text */
+    --foreground: 210 40% 98%;
+
+    /* Slightly lighter navy for cards to create depth */
+    --card: 224 71% 10%;
     --card-foreground: 210 40% 98%;
-    --primary: 184 70% 50%;               /* cyan-400 */
-    --primary-foreground: 215 48% 11%;    /* dark text on cyan */
-    --secondary: 217 32% 22%;             /* navy-700 */
+
+    /* ELECTRIC AZURE: Vibrant contrast against dark bg */
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 11%;
+
+    /* Deep navy-gray for secondary */
+    --secondary: 217 32% 17%;
     --secondary-foreground: 210 40% 98%;
+
+    /* Muted backgrounds */
+    --muted: 217 32% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    /* Accents */
+    --accent: 217 32% 17%;
+    --accent-foreground: 210 40% 98%;
+
+    /* Destructive red adjusted for dark mode */
     --destructive: 0 62% 30%;
     --destructive-foreground: 210 40% 98%;
-    --muted: 217 32% 22%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 184 70% 50%;
-    --accent-foreground: 215 48% 11%;
-    --border: 217 32% 22%;
-    --input: 217 32% 25%;
-    --ring: 184 70% 50%;
+
+    /* Borders slightly visible */
+    --border: 217 32% 17%;
+    --input: 217 32% 17%;
+    
+    /* Ring matches primary */
+    --ring: 224 76% 48%;
   }
 }
 
-/* KEPT: Your original body font styling */
 @layer base {
   body {
     @apply bg-background text-foreground;

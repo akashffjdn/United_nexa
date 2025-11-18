@@ -101,12 +101,13 @@ export const ConsignorList = () => {
       <div className="space-y-4 p-4 bg-background rounded-lg shadow border border-muted">
         <div className="relative">
           <input
-            type="text"
-            placeholder="Search by Consignor Name or GST..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-muted-foreground/30 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
-          />
+  type="text"
+  placeholder="Search by Consignor Name or GST..."
+  value={search}
+  onChange={(e) => setSearch(e.target.value)}
+  // ADDED: bg-background text-foreground
+  className="w-full pl-10 pr-4 py-2 bg-background text-foreground border border-muted-foreground/30 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
+/>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
         </div>
         

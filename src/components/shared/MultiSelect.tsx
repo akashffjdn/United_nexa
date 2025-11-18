@@ -45,7 +45,8 @@ const CommandInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
       <input
         {...props}
         ref={ref}
-        className="w-full px-3 py-2 text-sm border border-muted-foreground/30 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
+        // UPDATED CLASSNAME BELOW:
+        className="w-full px-3 py-2 text-sm bg-background text-foreground border border-muted-foreground/30 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
       />
     </div>
   )

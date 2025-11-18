@@ -180,8 +180,15 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
               <label htmlFor="address" className="block text-sm font-medium text-muted-foreground">
                 Address <span className="text-destructive">*</span>
               </label>
-              <textarea id="address" name="address" value={consignor.address} onChange={handleConsignorChange} rows={3} className="w-full mt-1 px-3 py-2 border border-muted-foreground/30 rounded-md shadow-sm" required />
-            </div>
+              <textarea 
+                id="address" 
+                name="address" 
+                value={consignor.address} 
+                onChange={handleConsignorChange} 
+                rows={3} 
+                className="w-full mt-1 px-3 py-2 bg-transparent text-foreground border border-muted-foreground/30 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary" 
+                required 
+              /></div>
           </div>
 
           {/* Hide Consignee section if we found an existing Consignor (to avoid duplicates) */}
@@ -226,8 +233,15 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
                     <label htmlFor="c-address" className="block text-sm font-medium text-muted-foreground">
                       Address {addFirstConsignee && <span className="text-destructive">*</span>}
                     </label>
-                    <textarea id="c-address" name="address" value={consignee.address} onChange={handleConsigneeChange} rows={2} className="w-full mt-1 px-3 py-2 border border-muted-foreground/30 rounded-md shadow-sm" required={addFirstConsignee} />
-                  </div>
+                    <textarea 
+                      id="c-address" 
+                      name="address" 
+                      value={consignee.address} 
+                      onChange={handleConsigneeChange} 
+                      rows={2} 
+                      className="w-full mt-1 px-3 py-2 bg-transparent text-foreground border border-muted-foreground/30 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary" 
+                      required={addFirstConsignee} 
+                    /></div>
                 </div>
               )}
             </div>

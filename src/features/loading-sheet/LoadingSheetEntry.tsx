@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Trash2, Search, Printer } from 'lucide-react'; // Added FileText icon
+import { Trash2, Search, Printer } from 'lucide-react'; 
 import { DateFilterButtons, getTodayDate, getYesterdayDate, isDateInLast7Days } from '../../components/shared/DateFilterButtons';
 import { ConfirmationDialog } from '../../components/shared/ConfirmationDialog';
 import { useData } from '../../hooks/useData';
@@ -45,13 +45,6 @@ export const LoadingSheetEntry = () => {
   // --- NEW STATE for Consolidated Load List ---
   const [loadListPrintingJobs, setLoadListPrintingJobs] = useState<LoadListJob[] | null>(null);
     
-  // --- Memoized Options ---
-  const consignorOptions = useMemo(() => 
-    consignors.map(c => ({ value: c.id, label: c.name })), [consignors]);
-  const consigneeOptions = useMemo(() => 
-    consignees.map(c => ({ value: c.id, label: c.name })), [consignees]);
-  const destinationOptions = useMemo(getUniqueDests, [getUniqueDests]);
-
   // --- Filtering (Memoized) ---
   const filteredGcEntries = useMemo(() => {
     // --- STATUS FILTER REMOVED ---
@@ -80,7 +73,82 @@ export const LoadingSheetEntry = () => {
       return searchMatch && dateMatch && destMatch && consignorMatch && consigneeMatch;
     });
   }, [gcEntries, consignors, search, filterType, customStart, customEnd, destFilter, consignorFilter, consigneeFilter]);
+
+  // --- Dependent Utility Functions ---
+
+  const getFilteredConsignors = (currentGcEntries: GcEntry[], currentConsignors: Consignor[]) => {
+    const ids = new Set(currentGcEntries.map(gc => gc.consignorId));
+    return currentConsignors
+      .filter(c => ids.has(c.id))
+      .map(c => ({ value: c.id, label: c.name }));
+  };
+
+  const getFilteredConsignees = (currentGcEntries: GcEntry[], currentConsignees: Consignee[]) => {
+    const ids = new Set(currentGcEntries.map(gc => gc.consigneeId));
+    return currentConsignees
+      .filter(c => ids.has(c.id))
+      .map(c => ({ value: c.id, label: c.name }));
+  };
     
+  // --- Independent Memoized Options (for Destination) ---
+  const destinationOptions = useMemo(getUniqueDests, [getUniqueDests]);
+
+
+  // --- Dependent Memoized Options (Consignor and Consignee remain dependent) ---
+
+  // 1. Destinations options: NOW INDEPENDENT AND RENAMED (Was filteredDestinationOptions)
+  // We use the simple, independent destinationOptions:
+  // const filteredDestinationOptions = destinationOptions; // <-- Used directly in JSX below
+
+  // 2. Consignor options based on all filters *except* consignorFilter
+  const filteredConsignorOptions = useMemo(() => {
+    const tempFilteredGc = gcEntries.filter(gc => {
+      const consignor = consignors.find(c => c.id === gc.consignorId);
+      const searchMatch = 
+        gc.id.toLowerCase().includes(search.toLowerCase()) ||
+        (consignor && consignor.name.toLowerCase().includes(search.toLowerCase()));
+      const dateMatch = (() => {
+        switch (filterType) {
+          case 'today': return gc.gcDate === getTodayDate();
+          case 'yesterday': return gc.gcDate === getYesterdayDate();
+          case 'week': return isDateInLast7Days(gc.gcDate);
+          case 'custom': return (!customStart || gc.gcDate >= customStart) && (!customEnd || gc.gcDate <= customEnd);
+          default: return true;
+        }
+      })();
+      const destMatch = !destFilter || gc.destination === destFilter;
+      const consigneeMatch = consigneeFilter.length === 0 || consigneeFilter.includes(gc.consigneeId);
+
+      return searchMatch && dateMatch && destMatch && consigneeMatch;
+    });
+    return getFilteredConsignors(tempFilteredGc, consignors);
+  }, [gcEntries, consignors, search, filterType, customStart, customEnd, destFilter, consigneeFilter]);
+
+  // 3. Consignee options based on all filters *except* consigneeFilter
+  const filteredConsigneeOptions = useMemo(() => {
+    const tempFilteredGc = gcEntries.filter(gc => {
+      const consignor = consignors.find(c => c.id === gc.consignorId);
+      const searchMatch = 
+        gc.id.toLowerCase().includes(search.toLowerCase()) ||
+        (consignor && consignor.name.toLowerCase().includes(search.toLowerCase()));
+      const dateMatch = (() => {
+        switch (filterType) {
+          case 'today': return gc.gcDate === getTodayDate();
+          case 'yesterday': return gc.gcDate === getYesterdayDate();
+          case 'week': return isDateInLast7Days(gc.gcDate);
+          case 'custom': return (!customStart || gc.gcDate >= customStart) && (!customEnd || gc.gcDate <= customEnd);
+          default: return true;
+        }
+      })();
+      const destMatch = !destFilter || gc.destination === destFilter;
+      const consignorMatch = !consignorFilter || gc.consignorId === consignorFilter;
+
+      return searchMatch && dateMatch && destMatch && consignorMatch;
+    });
+    return getFilteredConsignees(tempFilteredGc, consignees);
+  }, [gcEntries, consignees, consignors, search, filterType, customStart, customEnd, destFilter, consignorFilter]);
+
+
   // --- Pagination ---
   const {
     paginatedData,
@@ -92,7 +160,7 @@ export const LoadingSheetEntry = () => {
     totalItems,
   } = usePagination({ data: filteredGcEntries, initialItemsPerPage: 10 });
 
-  // --- Action Handlers ---
+  // --- Action Handlers (omitted for brevity) ---
   const handleDelete = (gcNo: string) => {
     setDeletingId(gcNo);
     setIsConfirmOpen(true);
@@ -103,8 +171,7 @@ export const LoadingSheetEntry = () => {
     setDeletingId(null);
   };
     
-  // --- Print Handlers ---
-  // MODIFIED: Single print now uses LoadListPrintManager for consistency
+  // --- Print Handlers (omitted for brevity) ---
   const handlePrintSingle = (gcNo: string) => {
     const gc = gcEntries.find(g => g.id === gcNo);
     if (!gc) return;
@@ -112,13 +179,11 @@ export const LoadingSheetEntry = () => {
     const consignee = consignees.find(c => c.id === gc.consigneeId);
         
     if (consignor && consignee) {
-        // Use LoadListPrintManager for single prints too, so it prints in the new format
         setLoadListPrintingJobs([{ gc, consignor, consignee }]);
     }
     else alert("Error: Consignor or Consignee data missing for this GC.");
   };
     
-  // MODIFIED: Print Selected already uses LoadListPrintManager
   const handlePrintSelected = () => {
     if (selectedGcIds.length === 0) return;
         
@@ -158,18 +223,6 @@ export const LoadingSheetEntry = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
         <h1 className="text-3xl font-bold text-foreground">Loading Sheet Entry</h1> 
         <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-            
-          {/* ADDED: Show Report Button */}
-          {/* <Button 
-            variant="outline"
-            onClick={handleShowReport}
-            disabled={filteredGcEntries.length === 0}
-            className="w-full sm:w-auto"
-          >
-            <FileText size={16} className="mr-2" />
-            Show Report
-          </Button> */}
-            
           <Button 
             variant="secondary"
             onClick={handlePrintSelected}
@@ -179,34 +232,34 @@ export const LoadingSheetEntry = () => {
             <Printer size={16} className="mr-2" />
             Print Selected ({selectedGcIds.length})
           </Button>
-            
         </div>
       </div>
 
       {/* 2. Search and Filter */}
       <div className="space-y-4 p-4 bg-background rounded-lg shadow border border-muted">
         <div className="relative">
-          <input
-            type="text"
-            placeholder="Search by GC No or Consignor Name..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-muted-foreground/30 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
-          />
+         <input
+  type="text"
+  placeholder="Search by GC No or Consignor Name..."
+  value={search}
+  onChange={(e) => setSearch(e.target.value)}
+  // ADDED: bg-background text-foreground
+  className="w-full pl-10 pr-4 py-2 bg-background text-foreground border border-muted-foreground/30 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
+/>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
         </div>
             
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <AutocompleteInput
             label="Filter by Destination"
-            options={destinationOptions}
+            options={destinationOptions} // <-- Now using the independent options
             value={destFilter}
             onSelect={setDestFilter}
             placeholder="Type to search destination..."
           />
           <AutocompleteInput
             label="Filter by Consignor"
-            options={consignorOptions}
+            options={filteredConsignorOptions} 
             value={consignorFilter}
             onSelect={setConsignorFilter}
             placeholder="Type to search consignor..."
@@ -214,7 +267,7 @@ export const LoadingSheetEntry = () => {
           <div className="flex flex-col">
             <label className="block text-sm font-medium text-muted-foreground mb-1">Filter by Consignee (Multi-select)</label>
             <MultiSelect
-              options={consigneeOptions}
+              options={filteredConsigneeOptions}
               selected={consigneeFilter}
               onChange={setConsigneeFilter}
               placeholder="Select consignees..."

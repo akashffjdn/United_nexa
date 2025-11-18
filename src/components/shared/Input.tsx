@@ -22,7 +22,8 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             required={required}
             {...props}
-            className="w-full px-3 py-2 border border-muted-foreground/30 rounded-md shadow-sm placeholder-muted-foreground focus:outline-none focus:ring-primary focus:border-primary"
+            // ADDED: bg-background text-foreground
+            className="w-full px-3 py-2 bg-background text-foreground border border-muted-foreground/30 rounded-md shadow-sm placeholder-muted-foreground focus:outline-none focus:ring-primary focus:border-primary"
           />
         </div>
       </div>

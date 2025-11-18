@@ -155,8 +155,16 @@ export const ConsigneeForm = ({ initialData, onClose, onSave }: ConsigneeFormPro
               <label htmlFor="address" className="block text-sm font-medium text-muted-foreground">
                 Address <span className="text-destructive">*</span>
               </label>
-              <textarea id="address" name="address" value={consignee.address} onChange={handleChange} rows={3} className="w-full mt-1 px-3 py-2 border border-muted-foreground/30 rounded-md shadow-sm" required />
-            </div>
+             <textarea 
+                id="address" 
+                name="address" 
+                value={consignee.address} 
+                onChange={handleChange} 
+                rows={3} 
+                className="w-full mt-1 px-3 py-2 bg-transparent text-foreground border border-muted-foreground/30 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary" 
+                required 
+              />
+               </div>
           </div>
 
           <div className="flex justify-end space-x-3 pt-4 border-t border-muted">

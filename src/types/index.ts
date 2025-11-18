@@ -40,6 +40,12 @@ export interface Consignee {
 }
 
 export interface GcEntry {
+  date: string;
+  invoiceDate: string;
+  invoiceNo: string;
+  pkgDesc: string;
+  marks: any;
+  marks: boolean;
   gcNo: ReactNode;
   id: string;
   gcDate: string;

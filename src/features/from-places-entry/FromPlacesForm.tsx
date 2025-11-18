@@ -1,37 +1,104 @@
 import { useState } from 'react';
-import type { FromPlace } from '../../types'; // Assuming types.ts is in ../../types
-import { Input } from '../../components/shared/Input'; // Reusing your shared Input component
-import { Button } from '../../components/shared/Button'; // Reusing your shared Button component
+import type { FromPlace } from '../../types';
+import { Input } from '../../components/shared/Input';
+import { Button } from '../../components/shared/Button';
 import { X } from 'lucide-react';
+import type { DuplicateCheckFn } from './FromPlacesList';
+
+interface FormErrors {
+    place: string | null;
+    short: string | null;
+    // general: string | null; // For required field error
+}
 
 interface FromPlacesFormProps {
     initialData?: FromPlace;
     onClose: () => void;
     onSave: (fromPlace: FromPlace) => void;
+    onError: (message: string) => void; 
+    // 🌟 NEW: Validation function passed from parent
+    checkDuplicates: DuplicateCheckFn;
 }
 
-export const FromPlacesForm = ({ initialData, onClose, onSave }: FromPlacesFormProps) => {
+export const FromPlacesForm = ({ initialData, onClose, onSave, onError, checkDuplicates }: FromPlacesFormProps) => {
     const [fromPlace, setFromPlace] = useState({
         placeName: initialData?.placeName || '',
         shortName: initialData?.shortName || '',
     });
+    
+    // 🌟 NEW: Internal state to manage field-level errors dynamically
+    const [fieldErrors, setFieldErrors] = useState<FormErrors>({
+        place: null,
+        short: null,
+        // general: null,
+    });
 
+    // 🌟 NEW: Validation function to run on change and submit
+    const validateFields = (currentPlace: string, currentShort: string): boolean => {
+        // 1. Check for required fields (simple form validation)
+        const isPlaceNameValid = currentPlace.trim().length > 0;
+        const isShortNameValid = currentShort.trim().length > 0;
+        
+        let newErrors: FormErrors = { place: null, short: null, 
+            // general: null 
+        };
+        
+        // if (!isPlaceNameValid || !isShortNameValid) {
+        //     newErrors.general = 'Place Name and Short Name are required.';
+        // }
+
+        // 2. Check for duplicates using the parent's function
+        const duplicateErrors = checkDuplicates(
+            currentPlace, 
+            currentShort, 
+            initialData?.id
+        );
+
+        newErrors = {
+            ...newErrors,
+            ...duplicateErrors,
+        };
+
+        setFieldErrors(newErrors);
+        
+        // Return true if all checks pass for submission purposes
+        return isPlaceNameValid && isShortNameValid && !duplicateErrors.place && !duplicateErrors.short;
+    };
+    
+    // 🌟 NEW: Dynamic handleChange handler
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setFromPlace(prev => ({ ...prev, [name]: value }));
+        
+        // Update state first
+        setFromPlace(prev => {
+            const newPlace = { ...prev, [name]: value };
+            
+            // Validate immediately after state update (using the new values)
+            validateFields(newPlace.placeName, newPlace.shortName);
+            
+            return newPlace;
+        });
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
-        // Basic validation
-        if (!fromPlace.placeName.trim() || !fromPlace.shortName.trim()) {
-            alert('Place Name and Short Name are required.');
+        // 🚨 Final Validation Check on Submit
+        const isValid = validateFields(fromPlace.placeName, fromPlace.shortName);
+
+        if (!isValid) {
+            // Trigger the parent's general error handler (which might display the 'required' message)
+            // if (fieldErrors.general) {
+            //      onError(fieldErrors.general);
+            // } else
+                 if (fieldErrors.place || fieldErrors.short) {
+                 onError('Cannot save due to duplicate entry.');
+            }
             return;
         }
 
         const savedFromPlace: FromPlace = {
-            id: initialData?.id || `fp-${Math.random().toString(36).substring(2, 9)}`, // Mock ID
+            id: initialData?.id || `fp-${Math.random().toString(36).substring(2, 9)}`, 
             placeName: fromPlace.placeName.trim(),
             shortName: fromPlace.shortName.trim(),
         };
@@ -54,26 +121,53 @@ export const FromPlacesForm = ({ initialData, onClose, onSave }: FromPlacesFormP
                     </button>
                 </div>
 
+                {/* Display the general form error (e.g., Required fields are missing) */}
+                {/* {fieldErrors.general && (
+                    <div className="p-4 bg-red-100 text-red-700 border-b border-red-300">
+                        <p className="flex items-center font-medium">
+                            <X size={16} className="mr-2 inline"/>
+                            {fieldErrors.general}
+                        </p>
+                    </div>
+                )} */}
+                
                 {/* Modal Body */}
                 <form onSubmit={handleSubmit} className="p-6 space-y-6">
                     <div className="grid grid-cols-1 gap-4">
                         
-                        <Input 
-                            label="Place Name" 
-                            id="placeName" 
-                            name="placeName" 
-                            value={fromPlace.placeName} 
-                            onChange={handleChange} 
-                            required 
-                        />
-                        <Input 
-                            label="Short Name" 
-                            id="shortName" 
-                            name="shortName" 
-                            value={fromPlace.shortName} 
-                            onChange={handleChange} 
-                            required 
-                        />
+                        {/* ⚠️ Place Name Input and Error ⚠️ */}
+                        <div>
+                            <Input 
+                                label="Place Name" 
+                                id="placeName" 
+                                name="placeName" 
+                                value={fromPlace.placeName} 
+                                onChange={handleChange} 
+                                required 
+                            />
+                            {fieldErrors.place && (
+                                <p className="mt-2 text-sm text-red-600 flex items-center">
+                                    {fieldErrors.place}
+                                </p>
+                            )}
+                        </div>
+                        
+                        {/* ⚠️ Short Name Input and Error ⚠️ */}
+                        <div>
+                            <Input 
+                                label="Short Name" 
+                                id="shortName" 
+                                name="shortName" 
+                                value={fromPlace.shortName} 
+                                onChange={handleChange} 
+                                required 
+                            />
+                            {fieldErrors.short && (
+                                <p className="mt-2 text-sm text-red-600 flex items-center">
+                                    {fieldErrors.short}
+                                </p>
+                            )}
+                        </div>
                         
                     </div>
 
@@ -82,7 +176,13 @@ export const FromPlacesForm = ({ initialData, onClose, onSave }: FromPlacesFormP
                         <Button type="button" variant="secondary" onClick={onClose} className="w-auto">
                             Cancel
                         </Button>
-                        <Button type="submit" variant="primary" className="w-auto">
+                        <Button 
+                            type="submit" 
+                            variant="primary" 
+                            className="w-auto"
+                            // Optionally disable button if any field error exists
+                            disabled={!!fieldErrors.place || !!fieldErrors.short} 
+                        >
                             Save
                         </Button>
                     </div>
