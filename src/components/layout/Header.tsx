@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Menu, LogOut, Sun, Moon } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface HeaderProps {
   setIsSidebarOpen: (isOpen: boolean) => void;
@@ -8,8 +8,43 @@ interface HeaderProps {
 
 export const Header = ({ setIsSidebarOpen }: HeaderProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Initialize theme from localStorage or system preference
+  // --- DYNAMIC TITLE LOGIC ---
+  const getPageTitle = (pathname: string) => {
+    if (pathname === '/') return '';
+    
+    // Operations
+    if (pathname.startsWith('/gc-entry/new')) return 'New GC Entry';
+    if (pathname.startsWith('/gc-entry/edit')) return 'Edit GC Entry';
+    if (pathname.startsWith('/gc-entry')) return 'GC Entry Listing';
+    
+    if (pathname.startsWith('/loading-sheet')) return 'Loading Sheet Entry';
+    
+    if (pathname.startsWith('/tripsheet/new')) return 'New Trip Sheet';
+    if (pathname.startsWith('/tripsheet/edit')) return 'Edit Trip Sheet';
+    if (pathname.startsWith('/trip-sheet')) return 'Trip Sheet Listing';
+    
+    if (pathname.startsWith('/pending-stock')) return 'Pending Stock History';
+
+    // Masters
+    if (pathname === '/master') return 'Master Dashboard';
+    if (pathname.startsWith('/master/consignors')) return 'Consignors Management';
+    if (pathname.startsWith('/master/consignees')) return 'Consignees Management';
+    if (pathname.startsWith('/master/from-places')) return 'From Places Management';
+    if (pathname.startsWith('/master/to-places')) return 'To Places Management';
+    if (pathname.startsWith('/master/packings')) return 'Packing Units Management';
+    if (pathname.startsWith('/master/contents')) return 'Contents Management';
+    
+    // Admin
+    if (pathname.startsWith('/users')) return 'User Management';
+
+    return 'United Transport'; // Fallback
+  };
+
+  const pageTitle = getPageTitle(location.pathname);
+
+  // --- THEME LOGIC ---
   const [theme, setTheme] = useState<string>(() => {
     const storedTheme = localStorage.getItem('theme');
     if (storedTheme) {
@@ -18,7 +53,6 @@ export const Header = ({ setIsSidebarOpen }: HeaderProps) => {
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
 
-  // Effect to apply theme class and save to localStorage
   useEffect(() => {
     const root = window.document.documentElement;
     if (theme === 'dark') {
@@ -40,26 +74,25 @@ export const Header = ({ setIsSidebarOpen }: HeaderProps) => {
   return (
     <header className="flex-shrink-0 h-16 bg-background shadow-md z-10 transition-colors duration-300">
       <div className="flex items-center justify-between h-full px-4 md:px-8">
-        {/* Mobile-only Hamburger Button */}
-        <button
-          onClick={() => setIsSidebarOpen(true)}
-          className="md:hidden text-muted-foreground hover:text-foreground"
-        >
-          <span className="sr-only">Open sidebar</span>
-          <Menu size={22} />
-        </button>
+        
+        {/* Left Side: Hamburger & Dynamic Title */}
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="md:hidden text-muted-foreground hover:text-foreground"
+          >
+            <span className="sr-only">Open sidebar</span>
+            <Menu size={22} />
+          </button>
 
-        {/* Desktop-only Title (or breadcrumbs) */}
-        <div className="hidden md:block">
-          {/* <h1 className="text-xl font-semibold text-foreground">
-            Admin Dashboard
-          </h1> */}
+          {/* DYNAMIC TITLE DISPLAY */}
+          <h1 className="text-xl font-bold text-foreground tracking-tight">
+            {pageTitle}
+          </h1>
         </div>
 
-        {/* Right-side items */}
+        {/* Right Side: Theme & Logout */}
         <div className="flex items-center space-x-4">
-          
-          {/* Theme Toggle Button (Added to the left of Logout) */}
           <button
             onClick={toggleTheme}
             className="flex items-center p-2 rounded-full text-muted-foreground hover:text-primary hover:bg-muted/50 transition-all"
@@ -68,7 +101,6 @@ export const Header = ({ setIsSidebarOpen }: HeaderProps) => {
             {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
           </button>
 
-          {/* Logout Button */}
           <button
             onClick={handleLogout}
             className="flex items-center text-muted-foreground hover:text-destructive transition-colors"

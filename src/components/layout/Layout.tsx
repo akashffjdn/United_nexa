@@ -19,8 +19,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         <Header setIsSidebarOpen={setIsSidebarOpen} />
 
         {/* Page Content */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8">
-          <div className="max-w-7xl mx-auto">
+        {/* CHANGE: Reduced padding from 'p-4 md:p-8' to 'p-2' to minimize gaps */}
+        <main className="flex-1 overflow-x-hidden overflow-y-auto p-4">
+          {/* CHANGE: Use max-w-full to let content stretch closer to edges if needed */}
+          <div className="max-w-full mx-auto h-full">
             {children}
           </div>
         </main>

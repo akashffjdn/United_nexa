@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FilePenLine, Trash2, Search, Printer } from 'lucide-react';
+import { FilePenLine, Trash2, Search, Printer, Filter, XCircle, RotateCcw } from 'lucide-react';
 import { DateFilterButtons, getTodayDate, getYesterdayDate, isDateInLast7Days } from '../../components/shared/DateFilterButtons';
 import { ConfirmationDialog } from '../../components/shared/ConfirmationDialog';
 import { useData } from '../../hooks/useData';
@@ -8,16 +8,15 @@ import { Button } from '../../components/shared/Button';
 import { AutocompleteInput } from '../../components/shared/AutocompleteInput';
 import { MultiSelect } from '../../components/shared/MultiSelect';
 import { GcPrintManager, type GcPrintJob } from './GcPrintManager';
-
 import { usePagination } from '../../utils/usePagination';
 import { Pagination } from '../../components/shared/Pagination';
 
 export const GcEntryList = () => {
   const navigate = useNavigate();
-  // 1. Added tripSheets to the destructuring
   const { gcEntries, deleteGcEntry, consignors, consignees, getUniqueDests, tripSheets } = useData();
   
   // --- Filter State ---
+  const [showFilters, setShowFilters] = useState(false);
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [customStart, setCustomStart] = useState('');
@@ -30,25 +29,19 @@ export const GcEntryList = () => {
   const [selectedGcIds, setSelectedGcIds] = useState<string[]>([]);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  // --- Printing State ---
+  const [deleteMessage, setDeleteMessage] = useState(""); // Added dynamic message state
   const [printingJobs, setPrintingJobs] = useState<GcPrintJob[] | null>(null);
   
-  // --- Helper: Get Status (TS No or 0) ---
   const getGcStatus = (gcId: string) => {
     const foundSheet = tripSheets.find(sheet => 
       sheet.items?.some(item => item.gcNo === gcId)
     );
     return foundSheet ? foundSheet.mfNo : '0';
   };
-  
-  // --- ALL OPTIONS (Memoized) ---
-  const allConsignorOptions = useMemo(() => 
-    consignors.map(c => ({ value: c.id, label: c.name })), [consignors]);
-    
-  const allConsigneeOptions = useMemo(() => 
-    consignees.map(c => ({ value: c.id, label: c.name })), [consignees]);
-    
+
+  // --- OPTIONS ---
+  const allConsignorOptions = useMemo(() => consignors.map(c => ({ value: c.id, label: c.name })), [consignors]);
+  const allConsigneeOptions = useMemo(() => consignees.map(c => ({ value: c.id, label: c.name })), [consignees]);
   const allDestinationOptions = useMemo(getUniqueDests, [getUniqueDests]);
 
   // --- CASCADING FILTER LOGIC ---
@@ -61,46 +54,27 @@ export const GcEntryList = () => {
     let relevantConsignees = new Set(consignees.map(c => c.id));
     let relevantDests = new Set(allDestinationOptions.map(d => d.value));
 
-    // --- Step 1: Filter by Destination ---
     if (destFilter) {
       const gcNors = new Set(gcEntries.filter(gc => gc.destination === destFilter).map(gc => gc.consignorId));
       const gcNees = new Set(gcEntries.filter(gc => gc.destination === destFilter).map(gc => gc.consigneeId));
       const neeNors = new Set(consignees.filter(c => c.destination === destFilter).map(c => c.consignorId).filter(Boolean) as string[]);
       const neeNees = new Set(consignees.filter(c => c.destination === destFilter).map(c => c.id));
-      
       relevantConsignors = new Set([...gcNors, ...neeNors]);
       relevantConsignees = new Set([...gcNees, ...neeNees]);
     }
 
-    // --- Step 2: Filter by Consignor (intersect with previous results) ---
     if (consignorFilter) {
       const gcNees = new Set(gcEntries.filter(gc => gc.consignorId === consignorFilter).map(gc => gc.consigneeId));
-      const gcDests = new Set(gcEntries.filter(gc => gc.consignorId === consignorFilter).map(gc => gc.destination));
       const neeNees = new Set(consignees.filter(c => c.consignorId === consignorFilter).map(c => c.id));
-      const neeDests = new Set(consignees.filter(c => c.consignorId === consignorFilter).map(c => c.destination));
-
-      const validNees = new Set([...gcNees, ...neeNees]);
-      const validDests = new Set([...gcDests, ...neeDests]);
-
-      relevantConsignees = new Set([...relevantConsignees].filter(id => validNees.has(id)));
-      relevantDests = new Set([...relevantDests].filter(dest => validDests.has(dest)));
+      relevantConsignees = new Set([...relevantConsignees].filter(id => new Set([...gcNees, ...neeNees]).has(id)));
     }
     
-    // --- Step 3: Filter by Consignee (intersect with previous results) ---
     if (consigneeFilter.length > 0) {
       const gcNors = new Set(gcEntries.filter(gc => consigneeFilter.includes(gc.consigneeId)).map(gc => gc.consignorId));
-      const gcDests = new Set(gcEntries.filter(gc => consigneeFilter.includes(gc.consigneeId)).map(gc => gc.destination));
       const neeNors = new Set(consignees.filter(c => consigneeFilter.includes(c.id)).map(c => c.consignorId).filter(Boolean) as string[]);
-      const neeDests = new Set(consignees.filter(c => consigneeFilter.includes(c.id)).map(c => c.destination));
-
-      const validNors = new Set([...gcNors, ...neeNors]);
-      const validDests = new Set([...gcDests, ...neeDests]);
-      
-      relevantConsignors = new Set([...relevantConsignors].filter(id => validNors.has(id)));
-      relevantDests = new Set([...relevantDests].filter(dest => validDests.has(dest)));
+      relevantConsignors = new Set([...relevantConsignors].filter(id => new Set([...gcNors, ...neeNors]).has(id)));
     }
 
-    // --- Final Output ---
     return {
       filteredConsignorOptions: allConsignorOptions.filter(opt => relevantConsignors.has(opt.value)),
       filteredConsigneeOptions: allConsigneeOptions.filter(opt => relevantConsignees.has(opt.value)),
@@ -109,39 +83,37 @@ export const GcEntryList = () => {
 
   }, [destFilter, consignorFilter, consigneeFilter, gcEntries, consignors, consignees, allConsignorOptions, allConsigneeOptions, allDestinationOptions]);
 
-  // --- Effects to clear dependent filters if they become invalid ---
-  useEffect(() => {
-    if (consignorFilter && !filteredConsignorOptions.find(opt => opt.value === consignorFilter)) {
-      setConsignorFilter('');
-    }
-  }, [consignorFilter, filteredConsignorOptions]);
+  // --- Clear Filters Handler ---
+  const clearAllFilters = () => {
+    setSearch('');
+    setFilterType('all');
+    setCustomStart('');
+    setCustomEnd('');
+    setDestFilter('');
+    setConsignorFilter('');
+    setConsigneeFilter([]);
+  };
 
-  useEffect(() => {
-    if (consigneeFilter.length > 0) {
-      const validSelected = consigneeFilter.filter(id => 
-        filteredConsigneeOptions.find(opt => opt.value === id)
-      );
-      if (validSelected.length !== consigneeFilter.length) {
-        setConsigneeFilter(validSelected);
-      }
-    }
-  }, [consigneeFilter, filteredConsigneeOptions]);
-
-  useEffect(() => {
-    if (destFilter && !filteredDestinationOptions.find(opt => opt.value === destFilter)) {
-      setDestFilter('');
-    }
-  }, [destFilter, filteredDestinationOptions]);
-
-
-  // --- Filtering (Memoized) ---
+  // --- Filtering Data ---
   const filteredGcEntries = useMemo(() => {
     return gcEntries.filter(gc => {
       const consignor = consignors.find(c => c.id === gc.consignorId);
+      const consignee = consignees.find(c => c.id === gc.consigneeId);
       
-      const searchMatch = 
-        gc.id.toLowerCase().includes(search.toLowerCase()) ||
-        (consignor && consignor.name.toLowerCase().includes(search.toLowerCase()));
+      const searchStr = search.toLowerCase();
+      const rowData = [
+        gc.id,
+        consignor?.name,
+        consignee?.name,
+        gc.destination,
+        gc.billValue,
+        gc.quantity,
+        gc.packing,
+        gc.contents,
+        getGcStatus(gc.id)
+      ].join(' ').toLowerCase();
+
+      const searchMatch = !search || rowData.includes(searchStr);
       
       const date = gc.gcDate;
       const dateMatch = (() => {
@@ -160,88 +132,91 @@ export const GcEntryList = () => {
 
       return searchMatch && dateMatch && destMatch && consignorMatch && consigneeMatch;
     });
-  }, [gcEntries, consignors, search, filterType, customStart, customEnd, destFilter, consignorFilter, consigneeFilter]);
+  }, [gcEntries, consignors, consignees, search, filterType, customStart, customEnd, destFilter, consignorFilter, consigneeFilter]);
   
-  // --- Pagination ---
-  const {
-    paginatedData,
-    currentPage,
-    setCurrentPage,
-    totalPages,
-    itemsPerPage,
-    setItemsPerPage,
-    totalItems,
-  } = usePagination({ data: filteredGcEntries, initialItemsPerPage: 10 });
+  const { paginatedData, currentPage, setCurrentPage, totalPages, itemsPerPage, setItemsPerPage, totalItems } = usePagination({ data: filteredGcEntries, initialItemsPerPage: 10 });
 
-  // --- Action Handlers ---
-  const handleEdit = (gcNo: string) => {
-    navigate(`/gc-entry/edit/${gcNo}`);
-  };
-  const handleDelete = (gcNo: string) => {
-    setDeletingId(gcNo);
-    setIsConfirmOpen(true);
-  };
-  const handleConfirmDelete = () => {
-    if (deletingId) deleteGcEntry(deletingId);
-    setIsConfirmOpen(false);
-    setDeletingId(null);
+  // --- Handlers ---
+  const handleEdit = (gcNo: string) => navigate(`/gc-entry/edit/${gcNo}`);
+  
+  const handleDelete = (gcNo: string) => { 
+    setDeletingId(gcNo); 
+    setDeleteMessage(`Are you sure you want to delete GC Entry #${gcNo}?`);
+    setIsConfirmOpen(true); 
   };
   
-  // --- Print Handlers ---
+  const handleConfirmDelete = () => { 
+    if (deletingId) deleteGcEntry(deletingId); 
+    setIsConfirmOpen(false); 
+    setDeletingId(null); 
+  };
+  
   const handlePrintSingle = (gcNo: string) => {
     const gc = gcEntries.find(g => g.id === gcNo);
     if (!gc) return;
     const consignor = consignors.find(c => c.id === gc.consignorId);
     const consignee = consignees.find(c => c.id === gc.consigneeId);
-    
     if (consignor && consignee) setPrintingJobs([{ gc, consignor, consignee }]);
-    else alert("Error: Consignor or Consignee data missing for this GC.");
   };
   
   const handlePrintSelected = () => {
     if (selectedGcIds.length === 0) return;
-    
-    const jobs: GcPrintJob[] = selectedGcIds.map(id => {
+    const jobs = selectedGcIds.map(id => {
       const gc = gcEntries.find(g => g.id === id);
       if (!gc) return null;
       const consignor = consignors.find(c => c.id === gc.consignorId);
       const consignee = consignees.find(c => c.id === gc.consigneeId);
-      if (!consignor || !consignee) return null;
-      return { gc, consignor, consignee };
+      return (consignor && consignee) ? { gc, consignor, consignee } : null;
     }).filter(Boolean) as GcPrintJob[];
-
-    if (jobs.length > 0) {
-      setPrintingJobs(jobs);
-      setSelectedGcIds([]);
-    }
+    if (jobs.length > 0) { setPrintingJobs(jobs); setSelectedGcIds([]); }
   };
 
-  // --- Selection Handlers ---
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.checked) {
-      setSelectedGcIds(filteredGcEntries.map(gc => gc.id));
-    } else {
-      setSelectedGcIds([]);
-    }
+    setSelectedGcIds(e.target.checked ? filteredGcEntries.map(gc => gc.id) : []);
   };
   const handleSelectRow = (e: React.ChangeEvent<HTMLInputElement>, id: string) => {
-    if (e.target.checked) setSelectedGcIds(prev => [...prev, id]);
-    else setSelectedGcIds(prev => prev.filter(gcId => gcId !== id));
+    setSelectedGcIds(prev => e.target.checked ? [...prev, id] : prev.filter(x => x !== id));
   };
-  
   const isAllSelected = filteredGcEntries.length > 0 && selectedGcIds.length === filteredGcEntries.length;
+
+  const hasActiveFilters = destFilter || consignorFilter || consigneeFilter.length > 0 || filterType !== 'all' || search !== '';
 
   return (
     <div className="space-y-6">
-      {/* 1. Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
-        <h1 className="text-3xl font-bold text-foreground">GC Entry Listing</h1>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+      
+      {/* 1. Top Control Bar */}
+      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-background p-4 rounded-lg shadow border border-muted">
+        
+        {/* LEFT: Search & Filter */}
+        <div className="flex items-center gap-2 w-full md:w-1/2">
+           <div className="relative flex-1">
+            <input
+              type="text"
+              placeholder="Search all data..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-background text-foreground border border-muted-foreground/30 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
+            />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+          </div>
+          
+          <Button 
+            variant={hasActiveFilters ? 'primary' : 'outline'}
+            onClick={() => setShowFilters(!showFilters)}
+            className="h-10 px-3"
+            title="Toggle Filters"
+          >
+            <Filter size={18} className={hasActiveFilters ? "mr-2" : ""} />
+            {hasActiveFilters && "Active"}
+          </Button>
+        </div>
+
+        {/* RIGHT: Action Buttons */}
+        <div className="flex gap-2 w-full md:w-auto justify-end">
           <Button 
             variant="secondary"
             onClick={handlePrintSelected}
             disabled={selectedGcIds.length === 0}
-            className="w-full sm:w-auto"
           >
             <Printer size={16} className="mr-2" />
             Print Selected ({selectedGcIds.length})
@@ -249,130 +224,79 @@ export const GcEntryList = () => {
           <Button 
             variant="primary"
             onClick={() => navigate('/gc-entry/new')}
-            className="w-full sm:w-auto"
           >
-            + Add New GC Entry
+            + Add New GC
           </Button>
         </div>
       </div>
 
-      {/* 2. Search and Filter */}
-      <div className="space-y-4 p-4 bg-background rounded-lg shadow border border-muted">
-        <div className="relative">
-          <input
-  type="text"
-  placeholder="Search by GC No or Consignor Name..."
-  value={search}
-  onChange={(e) => setSearch(e.target.value)}
-  // ADDED: bg-background text-foreground
-  className="w-full pl-10 pr-4 py-2 bg-background text-foreground border border-muted-foreground/30 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
-/>
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <AutocompleteInput
-            label="Filter by Destination"
-            options={filteredDestinationOptions}
-            value={destFilter}
-            onSelect={setDestFilter}
-            placeholder="Type to search destination..."
-          />
-          <AutocompleteInput
-            label="Filter by Consignor"
-            options={filteredConsignorOptions} 
-            value={consignorFilter}
-            onSelect={setConsignorFilter}
-            placeholder="Type to search consignor..."
-          />
-          <div className="flex flex-col">
-            <label className="block text-sm font-medium text-muted-foreground mb-1">Filter by Consignee (Multi-select)</label>
-            <MultiSelect
-              options={filteredConsigneeOptions} 
-              selected={consigneeFilter}
-              onChange={setConsigneeFilter}
-              placeholder="Select consignees..."
-              searchPlaceholder="Search consignee..."
-              emptyPlaceholder="No consignee found."
-            />
+      {/* 2. Collapsible Advanced Filters */}
+      {showFilters && (
+        <div className="p-4 bg-muted/20 rounded-lg border border-muted animate-in fade-in slide-in-from-top-2">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Advanced Filters</h3>
+            <div className="flex gap-2">
+              <button 
+                onClick={clearAllFilters} 
+                className="text-xs flex items-center text-primary hover:text-primary/80 font-medium"
+              >
+                <RotateCcw size={14} className="mr-1" /> Clear All
+              </button>
+              <button onClick={() => setShowFilters(false)} className="text-muted-foreground hover:text-foreground ml-2">
+                <XCircle size={18} />
+              </button>
+            </div>
           </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <AutocompleteInput label="Filter by Destination" options={filteredDestinationOptions} value={destFilter} onSelect={setDestFilter} placeholder="Search destination..." />
+            <AutocompleteInput label="Filter by Consignor" options={filteredConsignorOptions} value={consignorFilter} onSelect={setConsignorFilter} placeholder="Search consignor..." />
+            <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">Filter by Consignee</label>
+              <MultiSelect options={filteredConsigneeOptions} selected={consigneeFilter} onChange={setConsigneeFilter} placeholder="Select consignees..." searchPlaceholder="Search..." emptyPlaceholder="None found." />
+            </div>
+          </div>
+          
+          <DateFilterButtons filterType={filterType} setFilterType={setFilterType} customStart={customStart} setCustomStart={setCustomStart} customEnd={customEnd} setCustomEnd={setCustomEnd} />
         </div>
-        
-        <DateFilterButtons
-          filterType={filterType}
-          setFilterType={setFilterType}
-          customStart={customStart}
-          setCustomStart={setCustomStart}
-          customEnd={customEnd}
-          setCustomEnd={setCustomEnd}
-        />
-      </div>
+      )}
 
-      {/* 3. Responsive Data Display (WITH PAGINATION INSIDE) */}
+      {/* 3. Data Table (Desktop) */}
       <div className="bg-background rounded-lg shadow border border-muted overflow-hidden">
-        {/* --- DESKTOP TABLE --- */}
         <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-muted">
             <thead className="bg-muted/50">
               <tr>
-                <th className="px-4 py-3 text-left">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 text-primary border-muted-foreground/30 rounded focus:ring-primary"
-                    checked={isAllSelected}
-                    onChange={handleSelectAll}
-                  />
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">GC No</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Consignor Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Consignee Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Destination</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Bill Value</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Case Qty</th>
-                {/* Added Status Column */}
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
+                <th className="px-4 py-3 text-left"><input type="checkbox" className="h-4 w-4 accent-primary" checked={isAllSelected} onChange={handleSelectAll} /></th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">GC No</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Consignor</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Consignee</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Dest.</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Value</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Qty</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-muted">
-              {/* Map over paginatedData */}
               {paginatedData.map((gc) => {
                 const consignor = consignors.find(c => c.id === gc.consignorId);
                 const consignee = consignees.find(c => c.id === gc.consigneeId);
                 const status = getGcStatus(gc.id);
-
                 return (
-                  <tr key={gc.id}>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 text-primary border-muted-foreground/30 rounded focus:ring-primary"
-                        checked={selectedGcIds.includes(gc.id)}
-                        onChange={(e) => handleSelectRow(e, gc.id)}
-                      />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-primary">{gc.id}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">{consignor?.name || 'N/A'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{consignee?.name || 'N/A'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{gc.destination}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">₹{(parseFloat(gc.billValue) || 0).toLocaleString('en-IN')}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{gc.quantity}</td>
-                    {/* Status Cell */}
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${status !== '0' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                        {status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm space-x-3">
-                      <button onClick={() => handleEdit(gc.id)} className="text-blue-600 hover:text-blue-800" title="Edit">
-                        <FilePenLine size={18} />
-                      </button>
-                      <button onClick={() => handlePrintSingle(gc.id)} className="text-green-600 hover:text-green-800" title="Print">
-                        <Printer size={18} />
-                      </button>
-                      <button onClick={() => handleDelete(gc.id)} className="text-destructive hover:text-destructive/80" title="Delete">
-                        <Trash2 size={18} />
-                      </button>
+                  <tr key={gc.id} className="hover:bg-muted/30 transition-colors">
+                    <td className="px-4 py-4"><input type="checkbox" className="h-4 w-4 accent-primary" checked={selectedGcIds.includes(gc.id)} onChange={(e) => handleSelectRow(e, gc.id)} /></td>
+                    <td className="px-6 py-4 text-sm font-semibold text-primary">{gc.id}</td>
+                    <td className="px-6 py-4 text-sm">{consignor?.name}</td>
+                    <td className="px-6 py-4 text-sm">{consignee?.name}</td>
+                    <td className="px-6 py-4 text-sm">{gc.destination}</td>
+                    <td className="px-6 py-4 text-sm">₹{(parseFloat(gc.billValue) || 0).toLocaleString('en-IN')}</td>
+                    <td className="px-6 py-4 text-sm">{gc.quantity}</td>
+                    <td className="px-6 py-4 text-sm"><span className={`px-2 py-1 rounded-full text-xs font-medium ${status !== '0' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>{status !== '0' ? `TS# ${status}` : 'Pending'}</span></td>
+                    <td className="px-6 py-4 text-sm space-x-2">
+                      <button onClick={() => handleEdit(gc.id)} className="text-blue-600 hover:text-blue-800"><FilePenLine size={18} /></button>
+                      <button onClick={() => handlePrintSingle(gc.id)} className="text-green-600 hover:text-green-800"><Printer size={18} /></button>
+                      <button onClick={() => handleDelete(gc.id)} className="text-destructive hover:text-destructive/80"><Trash2 size={18} /></button>
                     </td>
                   </tr>
                 );
@@ -380,88 +304,81 @@ export const GcEntryList = () => {
             </tbody>
           </table>
         </div>
-
-        {/* --- MOBILE CARD LIST --- */}
+        
+        {/* 4. Mobile Card View */}
         <div className="block md:hidden divide-y divide-muted">
-          {/* Map over paginatedData */}
-          {paginatedData.map((gc) => {
+           {paginatedData.map((gc) => {
              const consignor = consignors.find(c => c.id === gc.consignorId);
              const consignee = consignees.find(c => c.id === gc.consigneeId);
              const status = getGcStatus(gc.id);
-            return (
-              <div key={gc.id} className="p-4">
+             return (
+             <div key={gc.id} className="p-4 hover:bg-muted/30 transition-colors">
                 <div className="flex justify-between items-start">
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 text-primary border-muted-foreground/30 rounded focus:ring-primary mt-1.5"
-                      checked={selectedGcIds.includes(gc.id)}
-                      onChange={(e) => handleSelectRow(e, gc.id)}
-                    />
-                    <div>
-                      <div className="text-lg font-semibold text-primary">GC #{gc.id}</div>
-                      <div className="text-md font-medium text-foreground">{consignor?.name || 'N/A'}</div>
-                      <div className="text-sm text-muted-foreground">To: {consignee?.name || 'N/A'}</div>
+                  {/* Left: Checkbox + Info */}
+                  <div className="flex gap-3 flex-1">
+                    <div className="pt-1">
+                      <input 
+                        type="checkbox" 
+                        className="h-5 w-5 accent-primary" 
+                        checked={selectedGcIds.includes(gc.id)} 
+                        onChange={(e) => handleSelectRow(e, gc.id)} 
+                      />
+                    </div>
+                    <div className="space-y-1 w-full">
+                      <div className="font-bold text-blue-600 text-lg">GC #{gc.id}</div>
+                      <div className="font-semibold text-foreground">{consignor?.name}</div>
+                      <div className="text-sm text-muted-foreground">To: {consignee?.name}</div>
+                      <div className="text-sm text-muted-foreground">From: {gc.from}</div>
                       <div className="text-sm text-muted-foreground">At: {gc.destination}</div>
                     </div>
                   </div>
-                  <div className="flex flex-col space-y-3 pt-1">
-                    <button onClick={() => handleEdit(gc.id)} className="text-blue-600" title="Edit">
-                      <FilePenLine size={18} />
+
+                  {/* Right: Actions */}
+                  <div className="flex flex-col gap-3 pl-2">
+                    <button onClick={() => handleEdit(gc.id)} className="text-blue-600 p-1 hover:bg-blue-50 rounded">
+                      <FilePenLine size={20} />
                     </button>
-                    <button onClick={() => handlePrintSingle(gc.id)} className="text-green-600" title="Print">
-                      <Printer size={18} />
+                    <button onClick={() => handlePrintSingle(gc.id)} className="text-green-600 p-1 hover:bg-green-50 rounded">
+                      <Printer size={20} />
                     </button>
-                    <button onClick={() => handleDelete(gc.id)} className="text-destructive" title="Delete">
-                      <Trash2 size={18} />
+                    <button onClick={() => handleDelete(gc.id)} className="text-destructive p-1 hover:bg-red-50 rounded">
+                      <Trash2 size={20} />
                     </button>
                   </div>
                 </div>
-                <div className="flex justify-between mt-2 pt-2 border-t border-muted">
-                  <span className="text-sm font-medium">Bill Value: <span className="text-foreground">₹{(parseFloat(gc.billValue) || 0).toLocaleString('en-IN')}</span></span>
-                  <span className="text-sm font-medium">Status: <span className={`font-bold ${status !== '0' ? 'text-green-600' : 'text-muted-foreground'}`}>{status}</span></span>
+
+                {/* Footer: Bill Value & Status */}
+                <div className="flex justify-between items-center mt-3 pt-3 border-t border-dashed border-muted">
+                   <div className="text-sm font-medium">
+                      Bill Value: ₹{(parseFloat(gc.billValue) || 0).toLocaleString('en-IN')}
+                   </div>
+                   <div className={`text-sm font-bold ${status !== '0' ? 'text-green-600' : 'text-muted-foreground'}`}>
+                      Status: {status !== '0' ? status : '0'}
+                   </div>
                 </div>
-              </div>
-            );
-          })}
+             </div>
+          )})}
         </div>
-        
-        {/* --- PAGINATION MOVED INSIDE THE CONTAINER --- */}
-        {totalPages > 0 && (
-          <div className="border-t border-muted p-4">
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-              itemsPerPage={itemsPerPage}
-              onItemsPerPageChange={setItemsPerPage}
-              totalItems={totalItems}
-            />
-          </div>
+
+        {filteredGcEntries.length === 0 && (
+            <div className="text-center py-12 text-muted-foreground">
+              No GC Entries match the selected filters.
+            </div>
         )}
+
+        <div className="border-t border-muted p-4">
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={setItemsPerPage} totalItems={totalItems} />
+        </div>
       </div>
 
-      {/* No results message */}
-      {filteredGcEntries.length === 0 && (
-        <div className="text-center py-12 text-muted-foreground">
-          No GC Entries found for the selected filters.
-        </div>
-      )}
-
-      {/* Modals */}
-      <ConfirmationDialog
-        open={isConfirmOpen}
-        onClose={() => setIsConfirmOpen(false)}
-        onConfirm={handleConfirmDelete}
-        title="Delete GC Entry"
-        description={`Are you sure you want to delete GC No: ${deletingId}? This action cannot be undone.`}
+      <ConfirmationDialog 
+        open={isConfirmOpen} 
+        onClose={() => setIsConfirmOpen(false)} 
+        onConfirm={handleConfirmDelete} 
+        title="Delete GC" 
+        description={deleteMessage} 
       />
-      {printingJobs && (
-        <GcPrintManager
-          jobs={printingJobs}
-          onClose={() => setPrintingJobs(null)}
-        />
-      )}
+      {printingJobs && <GcPrintManager jobs={printingJobs} onClose={() => setPrintingJobs(null)} />}
     </div>
   );
 };

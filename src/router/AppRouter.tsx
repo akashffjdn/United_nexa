@@ -10,28 +10,17 @@ import { ConsigneeList } from '../features/consignees/ConsigneeList';
 import { GcEntryList } from '../features/gc-entry/GcEntryList';
 import { GcEntryForm } from '../features/gc-entry/GcEntryForm';
 import { PendingStockHistory } from '../features/pending-stock/PendingStockHistory';
-
-// Import New Features (Injected)
 import { LoadingSheetEntry } from '../features/loading-sheet/LoadingSheetEntry';
 import { FromPlaceList } from '../features/from-places-entry/FromPlacesList';
 import { ToPlacesList } from '../features/to-places-entry/ToPlacesList';
-
-// --- NEW IMPORTS FOR RECENTLY ADDED MODULES ---
 import { PackingEntryList } from '../features/packing-entry/PackingUnitList';
 import { ContentList } from '../features/content-entry/ContentList';
 import { TripSheetList } from '../features/trip-sheet-entry/TripSheetList';
 import { TripSheetForm } from '../features/trip-sheet-entry/TripSheetForm';
-// -----------------------------------------------
-
-// Import Dashboards
 import { DashboardPage } from '../features/dashboard/DashboardPage';
-import { MasterDashboardPage } from '../features/dashboard/MasterDashboardPage';
-
+import { MasterDashboardPage } from '../features/dashboard/MasterDashboardPage'; // Imported
 import { LoadingScreen } from '../components/shared/LoadingScreen';
-
-// Import User Management
 import { UserList } from '../features/users/UserList';
-
 
 // --- AUTH PROTECTION ---
 const ProtectedRoute = ({ children, noLayout = false, requireAdmin = false }: { children: React.ReactNode; noLayout?: boolean; requireAdmin?: boolean }) => {
@@ -40,7 +29,6 @@ const ProtectedRoute = ({ children, noLayout = false, requireAdmin = false }: { 
   if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   
-  // Role Check for Admin routes
   if (requireAdmin && user.role !== 'admin') {
     return <Navigate to="/" replace />; 
   }
@@ -71,10 +59,10 @@ const AppRouter = () => {
       <Route path="/logout" element={<LogoutRoute />} />
 
       {/* ===================================================
-          OPERATIONS WORKSPACE (Default)
+          MAIN APPLICATION ROUTES
          =================================================== */}
       
-      {/* Main Dashboard */}
+      {/* Main Dashboard (Operations View) */}
       <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
 
       {/* GC Entry */}
@@ -88,43 +76,26 @@ const AppRouter = () => {
       {/* Loading Sheet */}
       <Route path="/loading-sheet" element={<ProtectedRoute><LoadingSheetEntry /></ProtectedRoute>} />
       
-      {/* --- TRIP SHEET MODULE ROUTES --- */}
-      {/* List View (Matches Sidebar Link) */}
+      {/* Trip Sheet */}
       <Route path="/trip-sheet" element={<ProtectedRoute><TripSheetList /></ProtectedRoute>} />
-      
-      {/* Create/Edit Forms (Matches Internal Navigation) */}
       <Route path="/tripsheet/new" element={<ProtectedRoute><TripSheetForm /></ProtectedRoute>} />
       <Route path="/tripsheet/edit/:id" element={<ProtectedRoute><TripSheetForm /></ProtectedRoute>} />
-      
-     
-
 
       {/* ===================================================
-          MASTER WORKSPACE (Admin)
+          DATA MANAGEMENT (Sub-Menu Items)
          =================================================== */}
       
-      {/* Master Dashboard */}
+      {/* RESTORED: Master Dashboard Landing Page */}
       <Route path="/master" element={<ProtectedRoute><MasterDashboardPage /></ProtectedRoute>} />
 
-      {/* Consignor/Consignee */}
       <Route path="/master/consignors" element={<ProtectedRoute><ConsignorList /></ProtectedRoute>} />
       <Route path="/master/consignees" element={<ProtectedRoute><ConsigneeList /></ProtectedRoute>} />
-
-      {/* From/To Places */}
       <Route path="/master/from-places" element={<ProtectedRoute><FromPlaceList /></ProtectedRoute>} />
       <Route path="/master/to-places" element={<ProtectedRoute><ToPlacesList /></ProtectedRoute>} />
+      <Route path="/master/packings" element={<ProtectedRoute><PackingEntryList /></ProtectedRoute>} />
+      <Route path="/master/contents" element={<ProtectedRoute><ContentList /></ProtectedRoute>} />
 
-      {/* --- NEW MASTER ROUTES --- */}
-      <Route 
-        path="/master/packings" 
-        element={<ProtectedRoute><PackingEntryList /></ProtectedRoute>} 
-      />
-      <Route 
-        path="/master/contents" 
-        element={<ProtectedRoute><ContentList /></ProtectedRoute>} 
-      />
-
-      {/* User Management (Admin Only) */}
+      {/* Admin - User Management */}
       <Route 
         path="/users" 
         element={

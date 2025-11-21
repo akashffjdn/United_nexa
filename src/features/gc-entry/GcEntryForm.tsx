@@ -1,3 +1,4 @@
+// src/features/gc-entry/GcEntryForm.tsx
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useData } from '../../hooks/useData';
@@ -6,9 +7,7 @@ import { getTodayDate } from '../../utils/dateHelpers';
 import { Input } from '../../components/shared/Input';
 import { Button } from '../../components/shared/Button';
 import { AutocompleteInput } from '../../components/shared/AutocompleteInput';
-import { RadioGroup } from '../../components/shared/RadioGroup';
-import { ArrowLeft, Printer, Save } from 'lucide-react';
-
+import { Printer, Save, X } from 'lucide-react';
 import { GcPrintManager, type GcPrintJob } from './GcPrintManager';
 
 type ProofType = 'gst' | 'pan' | 'aadhar';
@@ -67,20 +66,17 @@ export const GcEntryForm = () => {
   });
   
   const [printingJobs, setPrintingJobs] = useState<GcPrintJob[] | null>(null);
-
   const [consignorGst, setConsignorGst] = useState('');
-  const [selectedConsignee, setSelectedConsignee] = useState<Consignee | null>(null);
   const [consigneeDestDisplay, setConsigneeDestDisplay] = useState('');
+  const [selectedConsignee, setSelectedConsignee] = useState<Consignee | null>(null);
 
   useEffect(() => {
     if (isEditMode && gcNo) {
       const gc = getGcEntry(gcNo);
       if (gc) {
         setForm(gc);
-        
         const consignor = consignors.find(c => c.id === gc.consignorId);
         if (consignor) setConsignorGst(consignor.gst);
-        
         const consignee = consignees.find(c => c.id === gc.consigneeId);
         if (consignee) {
           setSelectedConsignee(consignee);
@@ -94,54 +90,28 @@ export const GcEntryForm = () => {
     }
   }, [isEditMode, gcNo, getGcEntry, consignors, consignees, navigate]);
 
-  const consignorOptions = useMemo(() => 
-    consignors.map(c => ({ value: c.id, label: c.name })), [consignors]);
-
-  const consigneeOptions = useMemo(() => 
-    consignees.map(c => ({ value: c.id, label: c.name })), [consignees]);
-
+  const consignorOptions = useMemo(() => consignors.map(c => ({ value: c.id, label: c.name })), [consignors]);
+  const consigneeOptions = useMemo(() => consignees.map(c => ({ value: c.id, label: c.name })), [consignees]);
   const destinationOptions = useMemo(getUniqueDests, [getUniqueDests]);
   const packingOptions = useMemo(getPackingTypes, [getPackingTypes]);
   const contentsOptions = useMemo(getContentsTypes, [getContentsTypes]);
 
-  // --- UPDATED HANDLE CHANGE WITH NEW FORMULA ---
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    
     setForm(prev => {
       const newData = { ...prev, [name]: value };
       
-      // 1. Auto-fill Net Qty when Quantity changes
-      if (name === 'quantity') {
-        newData.netQty = value;
-      }
+      if (name === 'quantity') newData.netQty = value;
 
-      // 2. Auto-calculate Balance To Pay
-      // Formula: (Bill Value + Toll + Freight + Godown + Statistic) - Advance
       const calcFields = ['billValue', 'tollFee', 'freight', 'godownCharge', 'statisticCharge', 'advanceNone'];
-      
       if (calcFields.includes(name)) {
-        // Helper to safely parse string inputs to numbers
         const getVal = (field: keyof typeof form) => {
-            // Use the *new* value if it's the field currently being edited, otherwise use previous state
             const v = field === name ? value : prev[field];
             return parseFloat(v as string) || 0;
         };
-
-        const bill = getVal('billValue');
-        const toll = getVal('tollFee');
-        const freight = getVal('freight');
-        const godown = getVal('godownCharge');
-        const statistic = getVal('statisticCharge');
-        const advance = getVal('advanceNone');
-
-        // New Calculation Logic
-        const totalAdditions = bill + toll + freight + godown + statistic;
-        const balance = totalAdditions - advance;
-        
-        newData.balanceToPay = balance.toString();
+        const totalAdditions = getVal('billValue') + getVal('tollFee') + getVal('freight') + getVal('godownCharge') + getVal('statisticCharge');
+        newData.balanceToPay = (totalAdditions - getVal('advanceNone')).toString();
       }
-      
       return newData;
     });
   };
@@ -151,12 +121,7 @@ export const GcEntryForm = () => {
   };
 
   const handleDestinationSelect = (dest: string) => {
-    setForm(prev => ({
-      ...prev,
-      destination: dest,
-      deliveryAt: dest,
-      freightUptoAt: dest,
-    }));
+    setForm(prev => ({ ...prev, destination: dest, deliveryAt: dest, freightUptoAt: dest }));
   };
 
   const handleConsignorSelect = (id: string) => {
@@ -173,56 +138,30 @@ export const GcEntryForm = () => {
   const handleConsigneeSelect = (id: string) => {
     const consignee = consignees.find(c => c.id === id);
     setSelectedConsignee(consignee || null);
-    
     if (consignee) {
       const dest = consignee.destination;
       setConsigneeDestDisplay(dest);
-      
       let proofType: ProofType = 'gst';
       let proofValue = consignee.gst || '';
-      if (!proofValue) {
-        proofType = 'pan';
-        proofValue = consignee.pan || '';
-      }
-      if (!proofValue) {
-        proofType = 'aadhar';
-        proofValue = consignee.aadhar || '';
-      }
-      
+      if (!proofValue) { proofType = 'pan'; proofValue = consignee.pan || ''; }
+      if (!proofValue) { proofType = 'aadhar'; proofValue = consignee.aadhar || ''; }
       setForm(prev => ({ 
-        ...prev, 
-        consigneeId: id,
-        destination: dest,
-        deliveryAt: dest,
-        freightUptoAt: dest,
-        consigneeProofType: proofType,
-        consigneeProofValue: proofValue,
+        ...prev, consigneeId: id, destination: dest, deliveryAt: dest, freightUptoAt: dest, consigneeProofType: proofType, consigneeProofValue: proofValue,
       }));
     } else {
       setConsigneeDestDisplay('');
-      setForm(prev => ({
-        ...prev,
-        consigneeId: '',
-        consigneeProofType: 'gst',
-        consigneeProofValue: '',
-      }));
+      setForm(prev => ({ ...prev, consigneeId: '', consigneeProofType: 'gst', consigneeProofValue: '' }));
     }
   };
 
   const handleProofTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newProofType = e.target.value as ProofType;
     let newProofValue = '';
-    
     if (selectedConsignee) {
       // @ts-ignore
       newProofValue = selectedConsignee[newProofType] || '';
     }
-    
-    setForm(prev => ({
-      ...prev,
-      consigneeProofType: newProofType,
-      consigneeProofValue: newProofValue,
-    }));
+    setForm(prev => ({ ...prev, consigneeProofType: newProofType, consigneeProofValue: newProofValue }));
   };
 
   const fromNoNum = parseFloat(form.fromNo) || 0;
@@ -234,229 +173,223 @@ export const GcEntryForm = () => {
       alert('Please select a Consignor and Consignee.');
       return;
     }
-
     const finalGcNo = isEditMode ? gcNo! : getNextGcNo();
     const gcData: GcEntry = { ...form, id: finalGcNo };
-    
     if (isEditMode) updateGcEntry(gcData);
     else addGcEntry(gcData);
-    
     if (andPrint) {
       const consignor = consignors.find(c => c.id === gcData.consignorId);
       const consignee = consignees.find(c => c.id === gcData.consigneeId);
-
-      if (consignor && consignee) {
-        setPrintingJobs([{ gc: gcData, consignor, consignee }]);
-      } else {
-        alert("Error: Cannot find consignor/consignee data. Navigating without printing.");
-        navigate('/gc-entry'); 
-      }
+      if (consignor && consignee) setPrintingJobs([{ gc: gcData, consignor, consignee }]);
+      else { alert("Error: Cannot find consignor/consignee data."); navigate('/gc-entry'); }
     } else {
       navigate('/gc-entry');
     }
   };
 
-  if (loading && isEditMode) { 
-    return <div className="flex items-center justify-center h-full">Loading GC Data...</div>;
-  }
+  if (loading && isEditMode) return <div className="flex items-center justify-center h-full">Loading...</div>;
 
   return (
-    <>
-      <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
-
-        <div className="w-full flex items-center justify-between px-1 mb-6">
-          <button
-            type="button"
-            onClick={() => navigate('/gc-entry')}
-            className="p-2 rounded-md hover:bg-muted transition"
-          >
-            <ArrowLeft size={22} />
-          </button>
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground whitespace-nowrap">
-            {isEditMode ? `Edit GC No: ${gcNo}` : 'Add New GC Entry'}
-          </h1>
-        </div>
-
-        <div className="bg-background rounded-lg shadow border border-muted p-4 md:p-8">
-          <div className="space-y-8">
-
-            {/* GC DETAILS */}
-            <div>
-              <h2 className="text-xl font-semibold text-foreground border-b border-muted pb-3 mb-6">GC Details</h2>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <Input label="GC Date" id="gcDate" name="gcDate" type="date" value={form.gcDate} onChange={handleChange} required />
-                <Input label="From (GC)" id="from-gc" name="from" value={form.from} onChange={handleChange} required disabled />
-                <div className="md:col-span-2">
-                  <AutocompleteInput
-                    label="Destination (GC)"
-                    options={destinationOptions}
-                    value={form.destination}
-                    onSelect={handleDestinationSelect}
-                    placeholder="Type to search destination..."
-                    required
-                  />
-                </div>
+    <div className="flex flex-col h-[calc(100vh-5.5rem)]"> 
+      <div className="flex-1 overflow-y-auto p-1">
+        <form className="bg-background rounded-xl shadow-sm border border-muted p-6 space-y-6 text-sm">
+          
+          {/* GC Details */}
+          <div>
+            <h3 className="text-base font-bold text-primary border-b border-border pb-2 mb-4">GC Details</h3>
+            {/* Mobile: 1 col
+               Tablet (sm): 2 cols
+               Desktop (lg): 12 cols (restoring original layout)
+            */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4">
+              <div className="col-span-1 lg:col-span-2">
+                <Input label="GC Date" type="date" name="gcDate" value={form.gcDate} onChange={handleChange} required />
               </div>
-            </div>
-
-            {/* PARTIES */}
-            <div>
-              <h2 className="text-xl font-semibold text-foreground border-b border-muted pb-3 mb-6">Parties</h2>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="md:col-span-2">
-                  <AutocompleteInput
-                    label="Consignor Name"
-                    options={consignorOptions}
-                    value={form.consignorId}
-                    onSelect={handleConsignorSelect}
-                    placeholder="Type to search consignor..."
-                    required
-                  />
-                </div>
-                <Input label="Consignor GSTIN" id="consignorGst" name="consignorGst" value={consignorGst} disabled />
-                <Input label="Consignor From" id="consignorFrom" name="consignorFrom" value={form.from} disabled />
-
-                <div className="md:col-span-2">
-                  <AutocompleteInput
-                    label="Consignee Name"
-                    options={consigneeOptions}
-                    value={form.consigneeId}
-                    onSelect={handleConsigneeSelect}
-                    placeholder="Type to search consignee..."
-                    required
-                  />
-                </div>
-                <Input label="Consignee Destination" id="consigneeDest" name="consigneeDest" value={consigneeDestDisplay} disabled />
-                <div className="flex items-end gap-2">
-                  <div className="flex-grow">
-                    <label className="block text-sm font-medium text-muted-foreground mb-1">Proof Type <span className="text-destructive">*</span></label>
-                    <select 
-                      name="consigneeProofType"
-                      value={form.consigneeProofType}
-                      onChange={handleProofTypeChange}
-                      className="w-full mt-1 px-3 py-2 border border-muted-foreground/30 rounded-md shadow-sm bg-background"
-                      required
-                    >
-                      <option value="gst">GST</option>
-                      <option value="pan">PAN</option>
-                      <option value="aadhar">Aadhar</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="md:col-span-4">
-                  <Input label="Consignee Proof Value" id="consigneeProofValue" name="consigneeProofValue" value={form.consigneeProofValue} onChange={handleChange} required />
-                </div>
+              <div className="col-span-1 lg:col-span-3">
+                <Input label="From (GC)" name="from" value={form.from} onChange={handleChange} required disabled />
               </div>
-            </div>
-
-            {/* ROUTING */}
-            <div>
-              <h2 className="text-xl font-semibold text-foreground border-b border-muted pb-3 mb-6">Routing & Dates</h2>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <Input label="Bill Date" id="billDate" name="billDate" type="date" value={form.billDate} onChange={handleChange} required />
-                <AutocompleteInput
-                  label="Delivery At"
-                  options={destinationOptions}
-                  value={form.deliveryAt}
-                  onSelect={(value) => handleFormValueChange('deliveryAt', value as string)}
-                  placeholder="Type to search destination..."
-                  required
-                />
-                <AutocompleteInput
-                  label="Freight Upto At"
-                  options={destinationOptions}
-                  value={form.freightUptoAt}
-                  onSelect={(value) => handleFormValueChange('freightUptoAt', value as string)}
-                  placeholder="Type to search destination..."
-                  required
-                />
-                <Input label="Godown" id="godown" name="godown" value={form.godown} onChange={handleChange} />
+              {/* Destination takes full width on tablet/mobile row if needed, or shares space */}
+              <div className="col-span-1 sm:col-span-2 lg:col-span-5">
+                <AutocompleteInput label="Destination" options={destinationOptions} value={form.destination} onSelect={handleDestinationSelect} placeholder="" required />
               </div>
+           
             </div>
-
-            {/* CONTENTS */}
-            <div>
-              <h2 className="text-xl font-semibold text-foreground border-b border-muted pb-3 mb-6">Contents</h2>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <Input label="Quantity" id="quantity" name="quantity" type="text" value={form.quantity} onChange={handleChange} required />
-                <AutocompleteInput
-                  label="Packing"
-                  options={packingOptions}
-                  value={form.packing}
-                  onSelect={(value) => handleFormValueChange('packing', value)}
-                  placeholder="Type to search packing..."
-                  required
-                />
-                <div className="md:col-span-2">
-                  <AutocompleteInput
-                    label="Contents"
-                    options={contentsOptions}
-                    value={form.contents}
-                    onSelect={(value) => handleFormValueChange('contents', value)}
-                    placeholder="Type to search contents..."
-                    required
-                  />
-                </div>
-                <Input label="Prefix" id="prefix" name="prefix" value={form.prefix} onChange={handleChange} />
-                <Input label="From No" id="fromNo" name="fromNo" type="text" value={form.fromNo} onChange={handleChange} required />
-                <Input label="To No" id="toNo" name="toNo" value={toNo > 0 ? toNo : ''} disabled />
-                <Input label="Net Qty" id="netQty" name="netQty" type="text" value={form.netQty} onChange={handleChange} required />
-              </div>
-            </div>
-
-            {/* BILLING */}
-            <div>
-              <h2 className="text-xl font-semibold text-foreground border-b border-muted pb-3 mb-6">Billing & Payment</h2>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <Input label="Bill No" id="billNo" name="billNo" value={form.billNo} onChange={handleChange} />
-                <Input label="Bill Value" id="billValue" name="billValue" type="text" value={form.billValue} onChange={handleChange} />
-                <Input label="Toll Fee" id="tollFee" name="tollFee" type="text" value={form.tollFee} onChange={handleChange} />
-                <Input label="Freight" id="freight" name="freight" type="text" value={form.freight} onChange={handleChange} />
-                <Input label="Godown Charge" id="godownCharge" name="godownCharge" type="text" value={form.godownCharge} onChange={handleChange} />
-                <Input label="Statistic Charge" id="statisticCharge" name="statisticCharge" type="text" value={form.statisticCharge} onChange={handleChange} />
-                <Input label="Advance None" id="advanceNone" name="advanceNone" type="text" value={form.advanceNone} onChange={handleChange} />
-                
-                {/* Balance to Pay - Auto Calculated but Editable */}
-                <Input label="Balance ToPay" id="balanceToPay" name="balanceToPay" type="text" value={form.balanceToPay} onChange={handleChange} />
-
-                <div className="md:col-span-4">
-                  <RadioGroup
-                    label="Paid Type"
-                    options={[ { value: 'To Pay', label: 'To Pay' }, { value: 'Paid', label: 'Paid' } ]}
-                    value={form.paidType}
-                    onChange={(value) => handleFormValueChange('paidType', value)}
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-
           </div>
-        </div>
 
-        {/* FOOTER ACTIONS */}
-        <div className="flex flex-col sm:flex-row justify-end gap-4 p-4 bg-background/90 backdrop-blur-sm sticky bottom-0 border-t border-muted rounded-b-lg">
-          <Button type="button" variant="secondary" className="w-full sm:w-auto" onClick={() => navigate('/gc-entry')}>Cancel</Button>
-          <Button type="button" variant="secondary" className="w-full sm:w-auto" onClick={() => handleSave(true)}>
-            <Printer size={16} className="mr-2" />
-            Save & Print GC
-          </Button>
-          <Button type="button" variant="primary" className="w-full sm:w-auto" onClick={() => handleSave(false)}>
-            <Save size={16} className="mr-2" />
-            {isEditMode ? 'Save Changes' : 'Save GC'}
-          </Button>
-        </div>
-      </form>
+          {/* Parties (Combined Section) */}
+          <div>
+            <h3 className="text-base font-bold text-primary border-b border-border pb-2 mb-4">Parties</h3>
+            
+            {/* Consignor Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 mb-4">
+              <div className="col-span-1 sm:col-span-2 lg:col-span-5">
+                <AutocompleteInput label="Consignor Name" options={consignorOptions} value={form.consignorId} onSelect={handleConsignorSelect} placeholder="" required />
+              </div>
+              <div className="col-span-1 lg:col-span-4">
+                <Input label="Consignor GSTIN" value={consignorGst} disabled required/>
+              </div>
+              <div className="col-span-1 lg:col-span-3">
+                <Input label="Consignor From" value={form.from} disabled required/>
+              </div>
+            </div>
 
-      {printingJobs && (
-        <GcPrintManager
-          jobs={printingJobs}
-          onClose={() => {
-            setPrintingJobs(null);
-            navigate('/gc-entry');
-          }}
-        />
-      )}
-    </>
+            {/* Consignee Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4">
+              <div className="col-span-1 sm:col-span-2 lg:col-span-5">
+                <AutocompleteInput label="Consignee Name" options={consigneeOptions} value={form.consigneeId} onSelect={handleConsigneeSelect} placeholder="" required />
+              </div>
+              <div className="col-span-1 lg:col-span-3">
+                <Input label="Consignee Dest" value={consigneeDestDisplay} disabled required/>
+              </div>
+              <div className="col-span-1 lg:col-span-2">
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Proof Type *</label>
+                <select name="consigneeProofType" value={form.consigneeProofType} onChange={handleProofTypeChange} className="w-full px-2 py-2 border border-muted-foreground/30 rounded-md bg-background text-xs focus:outline-none focus:ring-primary focus:border-primary">
+                    <option value="gst">GST</option>
+                    <option value="pan">PAN</option>
+                    <option value="aadhar">Aadhar</option>
+                </select>
+              </div>
+              <div className="col-span-1 lg:col-span-2">
+                <Input label="Proof Value" name="consigneeProofValue" value={form.consigneeProofValue} onChange={handleChange} required />
+              </div>
+            </div>
+          </div>
+
+          {/* Routing */}
+          <div>
+             <h3 className="text-base font-bold text-primary border-b border-border pb-2 mb-4">Routing</h3>
+             {/* 1 col on mobile, 3 cols on sm+ */}
+             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="col-span-1">
+                <AutocompleteInput label="Delivery At" options={destinationOptions} value={form.deliveryAt} onSelect={(v) => handleFormValueChange('deliveryAt', v)} placeholder="" required />
+              </div>
+              <div className="col-span-1">
+                <AutocompleteInput label="Freight Upto" options={destinationOptions} value={form.freightUptoAt} onSelect={(v) => handleFormValueChange('freightUptoAt', v)} placeholder="" required />
+              </div>
+              <div className="col-span-1">
+                <Input label="Godown" name="godown" value={form.godown} onChange={handleChange} required/>
+              </div>
+              
+            </div>
+          </div>
+
+          {/* Contents - REORDERED & EQUAL WIDTH */}
+          <div>
+             <h3 className="text-base font-bold text-primary border-b border-border pb-2 mb-4">Contents</h3>
+             {/* Mobile: 2 cols 
+                Tablet: 4 cols 
+                Desktop: 7 cols (for equal width)
+             */}
+             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+              
+              {/* 1. Qty */}
+              <div className="col-span-1">
+                <Input label="Qty" name="quantity" value={form.quantity} onChange={handleChange} required />
+              </div>
+
+              {/* 2. From No */}
+              <div className="col-span-1">
+                <Input label="From No" name="fromNo" value={form.fromNo} onChange={handleChange} required />
+              </div>
+
+              {/* 3. To No */}
+              <div className="col-span-1">
+                <Input label="To No" value={toNo > 0 ? toNo : ''} disabled />
+              </div>
+
+              {/* 4. Net Qty */}
+              <div className="col-span-1">
+                <Input label="Net Qty" name="netQty" value={form.netQty} onChange={handleChange} required />
+              </div>
+
+              {/* 5. Packing */}
+              <div className="col-span-1">
+                <AutocompleteInput label="Packing" options={packingOptions} value={form.packing} onSelect={(v) => handleFormValueChange('packing', v)} placeholder="" required />
+              </div>
+
+              {/* 6. Contents */}
+              <div className="col-span-1">
+                <AutocompleteInput label="Contents" options={contentsOptions} value={form.contents} onSelect={(v) => handleFormValueChange('contents', v)} placeholder="" required />
+              </div>
+
+              {/* 7. Prefix */}
+              <div className="col-span-1">
+                <Input label="Prefix" name="prefix" value={form.prefix} onChange={handleChange} />
+              </div>
+
+            </div>
+          </div>
+
+          {/* Billing & Payment */}
+          <div>
+             <h3 className="text-base font-bold text-primary border-b border-border pb-2 mb-4">Billing & Payment</h3>
+             {/* Mobile: 2 cols
+                Tablet: 4 cols
+                Desktop: 8 cols
+             */}
+             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
+              <div className="col-span-1">
+                <Input label="Bill No" name="billNo" value={form.billNo} onChange={handleChange} />
+              </div>
+              <div className="col-span-1">
+                <Input label="Bill Value" name="billValue" value={form.billValue} onChange={handleChange} />
+              </div>
+              <div className="col-span-1">
+                <Input label="Toll" name="tollFee" value={form.tollFee} onChange={handleChange} />
+              </div>
+              <div className="col-span-1">
+                <Input label="Freight" name="freight" value={form.freight} onChange={handleChange} />
+              </div>
+              <div className="col-span-1">
+                <Input label="Godown" name="godownCharge" value={form.godownCharge} onChange={handleChange} />
+              </div>
+              <div className="col-span-1">
+                <Input label="Statistic" name="statisticCharge" value={form.statisticCharge} onChange={handleChange} />
+              </div>
+              <div className="col-span-1">
+                <Input label="Advance" name="advanceNone" value={form.advanceNone} onChange={handleChange} />
+              </div>
+              <div className="col-span-1">
+                <Input label="Balance" name="balanceToPay" value={form.balanceToPay} onChange={handleChange} />
+              </div>
+            </div>
+          </div>
+
+          {/* Payment Type Radio */}
+          <div className="pt-2">
+             <div className="flex gap-6">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="paidType" value="To Pay" checked={form.paidType === 'To Pay'} onChange={() => handleFormValueChange('paidType', 'To Pay')} className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium">To Pay</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="paidType" value="Paid" checked={form.paidType === 'Paid'} onChange={() => handleFormValueChange('paidType', 'Paid')} className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium">Paid</span>
+              </label>
+            </div>
+          </div>
+          
+        </form>
+      </div>
+
+      {/* FOOTER */}
+      {/* Added flex-col sm:flex-row to wrap buttons on mobile */}
+      <div className="p-4 border-t border-muted bg-background flex flex-col sm:flex-row justify-end gap-3 mt-auto shadow-md z-10">
+        <Button type="button" variant="secondary" onClick={() => navigate('/gc-entry')}>
+          <X size={16} className="mr-2" />
+          Cancel
+        </Button>
+        <Button type="button" variant="secondary" onClick={() => handleSave(true)}>
+          <Printer size={16} className="mr-2" />
+          Save & Print
+        </Button>
+        <Button type="button" variant="primary" onClick={() => handleSave(false)}>
+          <Save size={16} className="mr-2" />
+          {isEditMode ? 'Update' : 'Save'}
+        </Button>
+      </div>
+
+      {printingJobs && <GcPrintManager jobs={printingJobs} onClose={() => { setPrintingJobs(null); navigate('/gc-entry'); }} />}
+    </div>
   );
 };
