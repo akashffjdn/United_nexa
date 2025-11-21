@@ -67,7 +67,7 @@ export const PackingEntryList = () => {
         {/* RIGHT: Create */}
         <div className="flex gap-2 w-full md:w-auto justify-end">
           <Button variant="primary" onClick={handleCreateNew}>
-            + Create New Packing Unit
+            + Add Packing Unit
           </Button>
         </div>
       </div>

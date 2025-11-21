@@ -67,7 +67,7 @@ export const ContentList = () => {
         {/* RIGHT: Create */}
         <div className="flex gap-2 w-full md:w-auto justify-end">
           <Button variant="primary" onClick={handleCreateNew}>
-            + Create New Content
+            + Add Content
           </Button>
         </div>
       </div>

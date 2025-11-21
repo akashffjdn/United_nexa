@@ -125,7 +125,7 @@ export const ConsignorList = () => {
 
         <div className="flex gap-2 w-full md:w-auto justify-end">
           <Button variant="primary" onClick={handleCreateNew}>
-            + Create New Consignor
+            + Add Consignor
           </Button>
         </div>
       </div>

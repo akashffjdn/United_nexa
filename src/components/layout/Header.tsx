@@ -36,6 +36,10 @@ export const Header = ({ setIsSidebarOpen }: HeaderProps) => {
     if (pathname.startsWith('/master/packings')) return 'Packing Units Management';
     if (pathname.startsWith('/master/contents')) return 'Contents Management';
     
+    // ADDED TITLES FOR NEW MODULES
+    if (pathname.startsWith('/master/vehicles')) return 'Vehicle Management';
+    if (pathname.startsWith('/master/drivers')) return 'Driver Management';
+    
     // Admin
     if (pathname.startsWith('/users')) return 'User Management';
 

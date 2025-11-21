@@ -112,7 +112,7 @@ export const ConsigneeList = () => {
         {/* RIGHT: Create Button */}
         <div className="flex gap-2 w-full md:w-auto justify-end">
           <Button variant="primary" onClick={handleCreateNew}>
-            + Create New Consignee
+            + Add Consignee
           </Button>
         </div>
       </div>

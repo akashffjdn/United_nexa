@@ -106,6 +106,21 @@ export interface ContentEntry {
   shortName: string;
 }
 
+// --- NEW TYPES FOR VEHICLES & DRIVERS ---
+
+export interface VehicleEntry {
+  id: string;
+  vehicleNo: string;
+  vehicleName: string;
+}
+
+export interface DriverEntry {
+  id: string;
+  driverName: string;
+  dlNo: string;
+  mobile: string;
+}
+
 // --- NEW TYPES FOR TRIP SHEET ---
 
 export interface TripSheetGCItem {

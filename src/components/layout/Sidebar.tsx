@@ -10,12 +10,13 @@ import {
   MapPin, 
   Package, 
   ClipboardList, 
-  Settings,
   ShieldCheck,
   ChevronDown,
   ChevronRight,
   Database,
-  BarChart3 // Added for Master Dashboard icon distinction
+  BarChart3,
+  Car, // Added for Vehicles
+  UserCircle // Added for Drivers
 } from 'lucide-react'; 
 import { useAuth } from '../../hooks/useAuth';
 
@@ -58,10 +59,11 @@ export const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) => {
 
   // 2. Sub-Menu Links (Data Management)
   const dataManagementLinks = [
-    // ADDED: Master Dashboard as the first item
     { name: 'Master Dashboard', href: '/master', icon: BarChart3 }, 
     { name: 'Consignors', href: '/master/consignors', icon: Truck },
     { name: 'Consignees', href: '/master/consignees', icon: Users },
+    { name: 'Vehicles', href: '/master/vehicles', icon: Car }, // ADDED
+    { name: 'Drivers', href: '/master/drivers', icon: UserCircle }, // ADDED
     { name: 'From Places', href: '/master/from-places', icon: MapPin },
     { name: 'To Places', href: '/master/to-places', icon: MapPin },
     { name: 'Packings', href: '/master/packings', icon: Package },
@@ -123,7 +125,6 @@ export const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) => {
               <NavLink 
                 key={item.name} 
                 to={item.href} 
-                // Use 'end' for the main dashboard to prevent it from matching sub-routes improperly if needed
                 end={item.href === '/'} 
                 className={getLinkClass}
                 onClick={() => setIsSidebarOpen(false)}
@@ -151,12 +152,11 @@ export const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) => {
               </button>
 
               {/* Sub-Menu Items */}
-              <div className={`space-y-1 overflow-hidden transition-all duration-300 ${isDataMgmtOpen ? 'max-h-[500px] opacity-100 mt-1' : 'max-h-0 opacity-0'}`}>
+              <div className={`space-y-1 overflow-hidden transition-all duration-300 ${isDataMgmtOpen ? 'max-h-[600px] opacity-100 mt-1' : 'max-h-0 opacity-0'}`}>
                 {dataManagementLinks.map((item) => (
                   <NavLink 
                     key={item.name} 
                     to={item.href}
-                    // Ensure exact match for Master Dashboard so it doesn't highlight for /master/consignors etc.
                     end={item.href === '/master'} 
                     className={({ isActive }) => 
                       `flex items-center pl-11 pr-4 py-2 rounded-lg text-sm transition-colors duration-200 ${

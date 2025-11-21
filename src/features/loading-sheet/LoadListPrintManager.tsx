@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import type { GcEntry, Consignor, Consignee } from '../../types';
+import { useAuth } from '../../hooks/useAuth';
 
 export type LoadListJob = {
     gc: GcEntry;
@@ -22,7 +23,9 @@ const getCurrentDate = () => {
 };
 
 export const LoadListPrintManager: React.FC<LoadListPrintManagerProps> = ({ jobs, onClose }) => {
-    
+    const { user } = useAuth(); 
+    const userName = user?.name
+
     const { printData, grandTotalQuantity } = useMemo(() => {
         const groupedLoads = jobs.reduce((acc, job) => {
             const key = `${job.gc.godown || 'N/A'}::${job.consignor.id}::${job.consignee.id}`;
@@ -129,6 +132,14 @@ export const LoadListPrintManager: React.FC<LoadListPrintManagerProps> = ({ jobs
                         position: static !important;
                         margin-top: 1rem; /* Add some space above the footer in print */
                     }
+                    
+                    /* Use flex on print for the total/name split */
+                    .print-split-footer {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: flex-end; /* Align items to the bottom */
+                        width: 100%;
+                    }
                 }
                 
                 @media screen {
@@ -171,13 +182,23 @@ export const LoadListPrintManager: React.FC<LoadListPrintManagerProps> = ({ jobs
                     </div>
                 ))}
 
-                {/* Changed from fixed to standard flow for print, using the special class */}
+                {/* --- UPDATED FOOTER STRUCTURE FOR LEFT/RIGHT SPLIT --- */}
                 <div className="fixed bottom-20 left-0 right-0 z-10 p-4">
-                    <div className="max-w-4xl mx-auto text-center font-bold text-lg">
+                    <div className="max-w-4xl font-bold text-lg mx-auto">
                         <div className="border-t-2 border-black w-full my-2"></div>
 
-                        <div className="py-1">
-                            Total : {grandTotalQuantity},
+                        {/* Flex container to split Total (Left) and User Info (Right) */}
+                        <div className="py-1 flex justify-between items-start print-split-footer">
+                            {/* LEFT SIDE: Total Quantity */}
+                            <div>
+                                Total : {grandTotalQuantity},
+                            </div>
+
+                            {/* RIGHT SIDE: User Name and Static Line */}
+                            <div className="text-xs mb-1 text-center">
+                                <p className="italic font-bold mr-1 mb-1">{userName}</p>
+                                <p className="italic font-bold mr-1">For UNITED TRANSPORT COMPANY</p>
+                            </div>
                         </div>
 
                         <div className="border-t-2 border-black w-full my-2"></div>

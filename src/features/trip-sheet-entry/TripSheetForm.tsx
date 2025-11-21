@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Save, Trash2 } from "lucide-react";
+import {  Save, Trash2 } from "lucide-react";
 
 import type { TripSheetEntry, TripSheetGCItem } from "../../types";
 import { Button } from "../../components/shared/Button";
@@ -18,29 +18,28 @@ export const TripSheetForm = () => {
   const {
     addTripSheet,
     updateTripSheet,
-    getTripSheet,
+    tripSheets,
     consignors,
     consignees,
     gcEntries,
     fromPlaces,
     toPlaces,
+    driverEntries,
+    vehicleEntries,
   } = useData();
 
-  const editing = id ? getTripSheet(id) : undefined;
+  const editing = tripSheets.find((t) => t.id === id || t.mfNo === id);
 
-  const [mfNo, setMfNo] = useState<string | undefined>(
-    editing ? editing.mfNo : undefined
-  );
+  const [mfNo, setMfNo] = useState<string | undefined>(editing?.mfNo);
+  const [tsDate, setTsDate] = useState(editing?.tsDate ?? getTodayDate());
 
-const [tsDate, setTsDate] = useState(editing ? editing.tsDate : getTodayDate());
   const [carriers, setCarriers] = useState(editing?.carriers ?? "");
-  const [fromPlace, setFromPlace] = useState( editing ? editing.fromPlace : "Sivakasi");
+  const [fromPlace, setFromPlace] = useState(editing?.fromPlace ?? "Sivakasi");
   const [toPlace, setToPlace] = useState(editing?.toPlace ?? "");
 
   const [items, setItems] = useState<TripSheetGCItem[]>(editing?.items ?? []);
 
   const [gcNo, setGcNo] = useState("");
-
   const [qty, setQty] = useState(0);
   const [rate, setRate] = useState(0);
   const [packingDts, setPackingDts] = useState("");
@@ -66,9 +65,8 @@ const [tsDate, setTsDate] = useState(editing ? editing.tsDate : getTodayDate());
     setGcNo(value);
     const g = loadGc(value);
     if (!g) return;
-
     setQty(g.qty);
-    setRate(g.rate); // rate per qty
+    setRate(g.rate);
     setPackingDts(g.packingDts);
     setContentDts(g.contentDts);
     setItemConsignor(g.consignor);
@@ -104,7 +102,7 @@ const [tsDate, setTsDate] = useState(editing ? editing.tsDate : getTodayDate());
   };
 
   const handleDeleteGC = (i: number) => {
-    setItems((p) => p.filter((_, x) => x !== i));
+    setItems((p) => p.filter((_, idx) => idx !== i));
   };
 
   const totalAmount = useMemo(
@@ -112,64 +110,100 @@ const [tsDate, setTsDate] = useState(editing ? editing.tsDate : getTodayDate());
     [items]
   );
 
-  const [unloadPlace, setUnloadPlace] = useState(
-    editing?.unloadPlace ?? ""
-  );
-
+  const [unloadPlace, setUnloadPlace] = useState(editing?.unloadPlace ?? "");
   useEffect(() => {
-    if (!editing) {
-      setUnloadPlace(toPlace);
-    }
-  }, [toPlace]);
+    if (!editing) setUnloadPlace(toPlace);
+  }, [toPlace, editing]);
 
+  // --------------------------------
+  // DRIVER FIELDS
+  // --------------------------------
   const [driverName, setDriverName] = useState(editing?.driverName ?? "");
   const [dlNo, setDlNo] = useState(editing?.dlNo ?? "");
-  const [driverMobile, setDriverMobile] = useState(
-    editing?.driverMobile ?? ""
-  );
-  const [ownerName, setOwnerName] = useState(editing?.ownerName ?? "");
-  const [ownerMobile, setOwnerMobile] = useState(
-    editing?.ownerMobile ?? ""
-  );
+  const [driverMobile, setDriverMobile] = useState(editing?.driverMobile ?? "");
+
+  // Driver name lock rule (readonly when DL or Mobile selected)
+  const driverNameReadonly = dlNo !== "" || driverMobile !== "";
+
+  const driverDlOptions = driverEntries.map((d) => ({
+    value: d.dlNo,
+    label: d.dlNo,
+  }));
+
+  const driverNameOptions = driverEntries.map((d) => ({
+    value: d.driverName,
+    label: d.driverName,
+  }));
+
+  const driverMobileOptions = driverEntries.map((d) => ({
+    value: d.mobile,
+    label: d.mobile,
+  }));
+
+  const fillDriverFromDl = (dl: string) => {
+    const d = driverEntries.find((x) => x.dlNo === dl);
+    if (!d) return;
+    setDriverName(d.driverName);
+    setDriverMobile(d.mobile);
+    setDlNo(d.dlNo);
+  };
+
+  const fillDriverFromMobile = (mobile: string) => {
+    const d = driverEntries.find((x) => x.mobile === mobile);
+    if (!d) return;
+    setDriverName(d.driverName);
+    setDriverMobile(d.mobile);
+    setDlNo(d.dlNo);
+  };
+
+  // --------------------------------
+  // VEHICLE FIELDS
+  // --------------------------------
+
   const [lorryNo, setLorryNo] = useState(editing?.lorryNo ?? "");
   const [lorryName, setLorryName] = useState(editing?.lorryName ?? "");
 
+  const vehicleNoOptions = vehicleEntries.map((v) => ({
+    value: v.vehicleNo,
+    label: v.vehicleNo,
+  }));
+
+  const vehicleNameOptions = vehicleEntries.map((v) => ({
+    value: v.vehicleName,
+    label: v.vehicleName,
+  }));
+
+  const fillVehicleFromNo = (no: string) => {
+    const v = vehicleEntries.find((x) => x.vehicleNo === no);
+    if (!v) return;
+    setLorryNo(v.vehicleNo);
+    setLorryName(v.vehicleName);
+  };
+
+  // OWNER
+  const [ownerName, setOwnerName] = useState(editing?.ownerName ?? "");
+  const [ownerMobile, setOwnerMobile] = useState(editing?.ownerMobile ?? "");
+
   // GC Options
-  // --- GET ALL USED GC NUMBERS IN ALL TRIPSHEETS ---
   const usedGCs = useMemo(() => {
     const arr: string[] = [];
     const all = JSON.parse(localStorage.getItem("tripSheets") || "[]");
-
-    all.forEach((ts: TripSheetEntry) => {
-      ts.items?.forEach((it) => arr.push(it.gcNo));
-    });
-
+    all.forEach((ts: TripSheetEntry) =>
+      ts.items?.forEach((it) => arr.push(it.gcNo))
+    );
     return arr;
   }, []);
 
-  // --- GC OPTIONS (FILTERED) ---
-  // Show only:
-  // 1. Not already in this form (items)
-  // 2. Not used in any other tripsheet
-  // 3. But allow items belonging to this editing form
   const gcOptions = gcEntries
     .filter((g) => {
       const isInForm = items.some((i) => i.gcNo === g.id);
       const isUsedElsewhere = usedGCs.includes(g.id);
 
-      // In EDIT MODE — allow own GCs
       if (editing && isInForm) return true;
-
       return !isInForm && !isUsedElsewhere;
     })
-    .map((g) => ({
-      value: g.id,
-      label: g.id,
-    }
-  ));
+    .map((g) => ({ value: g.id, label: g.id }));
 
-
-  // Place Options
   const fromPlaceOptions = fromPlaces.map((p) => ({
     value: p.placeName,
     label: p.placeName,
@@ -181,102 +215,75 @@ const [tsDate, setTsDate] = useState(editing ? editing.tsDate : getTodayDate());
   }));
 
   const generateNextMfNo = () => {
-    const stored = JSON.parse(localStorage.getItem("tripSheets") || "[]");
-    if (!stored.length) return "1";
-    const max = Math.max(...stored.map((t: any) => Number(t.mfNo || 0)));
+    if (!tripSheets.length) return "1";
+    const max = Math.max(...tripSheets.map((t) => Number(t.mfNo || 0)));
     return String(max + 1);
   };
 
- const handleSave = (e?: React.FormEvent) => {
-  e?.preventDefault();
+  const handleSave = (e?: React.FormEvent) => {
+    e?.preventDefault();
 
-  if (!tsDate) return alert("Please enter TripSheet date");
+    if (!tsDate) return alert("Please enter TripSheet date");
+    if (!toPlace) return alert("Please select To Place");
+    if (!unloadPlace) return alert("Select Unload Place");
+    if (items.length === 0) return alert("Add at least 1 GC entry");
 
-  if (!toPlace || toPlace.trim() === "") {
-    return alert("Please select To Place.");
-  }
+    let finalMfNo = mfNo;
+    if (!editing) {
+      finalMfNo = generateNextMfNo();
+      setMfNo(finalMfNo);
+    }
 
-  if (!unloadPlace || unloadPlace.trim() === "") {
-    return alert("Please select Unload Place.");
-  }
+    const payload: TripSheetEntry = {
+      id: finalMfNo!,
+      mfNo: finalMfNo!,
+      tsDate,
+      carriers,
+      fromPlace,
+      toPlace,
+      items,
+      unloadPlace,
+      totalAmount,
+      driverName,
+      dlNo,
+      driverMobile,
+      ownerName,
+      ownerMobile,
+      lorryNo,
+      lorryName,
+    };
 
-  // NEW VALIDATION — ensure at least 1 GC is added
-  if (items.length === 0) {
-    return alert("Please add at least one GC entry before saving the TripSheet.");
-  }
+    if (editing) updateTripSheet(payload);
+    else addTripSheet(payload);
 
-  let finalMfNo = mfNo;
-
-  if (!editing) {
-    finalMfNo = generateNextMfNo();
-    setMfNo(finalMfNo);
-  }
-
-  const payload: TripSheetEntry = {
-    id: finalMfNo!,
-    mfNo: finalMfNo!,
-    tsDate,
-    carriers,
-    fromPlace,
-    toPlace,
-    items,
-    unloadPlace,
-    totalAmount,
-    driverName,
-    dlNo,
-    driverMobile,
-    ownerName,
-    ownerMobile,
-    lorryNo,
-    lorryName,
+    navigate("/trip-sheet");
   };
-
-  if (editing) updateTripSheet(payload);
-  else addTripSheet(payload);
-
-  navigate("/trip-sheet");
-};
-
 
   return (
     <div className="space-y-4 p-4">
-
-      {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <Button
-            type="button"
-            variant="secondary"
-            className="px-3"
-            onClick={() => navigate("/trip-sheet")}
-          >
-            <ArrowLeft size={18} />
-          </Button>
-        </div>
-
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-            {editing ? `Edit Trip Sheet #${mfNo}` : "Add New Trip Sheet"}
-          </h1>
-        </div>
-      </div>
-
-      <form onSubmit={handleSave} className="space-y-5">
-        <div className="bg-background rounded-lg shadow border border-muted p-4 md:p-8 space-y-8">
-
+      
+      <form onSubmit={handleSave} className="space-y-6">
+        <div className="bg-background rounded-lg shadow border border-muted p-4 md:p-6 space-y-8">
           {/* TRIP DETAILS */}
-          <div>
+          <section>
             <h2 className="text-xl font-semibold text-foreground border-b border-muted pb-3 mb-6">
               Trip Details
             </h2>
 
-            <div className="grid grid-cols-3 gap-3 mb-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
               <AutocompleteInput
                 label="From Place"
                 placeholder="Select From Place"
                 options={fromPlaceOptions}
                 value={fromPlace}
-                onSelect={(v) => setFromPlace(v)}
+                onSelect={setFromPlace}
+              />
+
+              <Input
+                type="date"
+                label="Trip Date"
+                value={tsDate}
+                onChange={(e) => setTsDate(e.target.value)}
               />
 
               <AutocompleteInput
@@ -284,30 +291,37 @@ const [tsDate, setTsDate] = useState(editing ? editing.tsDate : getTodayDate());
                 placeholder="Select To Place"
                 options={toPlaceOptions}
                 value={toPlace}
-                onSelect={(v) => setToPlace(v)}
+                onSelect={setToPlace}
               />
-            </div>
 
-            <div className="grid grid-cols-3 gap-3">
+              <AutocompleteInput
+                label="Unload Place"
+                placeholder="Select Unload Place"
+                options={toPlaceOptions}
+                value={unloadPlace}
+                onSelect={setUnloadPlace}
+              />
+
               <Input
-                type="date"
-                label="Trip Date"
-                value={tsDate}
-                onChange={(e) => setTsDate(e.target.value)}
+                label="Carriers"
+                value={carriers}
+                onChange={(e) => setCarriers(e.target.value)}
               />
-            </div>
-          </div>
 
-          {/* GC DETAILS PANEL */}
-          <div>
+                <Input label="Total Rs." value={String(totalAmount)} readOnly />
+
+            </div>
+          </section>
+
+          {/* GC DETAILS */}
+          <section>
             <h2 className="text-xl font-semibold text-foreground border-b border-muted pb-3 mb-6">
               GC Details
             </h2>
 
-            <div className="p-3 border rounded-md space-y-3 mb-3">
-
-              <div className="grid grid-cols-8 gap-3 items-end">
-                <div className="col-span-3">
+            <div className="border p-4 rounded-md space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-8 gap-3 items-end">
+                <div className="md:col-span-4">
                   <AutocompleteInput
                     label="Select GC No"
                     placeholder="Search GC..."
@@ -317,23 +331,25 @@ const [tsDate, setTsDate] = useState(editing ? editing.tsDate : getTodayDate());
                   />
                 </div>
 
-                {/* NEW — QTY RATE */}
-                <Input
-                  label="QTY RATE"
-                  type="number"
-                  value={rate}
-                  onChange={(e) => setRate(Number(e.target.value) || 0)}
-                  className="col-span-2"
-                />
+                <div className="md:col-span-2">
+                  <Input
+                    label="QTY RATE"
+                    type="number"
+                    value={rate}
+                    onChange={(e) => setRate(Number(e.target.value) || 0)}
+                  />
+                </div>
 
-                <Button
-                  type="button"
-                  variant="primary"
-                  className="col-span-2"
-                  onClick={handleAddGC}
-                >
-                  Add GC
-                </Button>
+                <div className="md:col-span-2">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    onClick={handleAddGC}
+                    className="w-full"
+                  >
+                    Add GC
+                  </Button>
+                </div>
               </div>
 
               {/* TABLE */}
@@ -393,68 +409,79 @@ const [tsDate, setTsDate] = useState(editing ? editing.tsDate : getTodayDate());
               </div>
             </div>
 
-            {/* UNLOAD + TOTAL */}
-            <div className="grid grid-cols-3 gap-3">
-              <AutocompleteInput
-                label="Unload Place"
-                placeholder="Select Unload Place"
-                options={toPlaceOptions}
-                value={unloadPlace}
-                onSelect={(v) => setUnloadPlace(v)}
-              />
-
-              <Input
-                label="Total Rs."
-                value={String(totalAmount)}
-                readOnly
-              />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+              
+              
             </div>
-          </div>
+          </section>
 
-          {/* DRIVER / OWNER */}
-          <div>
+          {/* DRIVER DETAILS */}
+          <section>
             <h2 className="text-xl font-semibold text-foreground border-b border-muted pb-3 mb-6">
               Driver Details
             </h2>
 
-            <div className="grid grid-cols-3 gap-3 mb-3">
-              <Input
-                label="Driver Name"
-                value={driverName}
-                onChange={(e) => setDriverName(e.target.value)}
-              />
-              <Input
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+              <AutocompleteInput
                 label="DL No"
+                placeholder="Select DL No"
+                options={driverDlOptions}
                 value={dlNo}
-                onChange={(e) => setDlNo(e.target.value)}
+                onSelect={(v) => {
+                  setDlNo(v);
+                  fillDriverFromDl(v);
+                }}
               />
-              <Input
+
+              <AutocompleteInput
                 label="Driver Mobile"
+                placeholder="Select Driver Mobile"
+                options={driverMobileOptions}
                 value={driverMobile}
-                onChange={(e) => setDriverMobile(e.target.value)}
+                onSelect={(v) => {
+                  setDriverMobile(v);
+                  fillDriverFromMobile(v);
+                }}
+              />
+
+              <AutocompleteInput
+                label="Driver Name"
+                placeholder="Select Driver Name"
+                options={driverNameOptions}
+                value={driverName}
+                onSelect={(v) => {
+                  if (!driverNameReadonly) setDriverName(v);
+                }}
+                readOnly={driverNameReadonly}
+                disabled={driverNameReadonly}
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-3 mb-3">
-              <Input
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+              <AutocompleteInput
                 label="Lorry No"
+                placeholder="Select Lorry No"
+                options={vehicleNoOptions}
                 value={lorryNo}
-                onChange={(e) => setLorryNo(e.target.value)}
+                onSelect={(v) => {
+                  setLorryNo(v);
+                  fillVehicleFromNo(v);
+                }}
               />
-              <Input
+
+              <AutocompleteInput
                 label="Lorry Name"
+                placeholder="Select Lorry Name"
+                options={vehicleNameOptions}
                 value={lorryName}
-                onChange={(e) => setLorryName(e.target.value)}
+                onSelect={setLorryName}
+                readOnly={!!lorryNo}
+                disabled={!!lorryNo}
               />
-              <Input
-                label="Carriers"
-                value={carriers}
-                onChange={(e) => setCarriers(e.target.value)}
-                className="col-span-2"
-              />
+
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <Input
                 label="Owner Name"
                 value={ownerName}
@@ -465,11 +492,13 @@ const [tsDate, setTsDate] = useState(editing ? editing.tsDate : getTodayDate());
                 value={ownerMobile}
                 onChange={(e) => setOwnerMobile(e.target.value)}
               />
+              {/* empty placeholder column on larger screens */}
+              <div />
             </div>
-          </div>
+          </section>
 
-          {/* SAVE FOOTER */}
-          <div className="flex flex-col sm:flex-row justify-end gap-4 p-4 bg-background/90 backdrop-blur-sm sticky bottom-0 border-t border-muted rounded-b-lg">
+          {/* SAVE FOOTER INSIDE CARD FOR LARGE SCREENS */}
+        <div className="flex flex-col sm:flex-row justify-end gap-4 p-4 bg-background/90 backdrop-blur-sm sticky bottom-0 border-t border-muted rounded-b-lg">
             <Button
               type="button"
               variant="secondary"
@@ -478,12 +507,33 @@ const [tsDate, setTsDate] = useState(editing ? editing.tsDate : getTodayDate());
               Cancel
             </Button>
 
-            <Button type="submit" variant="primary">
+            <Button type="submit" variant="primary" onClick={handleSave}>
               <Save size={16} className="mr-2" />
               Save Trip Sheet
             </Button>
           </div>
+        </div>
 
+        {/* Sticky mobile footer (visible on small screens) */}
+        <div className="flex md:hidden flex-col sm:flex-row justify-end gap-3 p-4 bg-background/90 backdrop-blur-sm sticky bottom-0 border-t border-muted rounded-b-lg">
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full"
+            onClick={() => navigate("/trip-sheet")}
+          >
+            Cancel
+          </Button>
+
+          <Button
+            type="submit"
+            variant="primary"
+            className="w-full"
+            onClick={handleSave}
+          >
+            <Save size={16} className="mr-2" />
+            Save Trip Sheet
+          </Button>
         </div>
       </form>
     </div>

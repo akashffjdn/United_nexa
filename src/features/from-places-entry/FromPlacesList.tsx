@@ -102,7 +102,7 @@ export const FromPlaceList = () => {
                 {/* RIGHT: Create */}
                 <div className="flex gap-2 w-full md:w-auto justify-end">
                     <Button variant="primary" onClick={handleCreateNew}>
-                        + Create New From Place
+                        + Add From Place
                     </Button>
                 </div>
             </div>

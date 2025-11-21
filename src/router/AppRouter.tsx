@@ -18,9 +18,13 @@ import { ContentList } from '../features/content-entry/ContentList';
 import { TripSheetList } from '../features/trip-sheet-entry/TripSheetList';
 import { TripSheetForm } from '../features/trip-sheet-entry/TripSheetForm';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
-import { MasterDashboardPage } from '../features/dashboard/MasterDashboardPage'; // Imported
+import { MasterDashboardPage } from '../features/dashboard/MasterDashboardPage';
 import { LoadingScreen } from '../components/shared/LoadingScreen';
 import { UserList } from '../features/users/UserList';
+
+// --- ADDED NEW IMPORTS ---
+import { VehicleList } from '../features/vehicle-details/VehicleList';
+import { DriverList } from '../features/driver-details copy/DriverList';
 
 // --- AUTH PROTECTION ---
 const ProtectedRoute = ({ children, noLayout = false, requireAdmin = false }: { children: React.ReactNode; noLayout?: boolean; requireAdmin?: boolean }) => {
@@ -85,7 +89,7 @@ const AppRouter = () => {
           DATA MANAGEMENT (Sub-Menu Items)
          =================================================== */}
       
-      {/* RESTORED: Master Dashboard Landing Page */}
+      {/* Master Dashboard Landing Page */}
       <Route path="/master" element={<ProtectedRoute><MasterDashboardPage /></ProtectedRoute>} />
 
       <Route path="/master/consignors" element={<ProtectedRoute><ConsignorList /></ProtectedRoute>} />
@@ -94,6 +98,10 @@ const AppRouter = () => {
       <Route path="/master/to-places" element={<ProtectedRoute><ToPlacesList /></ProtectedRoute>} />
       <Route path="/master/packings" element={<ProtectedRoute><PackingEntryList /></ProtectedRoute>} />
       <Route path="/master/contents" element={<ProtectedRoute><ContentList /></ProtectedRoute>} />
+      
+      {/* NEW: Vehicle & Driver Management Routes */}
+      <Route path="/master/vehicles" element={<ProtectedRoute><VehicleList /></ProtectedRoute>} />
+      <Route path="/master/drivers" element={<ProtectedRoute><DriverList /></ProtectedRoute>} />
 
       {/* Admin - User Management */}
       <Route 

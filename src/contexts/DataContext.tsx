@@ -7,7 +7,9 @@ import type {
   ToPlace,
   PackingEntry,
   ContentEntry,
-  TripSheetEntry
+  TripSheetEntry,
+  VehicleEntry,
+  DriverEntry
 } from '../types';
 import { getTodayDate, getYesterdayDate } from '../utils/dateHelpers';
 
@@ -84,7 +86,16 @@ const MOCK_CONTENT_ENTRIES: ContentEntry[] = [
   { id: 'cn4', contentName: 'GENERAL GOODS', shortName: 'GEN' },
 ];
 
-// --- NEW: MOCK DATA FOR TRIP SHEET ---
+const MOCK_VEHICLES: VehicleEntry[] = [
+  { id: 'v1', vehicleNo: 'TN-67-AB-1234', vehicleName: 'Ashok Leyland' },
+  { id: 'v2', vehicleNo: 'KA-01-XY-5678', vehicleName: 'Tata Ace' },
+];
+
+const MOCK_DRIVERS: DriverEntry[] = [
+  { id: 'd1', driverName: 'Ramesh', dlNo: 'TN6720100012345', mobile: '9876543210' },
+  { id: 'd2', driverName: 'Suresh', dlNo: 'KA0120150067890', mobile: '9123456789' },
+];
+
 const MOCK_TRIP_SHEETS: TripSheetEntry[] = [
   {
     id: '1',
@@ -136,7 +147,6 @@ const loadFromStorage = (key: string, mockData: any[]) => {
     const storedValue = localStorage.getItem(key);
     if (storedValue) {
       const parsed = JSON.parse(storedValue);
-      // If stored data is an empty array, force reload from Mock Data
       if (Array.isArray(parsed) && parsed.length === 0 && mockData.length > 0) {
         return mockData;
       }
@@ -157,6 +167,8 @@ interface DataContextType {
   packingEntries: PackingEntry[];
   contentEntries: ContentEntry[];
   tripSheets: TripSheetEntry[];
+  vehicleEntries: VehicleEntry[];
+  driverEntries: DriverEntry[];
   
   addConsignor: (consignor: Consignor) => void;
   updateConsignor: (consignor: Consignor) => void;
@@ -192,6 +204,14 @@ interface DataContextType {
   updateTripSheet: (sheet: TripSheetEntry) => void;
   deleteTripSheet: (id: string) => void;
   getTripSheet: (id: string) => TripSheetEntry | undefined;
+
+  addVehicleEntry: (entry: VehicleEntry) => void;
+  updateVehicleEntry: (entry: VehicleEntry) => void;
+  deleteVehicleEntry: (id: string) => void;
+
+  addDriverEntry: (entry: DriverEntry) => void;
+  updateDriverEntry: (entry: DriverEntry) => void;
+  deleteDriverEntry: (id: string) => void;
   
   getUniqueDests: () => { value: string, label: string }[];
   getPackingTypes: () => { value: string, label: string }[];
@@ -208,9 +228,9 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   const [toPlaces, setToPlaces] = useState<ToPlace[]>(() => loadFromStorage('toPlaces', MOCK_TO_PLACES));
   const [packingEntries, setPackingEntries] = useState<PackingEntry[]>(() => loadFromStorage('packingEntries', MOCK_PACKING_ENTRIES));
   const [contentEntries, setContentEntries] = useState<ContentEntry[]>(() => loadFromStorage('contentEntries', MOCK_CONTENT_ENTRIES));
-  
-  // --- UPDATED: Initialize Trip Sheets with Mock Data using the smart loader ---
   const [tripSheets, setTripSheets] = useState<TripSheetEntry[]>(() => loadFromStorage('tripSheets', MOCK_TRIP_SHEETS));
+  const [vehicleEntries, setVehicleEntries] = useState<VehicleEntry[]>(() => loadFromStorage('vehicleEntries', MOCK_VEHICLES));
+  const [driverEntries, setDriverEntries] = useState<DriverEntry[]>(() => loadFromStorage('driverEntries', MOCK_DRIVERS));
 
   useEffect(() => { localStorage.setItem('consignors', JSON.stringify(consignors)); }, [consignors]);
   useEffect(() => { localStorage.setItem('consignees', JSON.stringify(consignees)); }, [consignees]);
@@ -220,6 +240,8 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => { localStorage.setItem('packingEntries', JSON.stringify(packingEntries)); }, [packingEntries]);
   useEffect(() => { localStorage.setItem('contentEntries', JSON.stringify(contentEntries)); }, [contentEntries]);
   useEffect(() => { localStorage.setItem('tripSheets', JSON.stringify(tripSheets)); }, [tripSheets]);
+  useEffect(() => { localStorage.setItem('vehicleEntries', JSON.stringify(vehicleEntries)); }, [vehicleEntries]);
+  useEffect(() => { localStorage.setItem('driverEntries', JSON.stringify(driverEntries)); }, [driverEntries]);
 
   const addConsignor = (consignor: Consignor) => setConsignors(p => [...p, consignor]);
   const updateConsignor = (c: Consignor) => setConsignors(p => p.map(x => x.id === c.id ? c : x));
@@ -261,6 +283,16 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   const deleteTripSheet = (id: string) => setTripSheets(p => p.filter(x => x.mfNo !== id));
   const getTripSheet = (id: string) => tripSheets.find(ts => ts.mfNo === id || ts.id === id);
 
+  // Vehicles
+  const addVehicleEntry = (entry: VehicleEntry) => setVehicleEntries(p => [...p, entry]);
+  const updateVehicleEntry = (entry: VehicleEntry) => setVehicleEntries(p => p.map(x => x.id === entry.id ? entry : x));
+  const deleteVehicleEntry = (id: string) => setVehicleEntries(p => p.filter(x => x.id !== id));
+
+  // Drivers
+  const addDriverEntry = (entry: DriverEntry) => setDriverEntries(p => [...p, entry]);
+  const updateDriverEntry = (entry: DriverEntry) => setDriverEntries(p => p.map(x => x.id === entry.id ? entry : x));
+  const deleteDriverEntry = (id: string) => setDriverEntries(p => p.filter(x => x.id !== id));
+
   const getUniqueDests = () => {
     const dests = new Set([
       ...toPlaces.map(tp => tp.placeName),
@@ -279,7 +311,7 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const value = useMemo(() => ({
-    consignors, consignees, gcEntries, fromPlaces, toPlaces, packingEntries, contentEntries, tripSheets,
+    consignors, consignees, gcEntries, fromPlaces, toPlaces, packingEntries, contentEntries, tripSheets, vehicleEntries, driverEntries,
     addConsignor, updateConsignor, deleteConsignor,
     addConsignee, updateConsignee, deleteConsignee,
     getNextGcNo, getGcEntry, addGcEntry, updateGcEntry, deleteGcEntry,
@@ -288,8 +320,10 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     addPackingEntry, updatePackingEntry, deletePackingEntry,
     addContentEntry, updateContentEntry, deleteContentEntry,
     addTripSheet, updateTripSheet, deleteTripSheet, getTripSheet,
+    addVehicleEntry, updateVehicleEntry, deleteVehicleEntry,
+    addDriverEntry, updateDriverEntry, deleteDriverEntry,
     getUniqueDests, getPackingTypes, getContentsTypes,
-  }), [consignors, consignees, gcEntries, fromPlaces, toPlaces, packingEntries, contentEntries, tripSheets]);
+  }), [consignors, consignees, gcEntries, fromPlaces, toPlaces, packingEntries, contentEntries, tripSheets, vehicleEntries, driverEntries]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 };
