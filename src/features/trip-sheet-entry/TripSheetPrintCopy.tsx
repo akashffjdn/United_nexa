@@ -69,15 +69,16 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
           justify-content:space-between;
           align-items:flex-start;
         }
-        .company-block { width: 70%; }
+        .company-block { width: 70%; border-right: 1px solid #000; }
         .company-title { font-weight: 900; font-size: 20px; }
         .company-sub { font-size: 11px; margin-top: 3px; }
 
         .meta-block {
           width: 30%;
-          text-align: right;
+          text-align: left;
           font-size: 12px;
           line-height: 1.4;
+          padding: 10px;
         }
 
         .fromto {
@@ -85,7 +86,7 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
           justify-content:space-between;
           margin-top: 8px;
           padding: 6px 2px;
-          font-weight: 700;
+          font-weight: 100;
           border-top: 1px solid #000;
         }
 
@@ -182,26 +183,29 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
         {/* Header */}
         <div className="header-flex">
           <div className="company-block">
-            <div style={{ fontSize: 11 }}>
-              GSTIN:33ABLPV5082H3Z8 &nbsp; Mobile: 9787718433
-            </div>
-            <div className="company-title">UNITED TRANSPORT COMPANY</div>
-            <div className="company-sub">
-              164-A, Arumugam Road, Near A.V.T. School, SIVAKASI - 626123
+            <div style={{  }}>
+
+              <div style={{ fontSize: 11 }}>
+                <div>GSTIN: 33ABLPV5082H3Z8 </div> <div>Mobile: 9787718433</div>
+              </div>
+              <div className="company-title">UNITED TRANSPORT COMPANY</div>
+              <div className="company-sub">
+                164-A, Arumugam Road, Near A.V.T. School, SIVAKASI - 626123
+              </div>
             </div>
           </div>
 
           <div className="meta-block">
             <div><strong>M.F. No.:</strong> {sheet.mfNo}</div>
-            <div><strong>Carriers:</strong> {sheet.carriers ?? ""}</div>
+            <div><strong>Carriers:</strong> {(sheet.carriers ?? "").toUpperCase()}</div>
           </div>
         </div>
 
         {/* From / To / Date */}
         <div className="fromto">
-          <div><strong>From:</strong> {sheet.fromPlace}</div>
-          <div><strong>To:</strong> {sheet.toPlace}</div>
-          <div><strong>Date:</strong> {fmtDate(sheet.tsDate)}</div>
+          <div>From: {sheet.fromPlace}</div>
+          <div>To: {sheet.toPlace}</div>
+          <div>Date: {fmtDate(sheet.tsDate)}</div>
         </div>
 
         {/* Table */}
@@ -209,11 +213,11 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
           <thead>
             <tr>
               <th style={{ width: "12%" }}>C.N.No.</th>
-              <th style={{ width: "13%" }}>No. of Packages</th>
+              <th style={{ width: "18%" }}>No. of Packages</th>
               <th style={{ width: "15%" }}>Contents</th>
-              <th style={{ width: "27%" }}>Consignor</th>
+              <th style={{ width: "22%" }}>Consignor</th>
               <th style={{ width: "27%" }}>Consignee</th>
-              <th style={{ width: "12%", textAlign: "right" }}>To Pay</th>
+              <th style={{ width: "12%" }}>To Pay</th>
             </tr>
           </thead>
 

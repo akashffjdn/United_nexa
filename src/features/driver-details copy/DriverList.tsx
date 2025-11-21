@@ -1,12 +1,13 @@
 import { useState, useMemo } from "react";
 import type { DriverEntry } from "../../types";
-import { FilePenLine, Trash2, Search } from "lucide-react";
+import { FilePenLine, Trash2, Search, Download } from "lucide-react";
 import { DriverForm } from "./DriverForm";
 import { ConfirmationDialog } from "../../components/shared/ConfirmationDialog";
 import { useData } from "../../hooks/useData";
 import { Button } from "../../components/shared/Button";
 import { usePagination } from "../../utils/usePagination";
 import { Pagination } from "../../components/shared/Pagination";
+import { CsvImporter } from "../../components/shared/CsvImporter";
 
 export const DriverList = () => {
   const {
@@ -82,6 +83,38 @@ export const DriverList = () => {
     handleFormClose();
   };
 
+  const handleImport = (data: DriverEntry[]) => {
+    data.forEach(d => addDriverEntry(d));
+  };
+
+  const handleExport = () => {
+    if (filteredEntries.length === 0) {
+      alert("No data to export");
+      return;
+    }
+    const headers = ['Driver Name', 'DL No', 'Mobile'];
+    const csvContent = [
+      headers.join(','),
+      ...filteredEntries.map(d => [
+        `"${d.driverName.replace(/"/g, '""')}"`,
+        `"${d.dlNo.replace(/"/g, '""')}"`,
+        `"${d.mobile.replace(/"/g, '""')}"`
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `drivers_export.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
   return (
     <div className="space-y-6">
 
@@ -101,6 +134,25 @@ export const DriverList = () => {
 
         {/* RIGHT: Create Button */}
         <div className="flex gap-2 w-full md:w-auto justify-end">
+          <Button variant="outline" onClick={handleExport} size="sm" title="Export CSV">
+            <Download size={16} className="mr-2" /> Export
+          </Button>
+          <CsvImporter<DriverEntry>
+            onImport={handleImport}
+            existingData={driverEntries}
+            checkDuplicate={(newItem, existing) => 
+                newItem.dlNo.trim().toLowerCase() === existing.dlNo.trim().toLowerCase()
+            }
+            mapRow={(row) => {
+                if (!row.drivername || !row.dlno || !row.mobile) return null;
+                return {
+                    id: `drv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    driverName: row.drivername,
+                    dlNo: row.dlno,
+                    mobile: row.mobile
+                };
+            }}
+          />
           <Button variant="primary" onClick={handleCreateNew}>
             + Add Driver
           </Button>
@@ -134,80 +186,88 @@ export const DriverList = () => {
             </thead>
 
             <tbody className="divide-y divide-muted">
-              {paginatedData.map((entry: DriverEntry, index) => (
-                <tr key={entry.id} className="hover:bg-muted/30">
-                  <td className="px-6 py-4 text-sm font-medium">
-                    {(currentPage - 1) * itemsPerPage + index + 1}
-                  </td>
-                  <td className="px-6 py-4 text-sm font-medium text-foreground">{entry.driverName}</td>
-                  <td className="px-6 py-4 text-sm text-muted-foreground font-mono">{entry.dlNo}</td>
-                  <td className="px-6 py-4 text-sm text-muted-foreground">{entry.mobile}</td>
-                  <td className="px-6 py-4 text-sm space-x-3">
-                    <button onClick={() => handleEdit(entry)} className="text-blue-600 hover:text-blue-800">
-                      <FilePenLine size={18} />
-                    </button>
-                    <button onClick={() => handleDelete(entry)} className="text-destructive hover:text-destructive/80">
-                      <Trash2 size={18} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {paginatedData.length > 0 ? (
+                paginatedData.map((entry: DriverEntry, index) => (
+                  <tr key={entry.id} className="hover:bg-muted/30">
+                    <td className="px-6 py-4 text-sm font-medium">
+                      {(currentPage - 1) * itemsPerPage + index + 1}
+                    </td>
+                    <td className="px-6 py-4 text-sm font-medium text-foreground">{entry.driverName}</td>
+                    <td className="px-6 py-4 text-sm text-muted-foreground font-mono">{entry.dlNo}</td>
+                    <td className="px-6 py-4 text-sm text-muted-foreground">{entry.mobile}</td>
+                    <td className="px-6 py-4 text-sm space-x-3">
+                      <button onClick={() => handleEdit(entry)} className="text-blue-600 hover:text-blue-800">
+                        <FilePenLine size={18} />
+                      </button>
+                      <button onClick={() => handleDelete(entry)} className="text-destructive hover:text-destructive/80">
+                        <Trash2 size={18} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                 <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
+                       No drivers found.
+                    </td>
+                 </tr>
+              )}
             </tbody>
           </table>
         </div>
 
         {/* Mobile Cards */}
         <div className="block md:hidden divide-y divide-muted">
-          {paginatedData.map((entry: DriverEntry, index) => (
-            <div key={entry.id} className="p-4 hover:bg-muted/30">
-              <div className="flex justify-between items-start">
-                <div>
-                  <div className="text-sm text-muted-foreground">
-                    #{(currentPage - 1) * itemsPerPage + index + 1}
+          {paginatedData.length > 0 ? (
+            paginatedData.map((entry: DriverEntry, index) => (
+              <div key={entry.id} className="p-4 hover:bg-muted/30">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="text-sm text-muted-foreground">
+                      #{(currentPage - 1) * itemsPerPage + index + 1}
+                    </div>
+                    <div className="text-lg font-semibold text-foreground">{entry.driverName}</div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      DL: {entry.dlNo}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Mob: {entry.mobile}
+                    </div>
                   </div>
-                  <div className="text-lg font-semibold text-foreground">{entry.driverName}</div>
-                  <div className="text-sm text-muted-foreground mt-1">
-                    DL: {entry.dlNo}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Mob: {entry.mobile}
-                  </div>
-                </div>
 
-                <div className="flex flex-col space-y-3 pt-1">
-                  <button onClick={() => handleEdit(entry)} className="text-blue-600">
-                    <FilePenLine size={18} />
-                  </button>
-                  <button onClick={() => handleDelete(entry)} className="text-destructive">
-                    <Trash2 size={18} />
-                  </button>
+                  <div className="flex flex-col space-y-3 pt-1">
+                    <button onClick={() => handleEdit(entry)} className="text-blue-600">
+                      <FilePenLine size={18} />
+                    </button>
+                    <button onClick={() => handleDelete(entry)} className="text-destructive">
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          ) : (
+             <div className="p-8 text-center text-muted-foreground">
+                No drivers found.
+             </div>
+          )}
         </div>
 
         {/* Pagination */}
-        <div className="border-t border-muted p-4">
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-            itemsPerPage={itemsPerPage}
-            onItemsPerPageChange={setItemsPerPage}
-            totalItems={totalItems}
-          />
-        </div>
+        {filteredEntries.length > 0 && (
+          <div className="border-t border-muted p-4">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              itemsPerPage={itemsPerPage}
+              onItemsPerPageChange={setItemsPerPage}
+              totalItems={totalItems}
+            />
+          </div>
+        )}
       </div>
 
-      {/* No Results */}
-      {filteredEntries.length === 0 && (
-        <div className="text-center py-12 text-muted-foreground">
-          No drivers found.
-        </div>
-      )}
-
-      {/* Driver Form Modal */}
       {isFormOpen && (
         <DriverForm
           initialData={editingEntry}

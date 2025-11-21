@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { FilePenLine, Trash2, UserPlus, Shield, User as UserIcon, Search, Mail, Phone } from 'lucide-react';
+import { FilePenLine, Trash2, UserPlus, Shield, User as UserIcon, Search, Mail, Phone, Download } from 'lucide-react';
 import { UserForm } from './UserForm';
 import { ConfirmationDialog } from '../../components/shared/ConfirmationDialog';
 import type { AppUser } from '../../types';
 import { Button } from '../../components/shared/Button';
+import { CsvImporter } from '../../components/shared/CsvImporter';
 
 export const UserList = () => {
   const { users, addUser, updateUser, deleteUser, user: currentUser } = useAuth();
@@ -42,6 +43,44 @@ export const UserList = () => {
     setEditingUser(undefined);
   };
 
+  // --- CSV IMPORT HANDLER ---
+  const handleImport = (data: AppUser[]) => {
+    data.forEach(user => addUser(user));
+  };
+
+  // --- CSV EXPORT HANDLER (Updated with Password) ---
+  const handleExport = () => {
+    if (filteredUsers.length === 0) {
+      alert("No data to export");
+      return;
+    }
+    // Added 'Password' to headers
+    const headers = ['Name', 'Email', 'Password', 'Mobile', 'Role'];
+    
+    const csvContent = [
+      headers.join(','),
+      ...filteredUsers.map(u => [
+        `"${u.name.replace(/"/g, '""')}"`,
+        `"${u.email.replace(/"/g, '""')}"`,
+        `"${u.password.replace(/"/g, '""')}"`, // Added Password field here
+        `"${u.mobile.replace(/"/g, '""')}"`,
+        `"${u.role}"`
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `users_export.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Bar */}
@@ -58,8 +97,39 @@ export const UserList = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
         </div>
 
-        {/* RIGHT: Create */}
+        {/* RIGHT: Actions */}
         <div className="flex gap-2 w-full md:w-auto justify-end">
+          <Button variant="outline" onClick={handleExport} size="sm" title="Export CSV">
+            <Download size={16} className="mr-2" /> Export
+          </Button>
+          <CsvImporter<AppUser>
+            onImport={handleImport}
+            existingData={users}
+            label="Import Users"
+            // Duplicate Check: Prevent same Email
+            checkDuplicate={(newItem, existing) => 
+              newItem.email.trim().toLowerCase() === existing.email.trim().toLowerCase()
+            }
+            mapRow={(row) => {
+              // VALIDATION: Require Name, Email, Password
+              if (!row.name || !row.email || !row.password) return null;
+              
+              // Normalize Role (Default to 'user' if invalid or missing)
+              let role: 'admin' | 'user' = 'user';
+              if (row.role && row.role.toLowerCase().includes('admin')) {
+                role = 'admin';
+              }
+
+              return {
+                id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                name: row.name,
+                email: row.email,
+                password: row.password, 
+                mobile: row.mobile || '',
+                role: role,
+              };
+            }}
+          />
           <Button variant="primary" onClick={handleCreateNew}>
             <UserPlus size={18} className="mr-2" />
             Add New User
@@ -82,88 +152,96 @@ export const UserList = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-muted bg-background">
-              {filteredUsers.map((u) => (
-                <tr key={u.id} className="hover:bg-muted/30">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center text-primary">
-                        {u.role === 'admin' ? <Shield size={20} /> : <UserIcon size={20} />}
+              {filteredUsers.length > 0 ? (
+                filteredUsers.map((u) => (
+                  <tr key={u.id} className="hover:bg-muted/30">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+                          {u.role === 'admin' ? <Shield size={20} /> : <UserIcon size={20} />}
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-foreground">{u.name}</div>
+                          <div className="text-sm text-muted-foreground">{u.email}</div>
+                        </div>
                       </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-foreground">{u.name}</div>
-                        <div className="text-sm text-muted-foreground">{u.email}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${u.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'}`}>
-                      {u.role.toUpperCase()}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">{u.mobile}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground font-mono">••••••••</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm space-x-3">
-                    <button onClick={() => handleEdit(u)} className="text-blue-600 hover:text-blue-800"><FilePenLine size={18} /></button>
-                    {currentUser?.id !== u.id && (
-                      <button onClick={() => handleDelete(u)} className="text-destructive hover:text-destructive/80"><Trash2 size={18} /></button>
-                    )}
-                  </td>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${u.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'}`}>
+                        {u.role.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">{u.mobile}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground font-mono">••••••••</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm space-x-3">
+                      <button onClick={() => handleEdit(u)} className="text-blue-600 hover:text-blue-800"><FilePenLine size={18} /></button>
+                      {currentUser?.id !== u.id && (
+                        <button onClick={() => handleDelete(u)} className="text-destructive hover:text-destructive/80"><Trash2 size={18} /></button>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
+                        No users found.
+                    </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
 
         {/* B) Mobile Card View (Visible on Mobile) */}
         <div className="block md:hidden divide-y divide-muted">
-           {filteredUsers.map((u) => (
-             <div key={u.id} className="p-4 hover:bg-muted/10 transition-colors">
-                <div className="flex justify-between items-start">
-                   {/* Left: User Info */}
-                   <div className="flex gap-3">
-                      <div className="flex-shrink-0 h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center text-primary mt-1">
-                        {u.role === 'admin' ? <Shield size={20} /> : <UserIcon size={20} />}
-                      </div>
-                      <div>
-                         <div className="font-bold text-foreground text-lg">{u.name}</div>
-                         <div className="mt-1">
-                            <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${u.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'}`}>
-                              {u.role.toUpperCase()}
-                            </span>
-                         </div>
-                      </div>
-                   </div>
+           {filteredUsers.length > 0 ? (
+             filteredUsers.map((u) => (
+               <div key={u.id} className="p-4 hover:bg-muted/10 transition-colors">
+                  <div className="flex justify-between items-start">
+                     {/* Left: User Info */}
+                     <div className="flex gap-3">
+                        <div className="flex-shrink-0 h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center text-primary mt-1">
+                          {u.role === 'admin' ? <Shield size={20} /> : <UserIcon size={20} />}
+                        </div>
+                        <div>
+                           <div className="font-bold text-foreground text-lg">{u.name}</div>
+                           <div className="mt-1">
+                              <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${u.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'}`}>
+                                {u.role.toUpperCase()}
+                              </span>
+                           </div>
+                        </div>
+                     </div>
 
-                   {/* Right: Actions */}
-                   <div className="flex flex-col gap-2">
-                      <button onClick={() => handleEdit(u)} className="p-2 text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100"><FilePenLine size={18}/></button>
-                      {currentUser?.id !== u.id && (
-                        <button onClick={() => handleDelete(u)} className="p-2 text-destructive bg-red-50 rounded-full hover:bg-red-100"><Trash2 size={18}/></button>
-                      )}
-                   </div>
-                </div>
+                     {/* Right: Actions */}
+                     <div className="flex flex-col gap-2">
+                        <button onClick={() => handleEdit(u)} className="p-2 text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100"><FilePenLine size={18}/></button>
+                        {currentUser?.id !== u.id && (
+                          <button onClick={() => handleDelete(u)} className="p-2 text-destructive bg-red-50 rounded-full hover:bg-red-100"><Trash2 size={18}/></button>
+                        )}
+                     </div>
+                  </div>
 
-                {/* Details Section - REDUCED MARGIN HERE */}
-                <div className="mt-2 space-y-1 pl-[3.25rem]">
-                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Mail size={14} />
-                      <span className="truncate">{u.email}</span>
-                   </div>
-                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Phone size={14} />
-                      <span>{u.mobile}</span>
-                   </div>
-                </div>
-             </div>
-           ))}
+                  {/* Details Section */}
+                  <div className="mt-2 space-y-1 pl-[3.25rem]">
+                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Mail size={14} />
+                        <span className="truncate">{u.email}</span>
+                     </div>
+                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Phone size={14} />
+                        <span>{u.mobile}</span>
+                     </div>
+                  </div>
+               </div>
+             ))
+           ) : (
+              <div className="p-8 text-center text-muted-foreground">
+                 No users found.
+              </div>
+           )}
         </div>
         
-        {filteredUsers.length === 0 && (
-           <div className="text-center py-12 text-muted-foreground">
-             No users found.
-           </div>
-        )}
-
       </div>
 
       {isFormOpen && <UserForm initialData={editingUser} onClose={() => setIsFormOpen(false)} onSave={handleFormSave} />}

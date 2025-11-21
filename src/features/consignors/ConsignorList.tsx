@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import type { Consignor, Consignee } from '../../types';
-import { FilePenLine, Trash2, Search, Filter, XCircle, RotateCcw } from 'lucide-react';
+import { FilePenLine, Trash2, Search, Filter, XCircle, RotateCcw, Download } from 'lucide-react';
 import { ConsignorForm } from './ConsignorForm';
 import { DateFilterButtons, getTodayDate, getYesterdayDate, isDateInLast7Days } from '../../components/shared/DateFilterButtons';
 import { ConfirmationDialog } from '../../components/shared/ConfirmationDialog';
@@ -8,6 +8,7 @@ import { useData } from '../../hooks/useData';
 import { Button } from '../../components/shared/Button';
 import { usePagination } from '../../utils/usePagination';
 import { Pagination } from '../../components/shared/Pagination';
+import { CsvImporter } from '../../components/shared/CsvImporter';
 
 export const ConsignorList = () => {
   const { consignors, addConsignor, updateConsignor, deleteConsignor, addConsignee } = useData();
@@ -23,7 +24,7 @@ export const ConsignorList = () => {
 
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [deleteMessage, setDeleteMessage] = useState(""); // Dynamic message
+  const [deleteMessage, setDeleteMessage] = useState(""); 
 
   const clearAllFilters = () => {
     setSearch('');
@@ -94,12 +95,48 @@ export const ConsignorList = () => {
     handleFormClose();
   };
 
+  const handleImport = (data: Consignor[]) => {
+    data.forEach(c => addConsignor(c));
+  };
+
+  const handleExport = () => {
+    if (filteredConsignors.length === 0) {
+      alert("No data to export");
+      return;
+    }
+    const headers = ['Name', 'GST', 'Address', 'Mobile', 'From', 'PAN', 'Aadhar', 'Filing Date'];
+    const csvContent = [
+      headers.join(','),
+      ...filteredConsignors.map(c => [
+        `"${c.name.replace(/"/g, '""')}"`,
+        `"${c.gst.replace(/"/g, '""')}"`,
+        `"${c.address.replace(/"/g, '""')}"`,
+        `"${(c.mobile || '').replace(/"/g, '""')}"`,
+        `"${c.from.replace(/"/g, '""')}"`,
+        `"${c.pan || ''}"`,
+        `"${c.aadhar || ''}"`,
+        `"${c.filingDate}"`
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `consignors_export_${getTodayDate()}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
   const hasActiveFilters = filterType !== 'all' || search !== '';
 
   return (
     <div className="space-y-6">
-      
-      {/* 1. Top Bar */}
+      {/* Top Bar */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-background p-4 rounded-lg shadow border border-muted">
         <div className="flex items-center gap-2 w-full md:w-1/2">
           <div className="relative flex-1">
@@ -124,13 +161,37 @@ export const ConsignorList = () => {
         </div>
 
         <div className="flex gap-2 w-full md:w-auto justify-end">
+          <Button variant="outline" onClick={handleExport} size="sm" title="Export CSV">
+            <Download size={16} className="mr-2" /> Export
+          </Button>
+          <CsvImporter<Consignor>
+            onImport={handleImport}
+            existingData={consignors}
+            checkDuplicate={(newItem, existing) => 
+              newItem.gst.trim().toLowerCase() === existing.gst.trim().toLowerCase()
+            }
+            mapRow={(row) => {
+              if (!row.name || !row.gst || !row.address) return null;
+              return {
+                id: `cn-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                name: row.name,
+                gst: row.gst,
+                address: row.address,
+                from: row.from || 'Sivakasi',
+                filingDate: row.filingdate || getTodayDate(),
+                mobile: row.mobile || '',
+                pan: row.pan || undefined,
+                aadhar: row.aadhar || undefined,
+              };
+            }}
+          />
           <Button variant="primary" onClick={handleCreateNew}>
             + Add Consignor
           </Button>
         </div>
       </div>
 
-      {/* 2. Filters */}
+      {/* Filters */}
       {showFilters && (
         <div className="p-4 bg-muted/20 rounded-lg border border-muted animate-in fade-in slide-in-from-top-2">
           <div className="flex justify-between items-center mb-4">
@@ -153,7 +214,7 @@ export const ConsignorList = () => {
         </div>
       )}
 
-      {/* 3. Data Table */}
+      {/* Data Table */}
       <div className="bg-background rounded-lg shadow border border-muted overflow-hidden">
         <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-muted">
@@ -166,50 +227,62 @@ export const ConsignorList = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-muted">
-              {paginatedData.map((consignor, index) => (
-                <tr key={consignor.id} className="hover:bg-muted/30">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    {(currentPage - 1) * itemsPerPage + index + 1}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">{consignor.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{consignor.gst}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm space-x-3">
-                    <button onClick={() => handleEdit(consignor)} className="text-blue-600 hover:text-blue-800"><FilePenLine size={18} /></button>
-                    <button onClick={() => handleDelete(consignor)} className="text-destructive hover:text-destructive/80"><Trash2 size={18} /></button>
+              {paginatedData.length > 0 ? (
+                paginatedData.map((consignor, index) => (
+                  <tr key={consignor.id} className="hover:bg-muted/30">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {(currentPage - 1) * itemsPerPage + index + 1}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">{consignor.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{consignor.gst}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm space-x-3">
+                      <button onClick={() => handleEdit(consignor)} className="text-blue-600 hover:text-blue-800"><FilePenLine size={18} /></button>
+                      <button onClick={() => handleDelete(consignor)} className="text-destructive hover:text-destructive/80"><Trash2 size={18} /></button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground">
+                    No consignors found.
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
 
         {/* Mobile View */}
         <div className="block md:hidden divide-y divide-muted">
-          {paginatedData.map((consignor, index) => (
-            <div key={consignor.id} className="p-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <div className="text-sm text-muted-foreground">#{(currentPage - 1) * itemsPerPage + index + 1}</div>
-                  <div className="text-lg font-semibold text-foreground">{consignor.name}</div>
-                  <div className="text-sm text-muted-foreground">{consignor.gst}</div>
-                </div>
-                <div className="flex space-x-3 pt-1">
-                  <button onClick={() => handleEdit(consignor)} className="text-blue-600"><FilePenLine size={18} /></button>
-                  <button onClick={() => handleDelete(consignor)} className="text-destructive"><Trash2 size={18} /></button>
+          {paginatedData.length > 0 ? (
+            paginatedData.map((consignor, index) => (
+              <div key={consignor.id} className="p-4">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="text-sm text-muted-foreground">#{(currentPage - 1) * itemsPerPage + index + 1}</div>
+                    <div className="text-lg font-semibold text-foreground">{consignor.name}</div>
+                    <div className="text-sm text-muted-foreground">{consignor.gst}</div>
+                  </div>
+                  <div className="flex space-x-3 pt-1">
+                    <button onClick={() => handleEdit(consignor)} className="text-blue-600"><FilePenLine size={18} /></button>
+                    <button onClick={() => handleDelete(consignor)} className="text-destructive"><Trash2 size={18} /></button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          ) : (
+             <div className="p-8 text-center text-muted-foreground">
+                No consignors found.
+             </div>
+          )}
         </div>
 
-        <div className="border-t border-muted p-4">
-          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={setItemsPerPage} totalItems={totalItems} />
-        </div>
+        {filteredConsignors.length > 0 && (
+           <div className="border-t border-muted p-4">
+             <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={setItemsPerPage} totalItems={totalItems} />
+           </div>
+        )}
       </div>
-
-      {filteredConsignors.length === 0 && (
-        <div className="text-center py-12 text-muted-foreground">No consignors found.</div>
-      )}
 
       {isFormOpen && <ConsignorForm initialData={editingConsignor} onClose={handleFormClose} onSave={handleFormSave} />}
       

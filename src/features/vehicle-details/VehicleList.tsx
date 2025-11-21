@@ -1,12 +1,13 @@
 import { useState, useMemo } from "react";
 import type { VehicleEntry } from "../../types";
-import { FilePenLine, Trash2, Search } from "lucide-react";
+import { FilePenLine, Trash2, Search, Download } from "lucide-react";
 import { VehicleForm } from "./VehicleForm";
 import { ConfirmationDialog } from "../../components/shared/ConfirmationDialog";
 import { useData } from "../../hooks/useData";
-import { Button } from "../../components/shared/Button"; // Use shared Button
+import { Button } from "../../components/shared/Button";
 import { usePagination } from "../../utils/usePagination";
 import { Pagination } from "../../components/shared/Pagination";
+import { CsvImporter } from "../../components/shared/CsvImporter";
 
 export const VehicleList = () => {
   const {
@@ -81,6 +82,37 @@ export const VehicleList = () => {
     handleFormClose();
   };
 
+  const handleImport = (data: VehicleEntry[]) => {
+    data.forEach(v => addVehicleEntry(v));
+  };
+
+  const handleExport = () => {
+    if (filteredEntries.length === 0) {
+      alert("No data to export");
+      return;
+    }
+    const headers = ['Vehicle No', 'Vehicle Name'];
+    const csvContent = [
+      headers.join(','),
+      ...filteredEntries.map(v => [
+        `"${v.vehicleNo.replace(/"/g, '""')}"`,
+        `"${v.vehicleName.replace(/"/g, '""')}"`
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `vehicles_export.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
   return (
     <div className="space-y-6">
 
@@ -100,6 +132,24 @@ export const VehicleList = () => {
 
         {/* RIGHT: Create Button */}
         <div className="flex gap-2 w-full md:w-auto justify-end">
+          <Button variant="outline" onClick={handleExport} size="sm" title="Export CSV">
+            <Download size={16} className="mr-2" /> Export
+          </Button>
+           <CsvImporter<VehicleEntry>
+            onImport={handleImport}
+            existingData={vehicleEntries}
+            checkDuplicate={(newItem, existing) => 
+                newItem.vehicleNo.trim().toLowerCase() === existing.vehicleNo.trim().toLowerCase()
+            }
+            mapRow={(row) => {
+                if (!row.vehicleno || !row.vehiclename) return null;
+                return {
+                    id: `veh-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    vehicleNo: row.vehicleno,
+                    vehicleName: row.vehiclename
+                };
+            }}
+          />
           <Button variant="primary" onClick={handleCreateNew}>
             + Add Vehicle
           </Button>
@@ -130,76 +180,84 @@ export const VehicleList = () => {
             </thead>
 
             <tbody className="divide-y divide-muted">
-              {paginatedData.map((entry: VehicleEntry, index) => (
-                <tr key={entry.id} className="hover:bg-muted/30">
-                  <td className="px-6 py-4 text-sm font-medium">
-                    {(currentPage - 1) * itemsPerPage + index + 1}
-                  </td>
-                  <td className="px-6 py-4 text-sm font-semibold text-foreground">{entry.vehicleNo}</td>
-                  <td className="px-6 py-4 text-sm text-muted-foreground">{entry.vehicleName}</td>
-                  <td className="px-6 py-4 text-sm space-x-3">
-                    <button onClick={() => handleEdit(entry)} className="text-blue-600 hover:text-blue-800">
-                      <FilePenLine size={18} />
-                    </button>
-                    <button onClick={() => handleDelete(entry)} className="text-destructive hover:text-destructive/80">
-                      <Trash2 size={18} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {paginatedData.length > 0 ? (
+                paginatedData.map((entry: VehicleEntry, index) => (
+                  <tr key={entry.id} className="hover:bg-muted/30">
+                    <td className="px-6 py-4 text-sm font-medium">
+                      {(currentPage - 1) * itemsPerPage + index + 1}
+                    </td>
+                    <td className="px-6 py-4 text-sm font-semibold text-foreground">{entry.vehicleNo}</td>
+                    <td className="px-6 py-4 text-sm text-muted-foreground">{entry.vehicleName}</td>
+                    <td className="px-6 py-4 text-sm space-x-3">
+                      <button onClick={() => handleEdit(entry)} className="text-blue-600 hover:text-blue-800">
+                        <FilePenLine size={18} />
+                      </button>
+                      <button onClick={() => handleDelete(entry)} className="text-destructive hover:text-destructive/80">
+                        <Trash2 size={18} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                 <tr>
+                    <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground">
+                       No vehicles found.
+                    </td>
+                 </tr>
+              )}
             </tbody>
           </table>
         </div>
 
         {/* Mobile Cards */}
         <div className="block md:hidden divide-y divide-muted">
-          {paginatedData.map((entry: VehicleEntry, index) => (
-            <div key={entry.id} className="p-4 hover:bg-muted/30">
-              <div className="flex justify-between items-start">
-                <div>
-                  <div className="text-sm text-muted-foreground">
-                    #{(currentPage - 1) * itemsPerPage + index + 1}
+          {paginatedData.length > 0 ? (
+            paginatedData.map((entry: VehicleEntry, index) => (
+              <div key={entry.id} className="p-4 hover:bg-muted/30">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="text-sm text-muted-foreground">
+                      #{(currentPage - 1) * itemsPerPage + index + 1}
+                    </div>
+                    <div className="text-lg font-semibold text-foreground">{entry.vehicleNo}</div>
+                    <div className="text-sm text-muted-foreground">
+                      Name: {entry.vehicleName}
+                    </div>
                   </div>
-                  <div className="text-lg font-semibold text-foreground">{entry.vehicleNo}</div>
-                  <div className="text-sm text-muted-foreground">
-                    Name: {entry.vehicleName}
-                  </div>
-                </div>
 
-                <div className="flex flex-col space-y-3 pt-1">
-                  <button onClick={() => handleEdit(entry)} className="text-blue-600">
-                    <FilePenLine size={18} />
-                  </button>
-                  <button onClick={() => handleDelete(entry)} className="text-destructive">
-                    <Trash2 size={18} />
-                  </button>
+                  <div className="flex flex-col space-y-3 pt-1">
+                    <button onClick={() => handleEdit(entry)} className="text-blue-600">
+                      <FilePenLine size={18} />
+                    </button>
+                    <button onClick={() => handleDelete(entry)} className="text-destructive">
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
               </div>
+            ))
+          ) : (
+            <div className="p-8 text-center text-muted-foreground">
+               No vehicles found.
             </div>
-          ))}
+          )}
         </div>
 
         {/* Pagination */}
-        <div className="border-t border-muted p-4">
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-            itemsPerPage={itemsPerPage}
-            onItemsPerPageChange={setItemsPerPage}
-            totalItems={totalItems}
-          />
-        </div>
+        {filteredEntries.length > 0 && (
+          <div className="border-t border-muted p-4">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              itemsPerPage={itemsPerPage}
+              onItemsPerPageChange={setItemsPerPage}
+              totalItems={totalItems}
+            />
+          </div>
+        )}
       </div>
 
-      {/* No Results */}
-      {filteredEntries.length === 0 && (
-        <div className="text-center py-12 text-muted-foreground">
-          No vehicles found.
-        </div>
-      )}
-
-      {/* Vehicle Form Modal */}
       {isFormOpen && (
         <VehicleForm
           initialData={editingEntry}

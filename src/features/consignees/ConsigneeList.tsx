@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import type { Consignee } from '../../types';
-import { FilePenLine, Trash2, Search, Filter, XCircle, RotateCcw } from 'lucide-react';
+import { FilePenLine, Trash2, Search, Filter, XCircle, RotateCcw, Download } from 'lucide-react';
 import { ConsigneeForm } from './ConsigneeForm';
 import { DateFilterButtons, getTodayDate, getYesterdayDate, isDateInLast7Days } from '../../components/shared/DateFilterButtons';
 import { ConfirmationDialog } from '../../components/shared/ConfirmationDialog';
@@ -8,6 +8,7 @@ import { useData } from '../../hooks/useData';
 import { Button } from '../../components/shared/Button';
 import { usePagination } from '../../utils/usePagination';
 import { Pagination } from '../../components/shared/Pagination';
+import { CsvImporter } from '../../components/shared/CsvImporter';
 
 export const ConsigneeList = () => {
   const { consignees, addConsignee, updateConsignee, deleteConsignee } = useData();
@@ -23,7 +24,7 @@ export const ConsigneeList = () => {
 
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [deleteMessage, setDeleteMessage] = useState(""); // Dynamic message
+  const [deleteMessage, setDeleteMessage] = useState("");
 
   const clearAllFilters = () => {
     setSearch('');
@@ -80,6 +81,43 @@ export const ConsigneeList = () => {
     handleFormClose();
   };
 
+  const handleImport = (data: Consignee[]) => {
+    data.forEach(c => addConsignee(c));
+  };
+
+  const handleExport = () => {
+    if (filteredConsignees.length === 0) {
+      alert("No data to export");
+      return;
+    }
+    const headers = ['Name', 'Mobile', 'Destination', 'Address', 'GST', 'PAN', 'Aadhar', 'Filing Date'];
+    const csvContent = [
+      headers.join(','),
+      ...filteredConsignees.map(c => [
+        `"${c.name.replace(/"/g, '""')}"`,
+        `"${c.phone.replace(/"/g, '""')}"`,
+        `"${c.destination.replace(/"/g, '""')}"`,
+        `"${c.address.replace(/"/g, '""')}"`,
+        `"${c.gst || ''}"`,
+        `"${c.pan || ''}"`,
+        `"${c.aadhar || ''}"`,
+        `"${c.filingDate}"`
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `consignees_export_${getTodayDate()}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
   const hasActiveFilters = filterType !== 'all' || search !== '';
 
   return (
@@ -111,6 +149,33 @@ export const ConsigneeList = () => {
 
         {/* RIGHT: Create Button */}
         <div className="flex gap-2 w-full md:w-auto justify-end">
+          <Button variant="outline" onClick={handleExport} size="sm" title="Export CSV">
+            <Download size={16} className="mr-2" /> Export
+          </Button>
+          <CsvImporter<Consignee>
+            onImport={handleImport}
+            existingData={consignees}
+            checkDuplicate={(newItem, existing) => 
+              newItem.name.trim().toLowerCase() === existing.name.trim().toLowerCase() && 
+              newItem.destination.trim().toLowerCase() === existing.destination.trim().toLowerCase()
+            }
+            mapRow={(row) => {
+              const hasProof = !!row.gst || !!row.pan || !!row.aadhar;
+              if (!row.name || !row.phone || !row.destination || !row.address || !hasProof) return null;
+              
+              return {
+                id: `ce-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                name: row.name,
+                phone: row.phone,
+                destination: row.destination,
+                address: row.address,
+                filingDate: row.filingdate || getTodayDate(),
+                gst: row.gst || undefined,
+                pan: row.pan || undefined,
+                aadhar: row.aadhar || undefined,
+              };
+            }}
+          />
           <Button variant="primary" onClick={handleCreateNew}>
             + Add Consignee
           </Button>
@@ -153,48 +218,63 @@ export const ConsigneeList = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-muted">
-              {paginatedData.map((consignee, index) => (
-                <tr key={consignee.id} className="hover:bg-muted/30">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">{(currentPage - 1) * itemsPerPage + index + 1}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">{consignee.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{consignee.phone}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{consignee.destination}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm space-x-3">
-                    <button onClick={() => handleEdit(consignee)} className="text-blue-600 hover:text-blue-800"><FilePenLine size={18} /></button>
-                    <button onClick={() => handleDelete(consignee)} className="text-destructive hover:text-destructive/80"><Trash2 size={18} /></button>
-                  </td>
+              {paginatedData.length > 0 ? (
+                paginatedData.map((consignee, index) => (
+                  <tr key={consignee.id} className="hover:bg-muted/30">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">{(currentPage - 1) * itemsPerPage + index + 1}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">{consignee.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{consignee.phone}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{consignee.destination}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm space-x-3">
+                      <button onClick={() => handleEdit(consignee)} className="text-blue-600 hover:text-blue-800"><FilePenLine size={18} /></button>
+                      <button onClick={() => handleDelete(consignee)} className="text-destructive hover:text-destructive/80"><Trash2 size={18} /></button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                   <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
+                     No consignees found.
+                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
 
         {/* Mobile */}
         <div className="block md:hidden divide-y divide-muted">
-          {paginatedData.map((consignee, index) => (
-            <div key={consignee.id} className="p-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <div className="text-sm text-muted-foreground">#{(currentPage - 1) * itemsPerPage + index + 1}</div>
-                  <div className="text-lg font-semibold text-foreground">{consignee.name}</div>
-                  <div className="text-sm text-muted-foreground">{consignee.phone}</div>
-                  <div className="text-sm text-muted-foreground">To: {consignee.destination}</div>
-                </div>
-                <div className="flex flex-col space-y-3 pt-1">
-                  <button onClick={() => handleEdit(consignee)} className="text-blue-600"><FilePenLine size={18} /></button>
-                  <button onClick={() => handleDelete(consignee)} className="text-destructive"><Trash2 size={18} /></button>
+          {paginatedData.length > 0 ? (
+            paginatedData.map((consignee, index) => (
+              <div key={consignee.id} className="p-4">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="text-sm text-muted-foreground">#{(currentPage - 1) * itemsPerPage + index + 1}</div>
+                    <div className="text-lg font-semibold text-foreground">{consignee.name}</div>
+                    <div className="text-sm text-muted-foreground">{consignee.phone}</div>
+                    <div className="text-sm text-muted-foreground">To: {consignee.destination}</div>
+                  </div>
+                  <div className="flex flex-col space-y-3 pt-1">
+                    <button onClick={() => handleEdit(consignee)} className="text-blue-600"><FilePenLine size={18} /></button>
+                    <button onClick={() => handleDelete(consignee)} className="text-destructive"><Trash2 size={18} /></button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          ) : (
+             <div className="p-8 text-center text-muted-foreground">
+               No consignees found.
+             </div>
+          )}
         </div>
 
-        <div className="border-t border-muted p-4">
-          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={setItemsPerPage} totalItems={totalItems} />
-        </div>
+        {filteredConsignees.length > 0 && (
+           <div className="border-t border-muted p-4">
+             <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={setItemsPerPage} totalItems={totalItems} />
+           </div>
+        )}
       </div>
 
-      {filteredConsignees.length === 0 && <div className="text-center py-12 text-muted-foreground">No consignees found.</div>}
       {isFormOpen && <ConsigneeForm initialData={editingConsignee} onClose={handleFormClose} onSave={handleFormSave} />}
       
       <ConfirmationDialog 

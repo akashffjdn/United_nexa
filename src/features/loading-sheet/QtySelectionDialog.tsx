@@ -346,7 +346,7 @@ export const QtySelectionDialog = ({
                 )}
 
                 <blockquote className="text-sm text-muted-foreground border-l-4 border-primary pl-3 py-1 mb-4 bg-muted/30 rounded-r-md">
-                    <span className="font-bold">Tip: </span> Click or drag to select items. Use the <span className="font-bold">Upload Image</span> or <span className="font-bold">Select Range</span> for quick selection.
+                    <span className="font-bold">Tip:</span> Click and drag to select or deselect items. For faster selection, use <span className="font-bold">Upload Image</span> or <span className="font-bold">Select Range</span>.                
                 </blockquote>
                 
                 {/* Removed max-h-64 to allow dynamic height */}

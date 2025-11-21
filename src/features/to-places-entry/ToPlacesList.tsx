@@ -1,12 +1,13 @@
 import { useState, useMemo, useCallback } from 'react';
 import type { ToPlace } from '../../types';
-import { FilePenLine, Trash2, Search } from 'lucide-react';
+import { FilePenLine, Trash2, Search, Download } from 'lucide-react';
 import { ToPlacesForm } from './ToPlacesForm';
 import { ConfirmationDialog } from '../../components/shared/ConfirmationDialog'; 
 import { useData } from '../../hooks/useData'; 
 import { Button } from '../../components/shared/Button';
 import { usePagination } from '../../utils/usePagination';
 import { Pagination } from '../../components/shared/Pagination';
+import { CsvImporter } from '../../components/shared/CsvImporter';
 
 interface FormErrorState { general: string | null; }
 export type DuplicateCheckFn = (currentPlaceName: string, currentShortName: string, editingId: string | undefined) => { place: string | null; short: string | null; };
@@ -81,6 +82,37 @@ export const ToPlacesList = () => {
         handleFormClose();
     };
 
+    const handleImport = (data: ToPlace[]) => {
+        data.forEach(tp => addToPlace(tp));
+    };
+
+    const handleExport = () => {
+        if (filteredToPlaces.length === 0) {
+            alert("No data to export");
+            return;
+        }
+        const headers = ['To Place Name', 'Short Name'];
+        const csvContent = [
+            headers.join(','),
+            ...filteredToPlaces.map(tp => [
+                `"${tp.placeName.replace(/"/g, '""')}"`,
+                `"${tp.shortName.replace(/"/g, '""')}"`
+            ].join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `to_places_export.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    };
+
     return (
         <div className="space-y-6">
             {/* Top Bar */}
@@ -99,6 +131,25 @@ export const ToPlacesList = () => {
 
                 {/* RIGHT: Create */}
                 <div className="flex gap-2 w-full md:w-auto justify-end">
+                    <Button variant="outline" onClick={handleExport} size="sm" title="Export CSV">
+                        <Download size={16} className="mr-2" /> Export
+                    </Button>
+                    <CsvImporter<ToPlace>
+                        onImport={handleImport}
+                        existingData={toPlaces}
+                        checkDuplicate={(newItem, existing) => 
+                            newItem.placeName.toLowerCase() === existing.placeName.toLowerCase() ||
+                            newItem.shortName.toLowerCase() === existing.shortName.toLowerCase()
+                        }
+                        mapRow={(row) => {
+                            if (!row.placename || !row.shortname) return null;
+                            return {
+                                id: `tp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                                placeName: row.placename,
+                                shortName: row.shortname
+                            };
+                        }}
+                    />
                     <Button variant="primary" onClick={handleCreateNew}>
                         + Add To Place
                     </Button>
@@ -117,45 +168,59 @@ export const ToPlacesList = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-muted">
-                            {currentToPlaces.map((toPlace, index) => (
-                                <tr key={toPlace.id} className="hover:bg-muted/30">
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm">{(currentPage - 1) * itemsPerPage + index + 1}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">{toPlace.placeName}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{toPlace.shortName}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm space-x-3">
-                                        <button onClick={() => handleEdit(toPlace)} className="text-blue-600"><FilePenLine size={18} /></button>
-                                        <button onClick={() => handleDelete(toPlace)} className="text-destructive"><Trash2 size={18} /></button>
+                            {currentToPlaces.length > 0 ? (
+                                currentToPlaces.map((toPlace, index) => (
+                                    <tr key={toPlace.id} className="hover:bg-muted/30">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm">{(currentPage - 1) * itemsPerPage + index + 1}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">{toPlace.placeName}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{toPlace.shortName}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm space-x-3">
+                                            <button onClick={() => handleEdit(toPlace)} className="text-blue-600"><FilePenLine size={18} /></button>
+                                            <button onClick={() => handleDelete(toPlace)} className="text-destructive"><Trash2 size={18} /></button>
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground">
+                                        No entries found.
                                     </td>
                                 </tr>
-                            ))}
+                            )}
                         </tbody>
                     </table>
                 </div>
 
                 <div className="block md:hidden divide-y divide-muted">
-                    {currentToPlaces.map((toPlace, index) => (
-                        <div key={toPlace.id} className="p-4 hover:bg-muted/30">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <div className="text-sm text-muted-foreground">#{(currentPage - 1) * itemsPerPage + index + 1}</div>
-                                    <div className="text-lg font-semibold text-foreground">{toPlace.placeName}</div>
-                                    <div className="text-sm text-muted-foreground">Short Name: {toPlace.shortName}</div>
-                                </div>
-                                <div className="flex flex-col space-y-3 pt-1">
-                                    <button onClick={() => handleEdit(toPlace)} className="text-blue-600"><FilePenLine size={18} /></button>
-                                    <button onClick={() => handleDelete(toPlace)} className="text-destructive"><Trash2 size={18} /></button>
+                    {currentToPlaces.length > 0 ? (
+                        currentToPlaces.map((toPlace, index) => (
+                            <div key={toPlace.id} className="p-4 hover:bg-muted/30">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <div className="text-sm text-muted-foreground">#{(currentPage - 1) * itemsPerPage + index + 1}</div>
+                                        <div className="text-lg font-semibold text-foreground">{toPlace.placeName}</div>
+                                        <div className="text-sm text-muted-foreground">Short Name: {toPlace.shortName}</div>
+                                    </div>
+                                    <div className="flex flex-col space-y-3 pt-1">
+                                        <button onClick={() => handleEdit(toPlace)} className="text-blue-600"><FilePenLine size={18} /></button>
+                                        <button onClick={() => handleDelete(toPlace)} className="text-destructive"><Trash2 size={18} /></button>
+                                    </div>
                                 </div>
                             </div>
+                        ))
+                    ) : (
+                        <div className="p-8 text-center text-muted-foreground">
+                            No entries found.
                         </div>
-                    ))}
+                    )}
                 </div>
                 
-                <div className="border-t border-muted p-4">
-                    <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={setItemsPerPage} totalItems={totalItems} />
-                </div>
+                {totalItems > 0 && (
+                    <div className="border-t border-muted p-4">
+                        <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={setItemsPerPage} totalItems={totalItems} />
+                    </div>
+                )}
             </div>
-
-            {totalItems === 0 && <div className="text-center py-12 text-muted-foreground">No entries found.</div>}
             
             {isFormOpen && (
                 <ToPlacesForm 

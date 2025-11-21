@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import type { PackingEntry } from '../../types';
-import { FilePenLine, Trash2, Search } from 'lucide-react';
+import { FilePenLine, Trash2, Search, Download } from 'lucide-react';
 import { PackingUnitForm } from './PackingUnitForm';
 import { ConfirmationDialog } from '../../components/shared/ConfirmationDialog';
 import { useData } from '../../hooks/useData';
 import { Button } from '../../components/shared/Button';
 import { usePagination } from '../../utils/usePagination';
 import { Pagination } from '../../components/shared/Pagination';
+import { CsvImporter } from '../../components/shared/CsvImporter';
 
 export const PackingEntryList = () => {
   const { packingEntries, addPackingEntry, updatePackingEntry, deletePackingEntry } = useData();
@@ -48,6 +49,37 @@ export const PackingEntryList = () => {
   const handleFormClose = () => { setIsFormOpen(false); setEditingEntry(undefined); };
   const handleFormSave = (entry: PackingEntry) => { if (editingEntry) updatePackingEntry(entry); else addPackingEntry(entry); handleFormClose(); };
 
+  const handleImport = (data: PackingEntry[]) => {
+    data.forEach(p => addPackingEntry(p));
+  };
+
+  const handleExport = () => {
+    if (filteredEntries.length === 0) {
+      alert("No data to export");
+      return;
+    }
+    const headers = ['Packing Name', 'Short Name'];
+    const csvContent = [
+      headers.join(','),
+      ...filteredEntries.map(p => [
+        `"${p.packingName.replace(/"/g, '""')}"`,
+        `"${p.shortName.replace(/"/g, '""')}"`
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `packing_units_export.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Bar */}
@@ -66,6 +98,25 @@ export const PackingEntryList = () => {
 
         {/* RIGHT: Create */}
         <div className="flex gap-2 w-full md:w-auto justify-end">
+          <Button variant="outline" onClick={handleExport} size="sm" title="Export CSV">
+            <Download size={16} className="mr-2" /> Export
+          </Button>
+          <CsvImporter<PackingEntry>
+            onImport={handleImport}
+            existingData={packingEntries}
+            checkDuplicate={(newItem, existing) => 
+                newItem.packingName.toLowerCase() === existing.packingName.toLowerCase() ||
+                newItem.shortName.toLowerCase() === existing.shortName.toLowerCase()
+            }
+            mapRow={(row) => {
+                if (!row.packingname || !row.shortname) return null;
+                return {
+                    id: `pk-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    packingName: row.packingname,
+                    shortName: row.shortname
+                };
+            }}
+          />
           <Button variant="primary" onClick={handleCreateNew}>
             + Add Packing Unit
           </Button>
@@ -84,45 +135,60 @@ export const PackingEntryList = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-muted">
-              {paginatedData.map((entry, index) => (
-                <tr key={entry.id}>
-                  <td className="px-6 py-4 text-sm font-medium">{(currentPage - 1) * itemsPerPage + index + 1}</td>
-                  <td className="px-6 py-4 text-sm">{entry.packingName}</td>
-                  <td className="px-6 py-4 text-sm text-muted-foreground">{entry.shortName}</td>
-                  <td className="px-6 py-4 text-sm space-x-3">
-                    <button onClick={() => handleEdit(entry)} className="text-blue-600"><FilePenLine size={18} /></button>
-                    <button onClick={() => handleDelete(entry)} className="text-destructive"><Trash2 size={18} /></button>
-                  </td>
+              {paginatedData.length > 0 ? (
+                paginatedData.map((entry, index) => (
+                  <tr key={entry.id}>
+                    <td className="px-6 py-4 text-sm font-medium">{(currentPage - 1) * itemsPerPage + index + 1}</td>
+                    <td className="px-6 py-4 text-sm">{entry.packingName}</td>
+                    <td className="px-6 py-4 text-sm text-muted-foreground">{entry.shortName}</td>
+                    <td className="px-6 py-4 text-sm space-x-3">
+                      <button onClick={() => handleEdit(entry)} className="text-blue-600"><FilePenLine size={18} /></button>
+                      <button onClick={() => handleDelete(entry)} className="text-destructive"><Trash2 size={18} /></button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                    <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground">
+                        No packing entries found.
+                    </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
 
         <div className="block md:hidden divide-y divide-muted">
-          {paginatedData.map((entry, index) => (
-            <div key={entry.id} className="p-4">
-              <div className="flex justify-between">
-                <div>
-                  <div className="text-sm text-muted-foreground">#{(currentPage - 1) * itemsPerPage + index + 1}</div>
-                  <div className="text-lg font-semibold">{entry.packingName}</div>
-                  <div className="text-sm text-muted-foreground">Short: {entry.shortName}</div>
-                </div>
-                <div className="flex flex-col space-y-3">
-                  <button onClick={() => handleEdit(entry)} className="text-blue-600"><FilePenLine size={18} /></button>
-                  <button onClick={() => handleDelete(entry)} className="text-destructive"><Trash2 size={18} /></button>
+          {paginatedData.length > 0 ? (
+            paginatedData.map((entry, index) => (
+              <div key={entry.id} className="p-4">
+                <div className="flex justify-between">
+                  <div>
+                    <div className="text-sm text-muted-foreground">#{(currentPage - 1) * itemsPerPage + index + 1}</div>
+                    <div className="text-lg font-semibold">{entry.packingName}</div>
+                    <div className="text-sm text-muted-foreground">Short: {entry.shortName}</div>
+                  </div>
+                  <div className="flex flex-col space-y-3">
+                    <button onClick={() => handleEdit(entry)} className="text-blue-600"><FilePenLine size={18} /></button>
+                    <button onClick={() => handleDelete(entry)} className="text-destructive"><Trash2 size={18} /></button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          ) : (
+             <div className="p-8 text-center text-muted-foreground">
+                No packing entries found.
+             </div>
+          )}
         </div>
 
-        <div className="border-t border-muted p-4">
-          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={setItemsPerPage} totalItems={totalItems} />
-        </div>
+        {filteredEntries.length > 0 && (
+          <div className="border-t border-muted p-4">
+            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={setItemsPerPage} totalItems={totalItems} />
+          </div>
+        )}
       </div>
 
-      {filteredEntries.length === 0 && <div className="text-center py-12 text-muted-foreground">No packing entries found.</div>}
       {isFormOpen && <PackingUnitForm initialData={editingEntry} onClose={handleFormClose} onSave={handleFormSave} />}
       
       <ConfirmationDialog 
