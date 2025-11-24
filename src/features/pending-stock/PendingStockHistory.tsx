@@ -34,7 +34,7 @@ export const PendingStockHistory = () => {
   const [selectedGcIds, setSelectedGcIds] = useState<string[]>([]);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [deleteMessage, setDeleteMessage] = useState(""); // Added dynamic message state
+  const [deleteMessage, setDeleteMessage] = useState(""); 
   const [reportPrintingJobs, setReportPrintingJobs] = useState<ReportJob[] | null>(null);
   const [gcPrintingJobs, setGcPrintingJobs] = useState<GcPrintJob[] | null>(null);
   
@@ -42,7 +42,6 @@ export const PendingStockHistory = () => {
   const allConsigneeOptions = useMemo(() => consignees.map(c => ({ value: c.id, label: c.name })), [consignees]);
   const allDestinationOptions = useMemo(getUniqueDests, [getUniqueDests]);
 
-  // --- Clear Filters ---
   const clearAllFilters = () => {
     setSearch('');
     setFilterType('all');
@@ -58,7 +57,6 @@ export const PendingStockHistory = () => {
       const consignor = consignors.find(c => c.id === gc.consignorId);
       const consignee = consignees.find(c => c.id === gc.consigneeId);
 
-      // Universal Search
       const searchStr = search.toLowerCase();
       const rowData = [
         gc.id,
@@ -137,6 +135,9 @@ export const PendingStockHistory = () => {
   
   const hasActiveFilters = destFilter || consignorFilter || consigneeFilter.length > 0 || filterType !== 'all' || search !== '';
 
+  // --- RESPONSIVE BUTTON STYLE HELPER ---
+  const responsiveBtnClass = "flex-1 md:flex-none text-[10px] xs:text-xs sm:text-sm h-8 sm:h-10 px-1 sm:px-4 whitespace-nowrap";
+
   return (
     <div className="space-y-6">
       
@@ -148,20 +149,39 @@ export const PendingStockHistory = () => {
                <input type="text" placeholder="Search all data..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-background text-foreground border border-muted-foreground/30 rounded-md focus:outline-none focus:ring-primary focus:border-primary"/>
                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
             </div>
-             {/* Filter Button */}
-            <Button variant={hasActiveFilters ? 'primary' : 'outline'} onClick={() => setShowFilters(!showFilters)} className="h-10 px-3">
+            <Button variant={hasActiveFilters ? 'primary' : 'outline'} onClick={() => setShowFilters(!showFilters)} className="h-10 px-3 shrink-0">
                <Filter size={18} className={hasActiveFilters ? "mr-2" : ""} />
                {hasActiveFilters && "Active"}
             </Button>
           </div>
           
-        {/* RIGHT: Actions */}
-        <div className="flex gap-2 w-full md:w-auto justify-end">
-          <Button variant="secondary" onClick={handleShowReport} disabled={filteredGcEntries.length === 0}><FileText size={16} className="mr-2" /> Report</Button>
-          <Button variant="secondary" onClick={handlePrintSelected} disabled={selectedGcIds.length === 0}>
-            <Printer size={16} className="mr-2" /> Print Selected ({selectedGcIds.length})
+        {/* RIGHT: Actions - CHANGED */}
+        <div className="flex gap-2 w-full md:w-auto justify-between md:justify-end">
+          <Button 
+            variant="secondary" 
+            onClick={handleShowReport} 
+            disabled={filteredGcEntries.length === 0}
+            className={responsiveBtnClass}
+          >
+            <FileText size={14} className="mr-1 sm:mr-2" /> Report
           </Button>
-          <Button variant="primary" onClick={() => navigate('/gc-entry/new')}>+ Add New GC</Button>
+          
+          <Button 
+            variant="secondary" 
+            onClick={handlePrintSelected} 
+            disabled={selectedGcIds.length === 0}
+            className={responsiveBtnClass}
+          >
+            <Printer size={14} className="mr-1 sm:mr-2" /> Print ({selectedGcIds.length})
+          </Button>
+          
+          <Button 
+            variant="primary" 
+            onClick={() => navigate('/gc-entry/new')}
+            className={responsiveBtnClass}
+          >
+            + Add New GC
+          </Button>
         </div>
       </div>
 

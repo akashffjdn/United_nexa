@@ -8,10 +8,11 @@ interface CsvImporterProps<T> {
   mapRow: (row: any) => T | null; 
   checkDuplicate: (newItem: T, existingItem: T) => boolean;
   label?: string;
+  className?: string; // Added className prop for responsive styling
 }
 
 interface FailedRecord {
-  originalLine: string[]; // Keep original raw values
+  originalLine: string[]; 
   reason: string;
 }
 
@@ -20,7 +21,8 @@ export const CsvImporter = <T,>({
   existingData, 
   mapRow, 
   checkDuplicate, 
-  label = "Import CSV" 
+  label = "Import CSV",
+  className
 }: CsvImporterProps<T>) => {
   const [isOpen, setIsOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -51,7 +53,6 @@ export const CsvImporter = <T,>({
     handleReset();
   };
 
-  // --- ROBUST CSV PARSING ---
   const parseCSVLine = (text: string): string[] => {
     const result: string[] = [];
     let start = 0;
@@ -85,10 +86,9 @@ export const CsvImporter = <T,>({
       return;
     }
 
-    // 1. Parse Headers (Keep original for Export, Normalize for Mapping)
     const headerLine = lines[0];
     const rawHeaders = parseCSVLine(headerLine);
-    setOriginalHeaders(rawHeaders); // Save for Error Log
+    setOriginalHeaders(rawHeaders); 
     
     const normalizedHeaders = rawHeaders.map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
     
@@ -98,7 +98,7 @@ export const CsvImporter = <T,>({
       normalizedHeaders.forEach((header, index) => {
         obj[header] = values[index] || ''; 
       });
-      return { obj, values }; // Return object AND raw values
+      return { obj, values }; 
     });
 
     const uniqueNewData: T[] = [];
@@ -107,7 +107,6 @@ export const CsvImporter = <T,>({
     let invalid = 0;
 
     rawObjects.forEach(({ obj, values }) => {
-      // 2. Map & Validate
       const item = mapRow(obj);
 
       if (!item) {
@@ -116,7 +115,6 @@ export const CsvImporter = <T,>({
         return;
       }
 
-      // 3. Check Duplicates
       const existsInDb = existingData.some(existing => checkDuplicate(item, existing));
       const existsInBatch = uniqueNewData.some(batchItem => checkDuplicate(item, batchItem));
 
@@ -160,20 +158,15 @@ export const CsvImporter = <T,>({
     handleClose();
   };
 
-  // --- NEW: GENERATE & DOWNLOAD ERROR LOG ---
   const handleDownloadErrorLog = () => {
     if (failedRecords.length === 0) return;
 
-    // Add "Error Reason" to headers
     const headers = [...originalHeaders, "Error Reason"];
     
-    // Construct CSV content
     const csvContent = [
         headers.join(','),
         ...failedRecords.map(record => {
-            // Escape quotes in values and join
             const row = record.originalLine.map(val => `"${val?.replace(/"/g, '""') || ''}"`);
-            // Add the reason
             row.push(`"${record.reason}"`);
             return row.join(',');
         })
@@ -192,7 +185,7 @@ export const CsvImporter = <T,>({
 
   return (
     <>
-      <Button variant="outline" onClick={() => setIsOpen(true)} size="sm">
+      <Button variant="outline" onClick={() => setIsOpen(true)} size="sm" className={className}>
         <Upload size={16} className="mr-2" />
         {label}
       </Button>
@@ -200,7 +193,6 @@ export const CsvImporter = <T,>({
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
           <div className="bg-background rounded-xl shadow-2xl w-full max-w-lg border border-muted flex flex-col max-h-[90vh]">
-            {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-muted">
               <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
                 <FileText size={20} className="text-primary" />
@@ -209,7 +201,6 @@ export const CsvImporter = <T,>({
               <button onClick={handleClose} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
             </div>
 
-            {/* Body */}
             <div className="p-6 space-y-6 overflow-y-auto flex-1">
               {!file ? (
                 <div 
@@ -223,7 +214,6 @@ export const CsvImporter = <T,>({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {/* File Info */}
                   <div className="flex items-center justify-between bg-muted/30 p-3 rounded-md border border-muted">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-full"><CheckCircle size={18} /></div>
@@ -246,30 +236,22 @@ export const CsvImporter = <T,>({
                         <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Analysis Report</h4>
                       </div>
                       <div className="divide-y divide-border">
-                        
-                        {/* Ready to Import */}
                         <div className="p-4 flex justify-between items-center bg-green-50/50 dark:bg-green-900/10">
                           <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-green-500" /><span className="text-sm font-medium text-foreground">Ready to Import</span></div>
                           <span className="text-lg font-bold text-green-600">{previewData.length}</span>
                         </div>
-
-                        {/* Duplicates */}
                         <div className="p-4 flex justify-between items-center bg-orange-50/50 dark:bg-orange-900/10">
                           <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-orange-500" /><span className="text-sm font-medium text-foreground">Duplicates (Skipped)</span></div>
                           <span className="text-lg font-bold text-orange-600">{duplicateCount}</span>
                         </div>
-
-                        {/* Invalid */}
                         <div className="p-4 flex justify-between items-center bg-red-50/50 dark:bg-red-900/10">
                           <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-500" /><span className="text-sm font-medium text-foreground">Invalid / Missing Fields</span></div>
                           <span className="text-lg font-bold text-red-600">{invalidCount}</span>
                         </div>
-
                       </div>
                     </div>
                   )}
                   
-                  {/* Download Error Log Button - Only appears if there are errors */}
                   {failedRecords.length > 0 && !error && (
                     <div className="pt-2">
                         <Button 
@@ -296,7 +278,6 @@ export const CsvImporter = <T,>({
               )}
             </div>
 
-            {/* Footer */}
             <div className="p-4 border-t border-muted flex justify-end gap-3 bg-muted/10">
               <Button variant="secondary" onClick={handleClose}>Cancel</Button>
               <Button variant="primary" onClick={handleConfirmImport} disabled={!file || !!error || previewData.length === 0}>

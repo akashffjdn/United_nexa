@@ -91,12 +91,16 @@ export const VehicleList = () => {
       alert("No data to export");
       return;
     }
-    const headers = ['Vehicle No', 'Vehicle Name'];
+    // UPDATED: Added Owner Name and Owner Mobile to headers
+    const headers = ['Vehicle No', 'Vehicle Name', 'Owner Name', 'Owner Mobile'];
+    
     const csvContent = [
       headers.join(','),
       ...filteredEntries.map(v => [
         `"${v.vehicleNo.replace(/"/g, '""')}"`,
-        `"${v.vehicleName.replace(/"/g, '""')}"`
+        `"${v.vehicleName.replace(/"/g, '""')}"`,
+        `"${(v.ownerName || '').replace(/"/g, '""')}"`,   // Added Owner Name
+        `"${(v.ownerMobile || '').replace(/"/g, '""')}"` // Added Owner Mobile
       ].join(','))
     ].join('\n');
 
@@ -112,6 +116,9 @@ export const VehicleList = () => {
       document.body.removeChild(link);
     }
   };
+
+  // --- RESPONSIVE BUTTON STYLE HELPER ---
+  const responsiveBtnClass = "flex-1 md:flex-none text-[10px] xs:text-xs sm:text-sm h-8 sm:h-10 px-1 sm:px-4 whitespace-nowrap";
 
   return (
     <div className="space-y-6">
@@ -131,13 +138,22 @@ export const VehicleList = () => {
         </div>
 
         {/* RIGHT: Create Button */}
-        <div className="flex gap-2 w-full md:w-auto justify-end">
-          <Button variant="outline" onClick={handleExport} size="sm" title="Export CSV">
-            <Download size={16} className="mr-2" /> Export
+        <div className="flex gap-2 w-full md:w-auto justify-between md:justify-end">
+          <Button 
+            variant="outline" 
+            onClick={handleExport} 
+            size="sm" 
+            title="Export CSV"
+            className={responsiveBtnClass}
+          >
+            <Download size={14} className="mr-1 sm:mr-2" /> Export
           </Button>
-           <CsvImporter<VehicleEntry>
+          
+          <CsvImporter<VehicleEntry>
             onImport={handleImport}
             existingData={vehicleEntries}
+            label="Import" // Added label prop for consistent button width
+            className={responsiveBtnClass} // Responsive Class
             checkDuplicate={(newItem, existing) => 
                 newItem.vehicleNo.trim().toLowerCase() === existing.vehicleNo.trim().toLowerCase()
             }
@@ -146,11 +162,20 @@ export const VehicleList = () => {
                 return {
                     id: `veh-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                     vehicleNo: row.vehicleno,
-                    vehicleName: row.vehiclename
+                    vehicleName: row.vehiclename,
+                    // UPDATED: Mapping Owner fields from CSV
+                    ownerName: row.ownername || '',
+                    ownerMobile: row.ownermobile || ''
                 };
             }}
           />
-          <Button variant="primary" onClick={handleCreateNew}>
+          
+          <Button 
+            variant="primary" 
+            onClick={handleCreateNew}
+            size="sm" // CHANGED: Explicitly set size to 'sm' to match others
+            className={responsiveBtnClass}
+          >
             + Add Vehicle
           </Button>
         </div>
@@ -208,7 +233,7 @@ export const VehicleList = () => {
                 ))
               ) : (
                  <tr>
-                    <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground">
+                    <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
                        No vehicles found.
                     </td>
                  </tr>

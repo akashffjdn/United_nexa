@@ -139,7 +139,7 @@ export const QtySelectionDialog = ({
         
         const draggedRange = getDraggedRange(dragStartQty, qty);
 
-        setSelectedSet(prev => {
+        setSelectedSet(() => {
             let newSet = new Set(preDragSet); 
             newSet = applyAction(newSet, dragAction, draggedRange);
             return newSet;

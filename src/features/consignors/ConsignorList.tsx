@@ -134,10 +134,15 @@ export const ConsignorList = () => {
 
   const hasActiveFilters = filterType !== 'all' || search !== '';
 
+  // --- RESPONSIVE BUTTON STYLE HELPER ---
+  const responsiveBtnClass = "flex-1 md:flex-none text-[10px] xs:text-xs sm:text-sm h-8 sm:h-10 px-1 sm:px-4 whitespace-nowrap";
+
   return (
     <div className="space-y-6">
       {/* Top Bar */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-background p-4 rounded-lg shadow border border-muted">
+        
+        {/* LEFT: Search + Filter Toggle */}
         <div className="flex items-center gap-2 w-full md:w-1/2">
           <div className="relative flex-1">
             <input
@@ -152,7 +157,7 @@ export const ConsignorList = () => {
           <Button 
             variant={hasActiveFilters ? 'primary' : 'outline'}
             onClick={() => setShowFilters(!showFilters)}
-            className="h-10 px-3"
+            className="h-10 px-3 shrink-0"
             title="Toggle Filters"
           >
             <Filter size={18} className={hasActiveFilters ? "mr-2" : ""} />
@@ -160,13 +165,23 @@ export const ConsignorList = () => {
           </Button>
         </div>
 
-        <div className="flex gap-2 w-full md:w-auto justify-end">
-          <Button variant="outline" onClick={handleExport} size="sm" title="Export CSV">
-            <Download size={16} className="mr-2" /> Export
+        {/* RIGHT: Actions */}
+        <div className="flex gap-2 w-full md:w-auto justify-between md:justify-end">
+          <Button 
+            variant="outline" 
+            onClick={handleExport} 
+            size="sm" 
+            title="Export CSV"
+            className={responsiveBtnClass}
+          >
+            <Download size={14} className="mr-1 sm:mr-2" /> Export
           </Button>
+          
           <CsvImporter<Consignor>
             onImport={handleImport}
             existingData={consignors}
+            label="Import" // Added short label for better fit
+            className={responsiveBtnClass} 
             checkDuplicate={(newItem, existing) => 
               newItem.gst.trim().toLowerCase() === existing.gst.trim().toLowerCase()
             }
@@ -185,7 +200,13 @@ export const ConsignorList = () => {
               };
             }}
           />
-          <Button variant="primary" onClick={handleCreateNew}>
+          
+          <Button 
+            variant="primary" 
+            onClick={handleCreateNew}
+            size="sm" // CHANGED: Set to 'sm' to match Export/Import buttons
+            className={responsiveBtnClass}
+          >
             + Add Consignor
           </Button>
         </div>

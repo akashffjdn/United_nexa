@@ -113,6 +113,9 @@ export const ToPlacesList = () => {
         }
     };
 
+    // --- RESPONSIVE BUTTON STYLE HELPER ---
+    const responsiveBtnClass = "flex-1 md:flex-none text-[10px] xs:text-xs sm:text-sm h-8 sm:h-10 px-1 sm:px-4 whitespace-nowrap";
+
     return (
         <div className="space-y-6">
             {/* Top Bar */}
@@ -130,13 +133,21 @@ export const ToPlacesList = () => {
                 </div>
 
                 {/* RIGHT: Create */}
-                <div className="flex gap-2 w-full md:w-auto justify-end">
-                    <Button variant="outline" onClick={handleExport} size="sm" title="Export CSV">
-                        <Download size={16} className="mr-2" /> Export
+                <div className="flex gap-2 w-full md:w-auto justify-between md:justify-end">
+                    <Button 
+                        variant="outline" 
+                        onClick={handleExport} 
+                        size="sm" 
+                        title="Export CSV"
+                        className={responsiveBtnClass}
+                    >
+                        <Download size={14} className="mr-1 sm:mr-2" /> Export
                     </Button>
+                    
                     <CsvImporter<ToPlace>
                         onImport={handleImport}
                         existingData={toPlaces}
+                        className={responsiveBtnClass} // Responsive Class
                         checkDuplicate={(newItem, existing) => 
                             newItem.placeName.toLowerCase() === existing.placeName.toLowerCase() ||
                             newItem.shortName.toLowerCase() === existing.shortName.toLowerCase()
@@ -150,7 +161,13 @@ export const ToPlacesList = () => {
                             };
                         }}
                     />
-                    <Button variant="primary" onClick={handleCreateNew}>
+                    
+                    <Button 
+                        variant="primary" 
+                        onClick={handleCreateNew}
+                        className={responsiveBtnClass}
+                        size="sm" 
+                    >
                         + Add To Place
                     </Button>
                 </div>

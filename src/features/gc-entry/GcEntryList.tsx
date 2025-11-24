@@ -29,7 +29,7 @@ export const GcEntryList = () => {
   const [selectedGcIds, setSelectedGcIds] = useState<string[]>([]);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [deleteMessage, setDeleteMessage] = useState(""); // Added dynamic message state
+  const [deleteMessage, setDeleteMessage] = useState(""); 
   const [printingJobs, setPrintingJobs] = useState<GcPrintJob[] | null>(null);
   
   const getGcStatus = (gcId: string) => {
@@ -83,7 +83,6 @@ export const GcEntryList = () => {
 
   }, [destFilter, consignorFilter, consigneeFilter, gcEntries, consignors, consignees, allConsignorOptions, allConsigneeOptions, allDestinationOptions]);
 
-  // --- Clear Filters Handler ---
   const clearAllFilters = () => {
     setSearch('');
     setFilterType('all');
@@ -94,7 +93,6 @@ export const GcEntryList = () => {
     setConsigneeFilter([]);
   };
 
-  // --- Filtering Data ---
   const filteredGcEntries = useMemo(() => {
     return gcEntries.filter(gc => {
       const consignor = consignors.find(c => c.id === gc.consignorId);
@@ -136,7 +134,6 @@ export const GcEntryList = () => {
   
   const { paginatedData, currentPage, setCurrentPage, totalPages, itemsPerPage, setItemsPerPage, totalItems } = usePagination({ data: filteredGcEntries, initialItemsPerPage: 10 });
 
-  // --- Handlers ---
   const handleEdit = (gcNo: string) => navigate(`/gc-entry/edit/${gcNo}`);
   
   const handleDelete = (gcNo: string) => { 
@@ -181,6 +178,9 @@ export const GcEntryList = () => {
 
   const hasActiveFilters = destFilter || consignorFilter || consigneeFilter.length > 0 || filterType !== 'all' || search !== '';
 
+  // --- RESPONSIVE BUTTON STYLE HELPER ---
+  const responsiveBtnClass = "flex-1 md:flex-none text-[10px] xs:text-xs sm:text-sm h-8 sm:h-10 px-1 sm:px-4 whitespace-nowrap";
+
   return (
     <div className="space-y-6">
       
@@ -203,7 +203,7 @@ export const GcEntryList = () => {
           <Button 
             variant={hasActiveFilters ? 'primary' : 'outline'}
             onClick={() => setShowFilters(!showFilters)}
-            className="h-10 px-3"
+            className="h-10 px-3 shrink-0"
             title="Toggle Filters"
           >
             <Filter size={18} className={hasActiveFilters ? "mr-2" : ""} />
@@ -211,19 +211,21 @@ export const GcEntryList = () => {
           </Button>
         </div>
 
-        {/* RIGHT: Action Buttons */}
-        <div className="flex gap-2 w-full md:w-auto justify-end">
+        {/* RIGHT: Action Buttons - CHANGED */}
+        <div className="flex gap-2 w-full md:w-auto justify-between md:justify-end">
           <Button 
             variant="secondary"
             onClick={handlePrintSelected}
             disabled={selectedGcIds.length === 0}
+            className={responsiveBtnClass}
           >
-            <Printer size={16} className="mr-2" />
-            Print Selected ({selectedGcIds.length})
+            <Printer size={14} className="mr-1 sm:mr-2" />
+            Print ({selectedGcIds.length})
           </Button>
           <Button 
             variant="primary"
             onClick={() => navigate('/gc-entry/new')}
+            className={responsiveBtnClass}
           >
             + Add New GC
           </Button>
@@ -261,7 +263,7 @@ export const GcEntryList = () => {
         </div>
       )}
 
-      {/* 3. Data Table (Desktop) */}
+      {/* 3. Data Table */}
       <div className="bg-background rounded-lg shadow border border-muted overflow-hidden">
         <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-muted">
@@ -305,7 +307,6 @@ export const GcEntryList = () => {
           </table>
         </div>
         
-        {/* 4. Mobile Card View */}
         <div className="block md:hidden divide-y divide-muted">
            {paginatedData.map((gc) => {
              const consignor = consignors.find(c => c.id === gc.consignorId);
@@ -314,7 +315,6 @@ export const GcEntryList = () => {
              return (
              <div key={gc.id} className="p-4 hover:bg-muted/30 transition-colors">
                 <div className="flex justify-between items-start">
-                  {/* Left: Checkbox + Info */}
                   <div className="flex gap-3 flex-1">
                     <div className="pt-1">
                       <input 
@@ -333,7 +333,6 @@ export const GcEntryList = () => {
                     </div>
                   </div>
 
-                  {/* Right: Actions */}
                   <div className="flex flex-col gap-3 pl-2">
                     <button onClick={() => handleEdit(gc.id)} className="text-blue-600 p-1 hover:bg-blue-50 rounded">
                       <FilePenLine size={20} />
@@ -347,7 +346,6 @@ export const GcEntryList = () => {
                   </div>
                 </div>
 
-                {/* Footer: Bill Value & Status */}
                 <div className="flex justify-between items-center mt-3 pt-3 border-t border-dashed border-muted">
                    <div className="text-sm font-medium">
                       Bill Value: ₹{(parseFloat(gc.billValue) || 0).toLocaleString('en-IN')}

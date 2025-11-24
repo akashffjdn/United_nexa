@@ -33,7 +33,7 @@ export const TripSheetList = () => {
   const [selected, setSelected] = useState<string[]>([]);
   const [delId, setDelId] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [deleteMessage, setDeleteMessage] = useState(""); // Added dynamic message state
+  const [deleteMessage, setDeleteMessage] = useState("");
 
   // Options
   const consigneeOptions = useMemo(() => consignees.map((c) => ({ value: c.id, label: c.name })), [consignees]);
@@ -115,6 +115,13 @@ export const TripSheetList = () => {
 
   const hasActiveFilters = tsFilter || toPlaceFilter || consignorFilter || consigneeFilter.length > 0 || filterType !== 'all' || search !== '';
 
+  // --- RESPONSIVE BUTTON STYLE HELPER ---
+  // 'flex-1': Buttons share width equally on mobile
+  // 'md:flex-none': Buttons size normally on desktop
+  // 'text-[10px]': Very small text on mobile to fit content
+  // 'h-8': Smaller height on mobile
+  const responsiveBtnClass = "flex-1 md:flex-none text-[10px] xs:text-xs sm:text-sm h-8 sm:h-10 px-1 sm:px-4 whitespace-nowrap";
+
   return (
     <div className="space-y-6">
       
@@ -136,7 +143,7 @@ export const TripSheetList = () => {
           <Button 
              variant={hasActiveFilters ? 'primary' : 'outline'} 
              onClick={() => setShowFilters(!showFilters)} 
-             className="h-10 px-3"
+             className="h-10 px-3 shrink-0"
              title="Toggle Filters"
           >
             <Filter size={18} className={hasActiveFilters ? "mr-2" : ""} />
@@ -144,17 +151,33 @@ export const TripSheetList = () => {
           </Button>
         </div>
 
-        {/* RIGHT: Actions */}
-        <div className="flex gap-2 w-full md:w-auto justify-end">
-          <Button variant="secondary" onClick={handleShowReport}>
-            <FileText size={16} className="mr-2" /> Report
+        {/* RIGHT: Actions (Responsive Grid) */}
+        <div className="flex gap-2 w-full md:w-auto justify-between md:justify-end">
+          
+          <Button 
+            variant="secondary" 
+            onClick={handleShowReport}
+            className={responsiveBtnClass}
+          >
+            <FileText size={14} className="mr-1 sm:mr-2" /> Report
           </Button>
           
-          <Button variant="secondary" onClick={handlePrintSelected} disabled={selected.length === 0}>
-            <Printer size={16} className="mr-2" /> Print Selected ({selected.length})
+          <Button 
+            variant="secondary" 
+            onClick={handlePrintSelected} 
+            disabled={selected.length === 0}
+            className={responsiveBtnClass}
+          >
+            <Printer size={14} className="mr-1 sm:mr-2" /> 
+            {/* Conditional Text based on screen size logic handled by CSS font size scaling */}
+            Print ({selected.length})
           </Button>
           
-          <Button variant="primary" onClick={() => navigate("/tripsheet/new")}>
+          <Button 
+            variant="primary" 
+            onClick={() => navigate("/tripsheet/new")}
+            className={responsiveBtnClass}
+          >
             + Add New
           </Button>
         </div>
@@ -211,7 +234,7 @@ export const TripSheetList = () => {
                 <tr key={ts.mfNo} className="hover:bg-muted/30">
                   <td className="px-6 py-4"><input type="checkbox" className="h-4 w-4 accent-primary" checked={selected.includes(ts.mfNo)} onChange={() => toggleSelect(ts.mfNo)} /></td>
                   <td className="px-6 py-4 font-semibold text-primary">{ts.mfNo}</td>
-                        <td className="px-6 py-4 text-sm">{ts.fromPlace}</td>
+                  <td className="px-6 py-4 text-sm">{ts.fromPlace}</td>
                   <td className="px-6 py-4 text-sm">{ts.toPlace}</td>
                   <td className="px-6 py-4 text-sm">{ts.tsDate}</td>
             

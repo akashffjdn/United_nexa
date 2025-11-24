@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from 'react';
 import { Trash2, Search, Printer, PackageCheck, Filter, RotateCcw, XCircle } from 'lucide-react'; 
 import { DateFilterButtons, getTodayDate, getYesterdayDate, isDateInLast7Days } from '../../components/shared/DateFilterButtons';
@@ -22,8 +21,6 @@ type ReportJob = {
   consignee?: Consignee;
 };
 
-// --- LoadingSheetEntry Main Component ---
-
 export const LoadingSheetEntry = () => {
   const { gcEntries, deleteGcEntry, consignors, consignees, getUniqueDests } = useData();
     
@@ -42,8 +39,7 @@ export const LoadingSheetEntry = () => {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // --- Quantity Selection State (KEY STATE) ---
-  // Map<GC_ID, Selected_Quantity_ARRAY> stores an array of selected numbers (e.g., [1, 5, 8])
+  // --- Quantity Selection State ---
   const [selectedQuantities, setSelectedQuantities] = useState<Record<string, number[]>>({}); 
   const [isQtySelectOpen, setIsQtySelectOpen] = useState(false);
   const [currentQtySelection, setCurrentQtySelection] = useState<{ gcId: string; maxQty: number } | null>(null);
@@ -96,10 +92,8 @@ export const LoadingSheetEntry = () => {
       .map(c => ({ value: c.id, label: c.name }));
   };
     
-  // --- Independent Memoized Options (for Destination) ---
   const destinationOptions = useMemo(getUniqueDests, [getUniqueDests]);
 
-  // --- Dependent Memoized Options ---
   const filteredConsignorOptions = useMemo(() => {
     const tempFilteredGc = gcEntries.filter(gc => {
       const consignor = consignors.find(c => c.id === gc.consignorId);
@@ -147,7 +141,6 @@ export const LoadingSheetEntry = () => {
   }, [gcEntries, consignees, consignors, search, filterType, customStart, customEnd, destFilter, consignorFilter]);
 
 
-  // --- Pagination ---
   const {
     paginatedData,
     currentPage,
@@ -158,7 +151,6 @@ export const LoadingSheetEntry = () => {
     totalItems,
   } = usePagination({ data: filteredGcEntries, initialItemsPerPage: 10 });
 
-  // --- Action Handlers ---
   const handleDelete = (gcNo: string) => {
     setDeletingId(gcNo);
     setIsConfirmOpen(true);
@@ -201,7 +193,6 @@ export const LoadingSheetEntry = () => {
     }
   };
 
-  // --- QUANTITY SELECTION HANDLERS (Integration with QtySelectionDialog) ---
   const handleOpenQtySelect = (gc: GcEntry) => {
     const maxQty = parseInt(gc.quantity.toString()) || 1;
     setCurrentQtySelection({ gcId: gc.id, maxQty: maxQty });
@@ -224,7 +215,6 @@ export const LoadingSheetEntry = () => {
     setCurrentQtySelection(null);
   };
 
-  // --- Selection Handlers ---
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) setSelectedGcIds(paginatedData.map(gc => gc.id));
     else setSelectedGcIds([]);
@@ -236,7 +226,6 @@ export const LoadingSheetEntry = () => {
     
   const isAllSelected = paginatedData.length > 0 && paginatedData.every(gc => selectedGcIds.includes(gc.id));
 
-  // --- Clear Filters ---
   const clearAllFilters = () => {
     setSearch('');
     setFilterType('all');
@@ -248,6 +237,9 @@ export const LoadingSheetEntry = () => {
   };
 
   const hasActiveFilters = destFilter || consignorFilter || consigneeFilter.length > 0 || filterType !== 'all' || search !== '';
+
+  // --- RESPONSIVE BUTTON STYLE HELPER ---
+  const responsiveBtnClass = "flex-1 md:flex-none text-[10px] xs:text-xs sm:text-sm h-8 sm:h-10 px-1 sm:px-4 whitespace-nowrap";
 
   return (
     <div className="space-y-6">
@@ -271,7 +263,7 @@ export const LoadingSheetEntry = () => {
           <Button 
             variant={hasActiveFilters ? 'primary' : 'outline'}
             onClick={() => setShowFilters(!showFilters)}
-            className="h-10 px-3"
+            className="h-10 px-3 shrink-0"
             title="Toggle Filters"
           >
             <Filter size={18} className={hasActiveFilters ? "mr-2" : ""} />
@@ -279,14 +271,15 @@ export const LoadingSheetEntry = () => {
           </Button>
         </div>
 
-        {/* RIGHT: Actions */}
-        <div className="flex gap-2 w-full md:w-auto justify-end">
+        {/* RIGHT: Actions - CHANGED */}
+        <div className="flex gap-2 w-full md:w-auto justify-between md:justify-end">
           <Button 
             variant="secondary"
             onClick={handlePrintSelected}
             disabled={selectedGcIds.length === 0}
+            className={responsiveBtnClass}
           >
-            <Printer size={16} className="mr-2" />
+            <Printer size={14} className="mr-1 sm:mr-2" />
             Print Selected ({selectedGcIds.length})
           </Button>
         </div>
@@ -404,7 +397,6 @@ export const LoadingSheetEntry = () => {
                         {loadedCount}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm space-x-3 flex items-center">
-                       {/* Button to open Quantity Selection Dialog */}
                       <button 
                         onClick={() => handleOpenQtySelect(gc)} 
                         className={`hover:text-blue-800 h-auto flex items-center ${isFullyLoaded ? 'text-green-600' : 'text-blue-600'}`}
@@ -455,7 +447,6 @@ export const LoadingSheetEntry = () => {
                       </div>
                     </div>
                     <div className="flex flex-col space-y-3 pt-1">
-                      {/* Button to open Quantity Selection Dialog */}
                       <button 
                         onClick={() => handleOpenQtySelect(gc)} 
                         className={`hover:text-blue-800 h-auto ${isFullyLoaded ? 'text-green-600' : 'text-blue-600'}`}
@@ -480,14 +471,12 @@ export const LoadingSheetEntry = () => {
             })}
         </div>
 
-        {/* No results message (Inside Table Container) */}
         {filteredGcEntries.length === 0 && (
           <div className="text-center py-24 text-muted-foreground">
             No GC Entries match the selected filters.
           </div>
         )}
 
-        {/* --- PAGINATION (Always visible at bottom) --- */}
         <div className="border-t border-muted p-4">
           <Pagination
             currentPage={currentPage}
@@ -500,7 +489,6 @@ export const LoadingSheetEntry = () => {
         </div>
       </div>
 
-      {/* Modals (Print Managers & Confirmation) */}
       <ConfirmationDialog
         open={isConfirmOpen}
         onClose={() => setIsConfirmOpen(false)}
@@ -530,7 +518,6 @@ export const LoadingSheetEntry = () => {
         />
       )}
 
-      {/* Quantity Selection Modal with Drag-and-Drop */}
       {currentQtySelection && (
         <QtySelectionDialog
           open={isQtySelectOpen}
@@ -538,7 +525,6 @@ export const LoadingSheetEntry = () => {
           onSelect={handleSaveSelectedQty}
           gcId={currentQtySelection.gcId}
           maxQty={currentQtySelection.maxQty}
-          // Pass the current selections for this GC to the dialog
           currentSelected={selectedQuantities[currentQtySelection.gcId] || []} 
         />
       )}
