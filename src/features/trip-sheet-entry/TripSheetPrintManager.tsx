@@ -1,6 +1,6 @@
 // src/features/trip-sheet-entry/TripSheetPrintManager.tsx
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import ReactDOM from "react-dom";
 import { useData } from "../../hooks/useData";
 import { TripSheetPrintCopy } from "./TripSheetPrintCopy";
@@ -11,13 +11,10 @@ interface TripSheetPrintManagerProps {
   onClose: () => void;
 }
 
-export const TripSheetPrintManager = ({
-  mfNos,
-  onClose,
-}: TripSheetPrintManagerProps) => {
+export const TripSheetPrintManager = ({ mfNos, onClose }: TripSheetPrintManagerProps) => {
   const { getTripSheet } = useData();
+  const printRef = useRef<HTMLDivElement>(null);
 
-  // Prepare print pages similar to GCPrintManager
   const printPages = useMemo(() => {
     const sheets: TripSheetEntry[] = mfNos
       .map((id) => getTripSheet(id))
@@ -30,58 +27,52 @@ export const TripSheetPrintManager = ({
     ));
   }, [mfNos, getTripSheet]);
 
-  // Auto-print + auto-close
   useEffect(() => {
-    const handleAfterPrint = () => {
+    const afterPrint = () => {
       onClose();
-      window.removeEventListener("afterprint", handleAfterPrint);
+      window.removeEventListener("afterprint", afterPrint);
     };
 
-    window.addEventListener("afterprint", handleAfterPrint);
+    window.addEventListener("afterprint", afterPrint);
 
-    // Small delay ensures content mounts first
     setTimeout(() => {
-      window.print();
-    }, 100);
+      window.print(); // SAME PRINT BEHAVIOR FOR MOBILE & DESKTOP
+    }, 300);
 
-    return () => {
-      window.removeEventListener("afterprint", handleAfterPrint);
-    };
+    return () => window.removeEventListener("afterprint", afterPrint);
   }, [onClose]);
 
   const printContent = (
-    <div className="ts-print-wrapper">
+    <div className="ts-print-wrapper" ref={printRef}>
       <style>{`
+        
         @media print {
-          /* Hide main app UI */
-          #root {
-            display: none !important;
+
+          body * {
             visibility: hidden !important;
+          }
+
+          .ts-print-wrapper, .ts-print-wrapper * {
+            visibility: visible !important;
           }
 
           .ts-print-wrapper {
             display: block !important;
-            visibility: visible !important;
-            position: absolute !important;
-            top: 0;
-            left: 0;
-            width: 100%;
+            position: fixed;
+            inset: 0;
+            margin: 0;
+            padding: 0;
+            background: white;
+            z-index: 9999;
           }
 
           .print-page {
-            page-break-after: always !important;
-            page-break-inside: avoid !important;
+            page-break-after: always;
           }
 
           @page {
             size: A4;
-            margin: 0;
-          }
-        }
-
-        @media screen {
-          .ts-print-wrapper {
-            display: none;
+            margin: 12mm;
           }
         }
       `}</style>
