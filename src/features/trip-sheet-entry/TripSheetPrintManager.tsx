@@ -83,3 +83,4 @@ export const TripSheetPrintManager = ({ mfNos, onClose }: TripSheetPrintManagerP
 
   return ReactDOM.createPortal(printContent, document.body);
 };
+
