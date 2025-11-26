@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Trash2, Search, Printer, PackageCheck, Filter, RotateCcw, XCircle } from 'lucide-react'; 
+import { Trash2, Search, Printer, PackageCheck, Filter, RotateCcw, XCircle } from 'lucide-react';
 import { DateFilterButtons, getTodayDate, getYesterdayDate, isDateInLast7Days } from '../../components/shared/DateFilterButtons';
 import { ConfirmationDialog } from '../../components/shared/ConfirmationDialog';
 import { useData } from '../../hooks/useData';
@@ -12,7 +12,7 @@ import type { GcEntry, Consignor, Consignee } from '../../types';
 import { usePagination } from '../../utils/usePagination';
 import { Pagination } from '../../components/shared/Pagination';
 import { StockReportPrint } from '../pending-stock/StockReportView';
-import { LoadListPrintManager, type LoadListJob } from './LoadListPrintManager'; 
+import { LoadListPrintManager, type LoadListJob } from './LoadListPrintManager';
 import { QtySelectionDialog } from './QtySelectionDialog';
 
 type ReportJob = {
@@ -23,7 +23,7 @@ type ReportJob = {
 
 export const LoadingSheetEntry = () => {
   const { gcEntries, deleteGcEntry, consignors, consignees, getUniqueDests } = useData();
-    
+
   // --- Filter State ---
   const [showFilters, setShowFilters] = useState(false);
   const [search, setSearch] = useState('');
@@ -40,24 +40,32 @@ export const LoadingSheetEntry = () => {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // --- Quantity Selection State ---
-  const [selectedQuantities, setSelectedQuantities] = useState<Record<string, number[]>>({}); 
+  const [selectedQuantities, setSelectedQuantities] = useState<Record<string, number[]>>({});
   const [isQtySelectOpen, setIsQtySelectOpen] = useState(false);
-  const [currentQtySelection, setCurrentQtySelection] = useState<{ gcId: string; maxQty: number } | null>(null);
+  const [currentQtySelection, setCurrentQtySelection] = useState<{ gcId: string; maxQty: number; startNo: number } | null>(null);
 
   // --- Printing State ---
   const [reportPrintingJobs, setReportPrintingJobs] = useState<ReportJob[] | null>(null);
   const [gcPrintingJobs, setGcPrintingJobs] = useState<GcPrintJob[] | null>(null);
   const [loadListPrintingJobs, setLoadListPrintingJobs] = useState<LoadListJob[] | null>(null);
-    
+
   // --- Filtering (Memoized) ---
   const filteredGcEntries = useMemo(() => {
-    return gcEntries.filter(gc => { 
+    return gcEntries.filter(gc => {
       const consignor = consignors.find(c => c.id === gc.consignorId);
-        
-      const searchMatch = 
-        gc.id.toLowerCase().includes(search.toLowerCase()) ||
-        (consignor && consignor.name.toLowerCase().includes(search.toLowerCase()));
-        
+      const consignee = consignees.find(c => c.id === gc.consigneeId);
+
+      const searchStr = search.toLowerCase();
+      const rowData = [
+        gc.id,
+        consignor?.name,
+        consignee?.name,
+        gc.packing,
+        gc.contents
+      ].join(' ').toLowerCase();
+
+      const searchMatch = !search || rowData.includes(searchStr);
+
       const date = gc.gcDate;
       const dateMatch = (() => {
         switch (filterType) {
@@ -68,14 +76,14 @@ export const LoadingSheetEntry = () => {
           default: return true;
         }
       })();
-        
+
       const destMatch = !destFilter || gc.destination === destFilter;
       const consignorMatch = !consignorFilter || gc.consignorId === consignorFilter;
       const consigneeMatch = consigneeFilter.length === 0 || consigneeFilter.includes(gc.consigneeId);
 
       return searchMatch && dateMatch && destMatch && consignorMatch && consigneeMatch;
     });
-  }, [gcEntries, consignors, search, filterType, customStart, customEnd, destFilter, consignorFilter, consigneeFilter]);
+  }, [gcEntries, consignors, consignees, search, filterType, customStart, customEnd, destFilter, consignorFilter, consigneeFilter]);
 
   // --- Dependent Utility Functions ---
   const getFilteredConsignors = (currentGcEntries: GcEntry[], currentConsignors: Consignor[]) => {
@@ -91,15 +99,24 @@ export const LoadingSheetEntry = () => {
       .filter(c => ids.has(c.id))
       .map(c => ({ value: c.id, label: c.name }));
   };
-    
+
   const destinationOptions = useMemo(getUniqueDests, [getUniqueDests]);
 
   const filteredConsignorOptions = useMemo(() => {
     const tempFilteredGc = gcEntries.filter(gc => {
       const consignor = consignors.find(c => c.id === gc.consignorId);
-      const searchMatch = 
-        gc.id.toLowerCase().includes(search.toLowerCase()) ||
-        (consignor && consignor.name.toLowerCase().includes(search.toLowerCase()));
+      const consignee = consignees.find(c => c.id === gc.consigneeId);
+
+      const searchStr = search.toLowerCase();
+      const rowData = [
+        gc.id,
+        consignor?.name,
+        consignee?.name,
+        gc.packing,
+        gc.contents
+      ].join(' ').toLowerCase();
+
+      const searchMatch = !search || rowData.includes(searchStr);
       const dateMatch = (() => {
         switch (filterType) {
           case 'today': return gc.gcDate === getTodayDate();
@@ -115,14 +132,23 @@ export const LoadingSheetEntry = () => {
       return searchMatch && dateMatch && destMatch && consigneeMatch;
     });
     return getFilteredConsignors(tempFilteredGc, consignors);
-  }, [gcEntries, consignors, search, filterType, customStart, customEnd, destFilter, consigneeFilter]);
+  }, [gcEntries, consignors, consignees, search, filterType, customStart, customEnd, destFilter, consigneeFilter]);
 
   const filteredConsigneeOptions = useMemo(() => {
     const tempFilteredGc = gcEntries.filter(gc => {
       const consignor = consignors.find(c => c.id === gc.consignorId);
-      const searchMatch = 
-        gc.id.toLowerCase().includes(search.toLowerCase()) ||
-        (consignor && consignor.name.toLowerCase().includes(search.toLowerCase()));
+      const consignee = consignees.find(c => c.id === gc.consigneeId);
+
+      const searchStr = search.toLowerCase();
+      const rowData = [
+        gc.id,
+        consignor?.name,
+        consignee?.name,
+        gc.packing,
+        gc.contents
+      ].join(' ').toLowerCase();
+
+      const searchMatch = !search || rowData.includes(searchStr);
       const dateMatch = (() => {
         switch (filterType) {
           case 'today': return gc.gcDate === getTodayDate();
@@ -160,42 +186,43 @@ export const LoadingSheetEntry = () => {
     setIsConfirmOpen(false);
     setDeletingId(null);
   };
-    
+
   const handlePrintSingle = (gcNo: string) => {
     const gc = gcEntries.find(g => g.id === gcNo);
     if (!gc) return;
     const consignor = consignors.find(c => c.id === gc.consignorId);
     const consignee = consignees.find(c => c.id === gc.consigneeId);
-        
+
     if (consignor && consignee) {
       setLoadListPrintingJobs([{ gc, consignor, consignee }]);
     }
     else alert("Error: Consignor or Consignee data missing for this GC.");
   };
-    
+
   const handlePrintSelected = () => {
     if (selectedGcIds.length === 0) return;
-        
+
     const jobs: LoadListJob[] = selectedGcIds.map(id => {
       const gc = gcEntries.find(g => g.id === id);
       if (!gc) return null;
       const consignor = consignors.find(c => c.id === gc.consignorId);
       const consignee = consignees.find(c => c.id === gc.consigneeId);
-      
+
       if (!consignor || !consignee) return null;
-      
-      return { gc, consignor, consignee }; 
+
+      return { gc, consignor, consignee };
     }).filter(Boolean) as LoadListJob[];
 
     if (jobs.length > 0) {
-      setLoadListPrintingJobs(jobs); 
+      setLoadListPrintingJobs(jobs);
       setSelectedGcIds([]);
     }
   };
 
   const handleOpenQtySelect = (gc: GcEntry) => {
     const maxQty = parseInt(gc.quantity.toString()) || 1;
-    setCurrentQtySelection({ gcId: gc.id, maxQty: maxQty });
+    const startNo = parseInt(gc.fromNo) || 1;
+    setCurrentQtySelection({ gcId: gc.id, maxQty: maxQty, startNo: startNo });
     setIsQtySelectOpen(true);
   };
 
@@ -223,7 +250,7 @@ export const LoadingSheetEntry = () => {
     if (e.target.checked) setSelectedGcIds(prev => [...prev, id]);
     else setSelectedGcIds(prev => prev.filter(gcId => gcId !== id));
   };
-    
+
   const isAllSelected = paginatedData.length > 0 && paginatedData.every(gc => selectedGcIds.includes(gc.id));
 
   const clearAllFilters = () => {
@@ -243,24 +270,24 @@ export const LoadingSheetEntry = () => {
 
   return (
     <div className="space-y-6">
-      
+
       {/* 1. Top Control Bar */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-background p-4 rounded-lg shadow border border-muted">
-        
+
         {/* LEFT: Search + Filter Toggle */}
         <div className="flex items-center gap-2 w-full md:w-1/2">
           <div className="relative flex-1">
-             <input
+            <input
               type="text"
-              placeholder="Search by GC No or Consignor Name..."
+              placeholder="Search all data..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-background text-foreground border border-muted-foreground/30 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
             />
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
           </div>
-          
-          <Button 
+
+          <Button
             variant={hasActiveFilters ? 'primary' : 'outline'}
             onClick={() => setShowFilters(!showFilters)}
             className="h-10 px-3 shrink-0"
@@ -273,7 +300,7 @@ export const LoadingSheetEntry = () => {
 
         {/* RIGHT: Actions - CHANGED */}
         <div className="flex gap-2 w-full md:w-auto justify-between md:justify-end">
-          <Button 
+          <Button
             variant="secondary"
             onClick={handlePrintSelected}
             disabled={selectedGcIds.length === 0}
@@ -291,8 +318,8 @@ export const LoadingSheetEntry = () => {
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Advanced Filters</h3>
             <div className="flex gap-2">
-              <button 
-                onClick={clearAllFilters} 
+              <button
+                onClick={clearAllFilters}
                 className="text-xs flex items-center text-primary hover:text-primary/80 font-medium"
               >
                 <RotateCcw size={14} className="mr-1" /> Clear All
@@ -302,35 +329,35 @@ export const LoadingSheetEntry = () => {
               </button>
             </div>
           </div>
-            
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-             <AutocompleteInput
-                label="Filter by Destination"
-                options={destinationOptions} 
-                value={destFilter}
-                onSelect={setDestFilter}
-                placeholder="Type to search destination..."
+            <AutocompleteInput
+              label="Filter by Destination"
+              options={destinationOptions}
+              value={destFilter}
+              onSelect={setDestFilter}
+              placeholder="Type to search destination..."
+            />
+            <AutocompleteInput
+              label="Filter by Consignor"
+              options={filteredConsignorOptions}
+              value={consignorFilter}
+              onSelect={setConsignorFilter}
+              placeholder="Type to search consignor..."
+            />
+            <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">Filter by Consignee (Multi-select)</label>
+              <MultiSelect
+                options={filteredConsigneeOptions}
+                selected={consigneeFilter}
+                onChange={setConsigneeFilter}
+                placeholder="Select consignees..."
+                searchPlaceholder="Search..."
+                emptyPlaceholder="None found."
               />
-              <AutocompleteInput
-                label="Filter by Consignor"
-                options={filteredConsignorOptions} 
-                value={consignorFilter}
-                onSelect={setConsignorFilter}
-                placeholder="Type to search consignor..."
-              />
-              <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1">Filter by Consignee (Multi-select)</label>
-                <MultiSelect
-                  options={filteredConsigneeOptions}
-                  selected={consigneeFilter}
-                  onChange={setConsigneeFilter}
-                  placeholder="Select consignees..."
-                  searchPlaceholder="Search..."
-                  emptyPlaceholder="None found."
-                />
-              </div>
+            </div>
           </div>
-            
+
           <DateFilterButtons
             filterType={filterType}
             setFilterType={setFilterType}
@@ -363,7 +390,7 @@ export const LoadingSheetEntry = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Packing DTS</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Content DTS</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">QTY (Total)</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">QTY (Loaded)</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">QTY (Pending)</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
@@ -373,9 +400,10 @@ export const LoadingSheetEntry = () => {
                 const consignee = consignees.find(c => c.id === gc.consigneeId);
                 const loadedCount = selectedQuantities[gc.id]?.length || 0;
                 const totalCount = parseInt(gc.quantity.toString()) || 0;
-                
-                const isPartiallyLoaded = loadedCount > 0 && loadedCount < totalCount;
-                const isFullyLoaded = loadedCount === totalCount && totalCount > 0;
+                const pendingCount = totalCount - loadedCount;
+
+                const isPartiallyPending = pendingCount > 0 && pendingCount < totalCount;
+                const isFullyPending = pendingCount === totalCount && totalCount > 0;
 
                 return (
                   <tr key={gc.id}>
@@ -390,17 +418,17 @@ export const LoadingSheetEntry = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-primary">{gc.id}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">{consignor?.name || 'N/A'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{consignee?.name || 'N/A'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{gc.packing || '-'}</td> 
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{gc.contents || '-'}</td> 
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{gc.packing || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{gc.contents || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{totalCount}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold" style={{ color: isFullyLoaded ? 'green' : isPartiallyLoaded ? 'orange' : 'inherit' }}>
-                        {loadedCount}
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm font-bold ${isFullyPending ? 'text-foreground' : isPartiallyPending ? 'text-orange-500' : 'text-green-600'}`}>
+                      {pendingCount}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm space-x-3 flex items-center">
-                      <button 
-                        onClick={() => handleOpenQtySelect(gc)} 
-                        className={`hover:text-blue-800 h-auto flex items-center ${isFullyLoaded ? 'text-green-600' : 'text-blue-600'}`}
-                        title={`Loaded Qty (${loadedCount}/${totalCount})`} 
+                      <button
+                        onClick={() => handleOpenQtySelect(gc)}
+                        className={`hover:text-blue-800 h-auto flex items-center text-blue-600`}
+                        title={`Pending Qty (${pendingCount}/${totalCount})`}
                       >
                         <PackageCheck size={18} />
                       </button>
@@ -421,54 +449,55 @@ export const LoadingSheetEntry = () => {
         {/* --- MOBILE CARD LIST --- */}
         <div className="block md:hidden divide-y divide-muted">
           {paginatedData.map((gc) => {
-                const consignor = consignors.find(c => c.id === gc.consignorId);
-                const consignee = consignees.find(c => c.id === gc.consigneeId);
-                const loadedCount = selectedQuantities[gc.id]?.length || 0;
-                const totalCount = parseInt(gc.quantity.toString()) || 0;
-                const isPartiallyLoaded = loadedCount > 0 && loadedCount < totalCount;
-                const isFullyLoaded = loadedCount === totalCount && totalCount > 0;
-                
-              return (
-                <div key={gc.id} className="p-4">
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 accent-primary border-muted-foreground/30 rounded focus:ring-primary mt-1.5"
-                        checked={selectedGcIds.includes(gc.id)}
-                        onChange={(e) => handleSelectRow(e, gc.id)}
-                      />
-                      <div>
-                        <div className="text-lg font-semibold text-primary">GC #{gc.id}</div>
-                        <div className="text-md font-medium text-foreground">From: {consignor?.name || 'N/A'}</div>
-                        <div className="text-sm text-muted-foreground">To: {consignee?.name || 'N/A'}</div>
-                        <div className="text-sm text-muted-foreground">Packing: {gc.packing || '-'}</div>
-                        <div className="text-sm text-muted-foreground">Content: {gc.contents || '-'}</div>
-                      </div>
-                    </div>
-                    <div className="flex flex-col space-y-3 pt-1">
-                      <button 
-                        onClick={() => handleOpenQtySelect(gc)} 
-                        className={`hover:text-blue-800 h-auto ${isFullyLoaded ? 'text-green-600' : 'text-blue-600'}`}
-                        title={`Loaded Qty (${loadedCount}/${totalCount})`}
-                      >
-                        <PackageCheck size={18} />
-                      </button>
-                      <button onClick={() => handlePrintSingle(gc.id)} className="text-green-600" title="Print Load Slip">
-                        <Printer size={18} />
-                      </button>
-                      <button onClick={() => handleDelete(gc.id)} className="text-destructive" title="Delete">
-                        <Trash2 size={18} />
-                      </button>
+            const consignor = consignors.find(c => c.id === gc.consignorId);
+            const consignee = consignees.find(c => c.id === gc.consigneeId);
+            const loadedCount = selectedQuantities[gc.id]?.length || 0;
+            const totalCount = parseInt(gc.quantity.toString()) || 0;
+            const pendingCount = totalCount - loadedCount;
+            const isPartiallyPending = pendingCount > 0 && pendingCount < totalCount;
+            const isFullyPending = pendingCount === totalCount && totalCount > 0;
+
+            return (
+              <div key={gc.id} className="p-4">
+                <div className="flex justify-between items-start">
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-primary border-muted-foreground/30 rounded focus:ring-primary mt-1.5"
+                      checked={selectedGcIds.includes(gc.id)}
+                      onChange={(e) => handleSelectRow(e, gc.id)}
+                    />
+                    <div>
+                      <div className="text-lg font-semibold text-primary">GC #{gc.id}</div>
+                      <div className="text-md font-medium text-foreground">From: {consignor?.name || 'N/A'}</div>
+                      <div className="text-sm text-muted-foreground">To: {consignee?.name || 'N/A'}</div>
+                      <div className="text-sm text-muted-foreground">Packing: {gc.packing || '-'}</div>
+                      <div className="text-sm text-muted-foreground">Content: {gc.contents || '-'}</div>
                     </div>
                   </div>
-                  <div className="flex justify-between mt-2 pt-2 border-t border-muted">
-                    <span className="text-sm font-medium">Case Qty: <span className="text-foreground">{totalCount}</span></span>
-                    <span className="text-sm font-medium">Loaded Qty: <span className="font-bold" style={{ color: isFullyLoaded ? 'green' : isPartiallyLoaded ? 'orange' : 'inherit' }}>{loadedCount}</span></span>
+                  <div className="flex flex-col space-y-3 pt-1">
+                    <button
+                      onClick={() => handleOpenQtySelect(gc)}
+                      className={`hover:text-blue-800 h-auto ${isFullyPending ? 'text-red-600' : 'text-blue-600'}`}
+                      title={`Pending Qty (${pendingCount}/${totalCount})`}
+                    >
+                      <PackageCheck size={18} />
+                    </button>
+                    <button onClick={() => handlePrintSingle(gc.id)} className="text-green-600" title="Print Load Slip">
+                      <Printer size={18} />
+                    </button>
+                    <button onClick={() => handleDelete(gc.id)} className="text-destructive" title="Delete">
+                      <Trash2 size={18} />
+                    </button>
                   </div>
                 </div>
-              );
-            })}
+                <div className="flex justify-between mt-2 pt-2 border-t border-muted">
+                  <span className="text-sm font-medium">Case Qty: <span className="text-foreground">{totalCount}</span></span>
+                  <span className="text-sm font-medium">Pending Qty: <span className={`font-bold ${isFullyPending ? 'text-foreground' : isPartiallyPending ? 'text-orange-500' : 'text-green-600'}`}>{pendingCount}</span></span>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {filteredGcEntries.length === 0 && (
@@ -496,21 +525,21 @@ export const LoadingSheetEntry = () => {
         title="Delete GC Entry"
         description={`Are you sure you want to delete GC No: ${deletingId}? This action cannot be undone.`}
       />
-      
+
       {reportPrintingJobs && (
-        <StockReportPrint 
-          jobs={reportPrintingJobs} 
-          onClose={() => setReportPrintingJobs(null)} 
+        <StockReportPrint
+          jobs={reportPrintingJobs}
+          onClose={() => setReportPrintingJobs(null)}
         />
       )}
-      
+
       {gcPrintingJobs && (
         <GcPrintManager
           jobs={gcPrintingJobs}
           onClose={() => setGcPrintingJobs(null)}
         />
       )}
-      
+
       {loadListPrintingJobs && (
         <LoadListPrintManager
           jobs={loadListPrintingJobs}
@@ -524,8 +553,9 @@ export const LoadingSheetEntry = () => {
           onClose={handleCloseQtySelect}
           onSelect={handleSaveSelectedQty}
           gcId={currentQtySelection.gcId}
+          startNo={currentQtySelection.startNo}
           maxQty={currentQtySelection.maxQty}
-          currentSelected={selectedQuantities[currentQtySelection.gcId] || []} 
+          currentSelected={selectedQuantities[currentQtySelection.gcId] || []}
         />
       )}
     </div>

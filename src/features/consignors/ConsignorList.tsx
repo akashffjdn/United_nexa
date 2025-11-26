@@ -284,7 +284,7 @@ export const ConsignorList = () => {
                     <div className="text-lg font-semibold text-foreground">{consignor.name}</div>
                     <div className="text-sm text-muted-foreground">{consignor.gst}</div>
                   </div>
-                  <div className="flex space-x-3 pt-1">
+                  <div className="flex flex-col space-y-3 pt-1">
                     <button onClick={() => handleEdit(consignor)} className="text-blue-600"><FilePenLine size={18} /></button>
                     <button onClick={() => handleDelete(consignor)} className="text-destructive"><Trash2 size={18} /></button>
                   </div>
