@@ -8,6 +8,27 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  // FIXED: Alternative serializer using Repeated Keys (Standard for Express)
+  // Arrays will be sent as: 'consignee=id1&consignee=id2'
+  // Instead of: 'consignee[]=id1'
+  paramsSerializer: (params) => {
+    const parts: string[] = [];
+    
+    Object.entries(params).forEach(([key, val]) => {
+      if (val === null || typeof val === 'undefined') return;
+      
+      if (Array.isArray(val)) {
+        // Repeat the key for each value in the array
+        val.forEach((v) => {
+          parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(v))}`);
+        });
+      } else {
+        parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(val))}`);
+      }
+    });
+    
+    return parts.join('&');
+  },
 });
 
 // 1. Request Interceptor: Add the JWT Token to every request

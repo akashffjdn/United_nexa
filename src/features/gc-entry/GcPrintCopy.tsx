@@ -28,7 +28,7 @@ export const GcPrintCopy: React.FC<Props> = ({
 
   const linkedTripSheetItem = tripSheets
     .flatMap(sheet => sheet.items || [])
-    .find(item => item.gcNo === gc.gcNo); // Check by gcNo string
+    .find(item => item.gcNo === gc.gcNo); 
 
   const quantityNum = parseFloat(gc.quantity) || 0;
   const fromNoNum = parseFloat(gc.fromNo) || 0;
@@ -45,7 +45,8 @@ export const GcPrintCopy: React.FC<Props> = ({
   
   const totalCharges = freightNum + godownChargeNum + statisticChargeNum + tollFeeNum;
   
-  const isPaid = gc.paidType?.toLowerCase() === 'paid';
+  // CHANGED: Use 'paymentType' instead of 'paidType'
+  const isPaid = gc.paymentType?.toLowerCase() === 'paid';
   const paymentStatusLabel = isPaid ? "PAID" : "TO PAY";
 
   const marks = `${gc.prefix} ${fromNoNum} to ${
@@ -76,7 +77,7 @@ export const GcPrintCopy: React.FC<Props> = ({
         <div className="font-bold text-sm leading-relaxed">
           <div className="flex gap-2">
             <span className="w-20">G.C. No.</span>
-            <span>{gc.gcNo}</span> {/* Use gcNo */}
+            <span>{gc.gcNo}</span>
           </div>
           <div className="flex gap-2">
             <span className="w-20">Date :</span>

@@ -17,12 +17,14 @@ import { useAuth } from '../hooks/useAuth';
 interface DataContextType {
   consignors: Consignor[];
   consignees: Consignee[];
-  gcEntries: GcEntry[];
+  // Removed large arrays gcEntries and tripSheets to optimize
+  gcEntries: GcEntry[]; // Kept as empty array to prevent TS errors in legacy components temporarily
+  tripSheets: TripSheetEntry[]; // Kept as empty array
+  
   fromPlaces: FromPlace[];
   toPlaces: ToPlace[];
   packingEntries: PackingEntry[];
   contentEntries: ContentEntry[];
-  tripSheets: TripSheetEntry[];
   vehicleEntries: VehicleEntry[];
   driverEntries: DriverEntry[];
   
@@ -35,7 +37,11 @@ interface DataContextType {
   deleteConsignee: (id: string) => Promise<void>;
   
   getNextGcNo: () => Promise<string>;
-  getGcEntry: (identifier: string) => GcEntry | undefined;
+  
+  // UPDATED: Fetch single items from API
+  fetchGcById: (id: string) => Promise<GcEntry | null>;
+  fetchTripSheetById: (id: string) => Promise<TripSheetEntry | null>;
+
   addGcEntry: (gcEntry: GcEntry) => Promise<void>;
   updateGcEntry: (gcEntry: GcEntry) => Promise<void>;
   deleteGcEntry: (identifier: string) => Promise<void>;
@@ -60,7 +66,6 @@ interface DataContextType {
   addTripSheet: (sheet: TripSheetEntry) => Promise<void>;
   updateTripSheet: (sheet: TripSheetEntry) => Promise<void>;
   deleteTripSheet: (id: string) => Promise<void>;
-  getTripSheet: (id: string) => TripSheetEntry | undefined;
 
   addVehicleEntry: (entry: VehicleEntry) => Promise<void>;
   updateVehicleEntry: (entry: VehicleEntry) => Promise<void>;
@@ -82,46 +87,39 @@ export const DataContext = createContext<DataContextType | undefined>(undefined)
 export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
 
-  // --- STATE DEFINITIONS ---
   const [consignors, setConsignors] = useState<Consignor[]>([]);
   const [consignees, setConsignees] = useState<Consignee[]>([]);
-  const [gcEntries, setGcEntries] = useState<GcEntry[]>([]);
   const [fromPlaces, setFromPlaces] = useState<FromPlace[]>([]);
   const [toPlaces, setToPlaces] = useState<ToPlace[]>([]);
   const [packingEntries, setPackingEntries] = useState<PackingEntry[]>([]);
   const [contentEntries, setContentEntries] = useState<ContentEntry[]>([]);
-  const [tripSheets, setTripSheets] = useState<TripSheetEntry[]>([]);
   const [vehicleEntries, setVehicleEntries] = useState<VehicleEntry[]>([]);
   const [driverEntries, setDriverEntries] = useState<DriverEntry[]>([]);
 
-  // --- FETCH ALL DATA ---
   const fetchAllData = useCallback(async () => {
     if (!user) return;
     try {
+      // REMOVED: gcRes and tripRes from initial load to optimize
       const [
-        consignorsRes, consigneesRes, gcRes, fromRes, toRes, 
-        packRes, contentRes, tripRes, vehRes, drvRes
+        consignorsRes, consigneesRes, fromRes, toRes, 
+        packRes, contentRes, vehRes, drvRes
       ] = await Promise.all([
         api.get('/master/consignors'),
         api.get('/master/consignees'),
-        api.get('/operations/gc'),
         api.get('/master/from-places'),
         api.get('/master/to-places'),
         api.get('/master/packings'),
         api.get('/master/contents'),
-        api.get('/operations/tripsheet'),
         api.get('/master/vehicles'),
         api.get('/master/drivers')
       ]);
 
       setConsignors(consignorsRes.data);
       setConsignees(consigneesRes.data);
-      setGcEntries(gcRes.data);
       setFromPlaces(fromRes.data);
       setToPlaces(toRes.data);
       setPackingEntries(packRes.data);
       setContentEntries(contentRes.data);
-      setTripSheets(tripRes.data);
       setVehicleEntries(vehRes.data);
       setDriverEntries(drvRes.data);
     } catch (error) {
@@ -129,83 +127,38 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [user]);
 
-  // Initial Fetch
-  useEffect(() => {
-    fetchAllData();
-  }, [fetchAllData]);
+  useEffect(() => { fetchAllData(); }, [fetchAllData]);
 
-  // --- GC ENTRY ACTIONS ---
+  // --- GC ACTIONS ---
   const getNextGcNo = async () => {
-    try {
-      const { data } = await api.get('/operations/gc/next-no');
-      return data.nextGcNo;
-    } catch (e) {
-      console.error("Error fetching next GC No", e);
-      return "Error";
-    }
+    try { const { data } = await api.get('/operations/gc/next-no'); return data.nextGcNo; } 
+    catch (e) { return "Error"; }
   };
   
-  const getGcEntry = (identifier: string) => {
-    // Prioritize finding by gcNo (e.g., "1050"), then fallback to _id
-    return gcEntries.find(gc => gc.gcNo === identifier || gc.id === identifier);
+  const fetchGcById = async (id: string) => {
+    try { const { data } = await api.get(`/operations/gc/${id}`); return data; }
+    catch (e) { console.error(e); return null; }
   };
 
-  const addGcEntry = async (data: GcEntry) => {
-    const res = await api.post('/operations/gc', data);
-    setGcEntries(prev => [res.data, ...prev]);
-  };
-
-  const updateGcEntry = async (data: GcEntry) => {
-    // Backend expects gcNo in URL: /operations/gc/:gcNo
-    const identifier = data.gcNo; 
-    const res = await api.put(`/operations/gc/${identifier}`, data);
-    setGcEntries(prev => prev.map(item => item.id === res.data.id ? res.data : item));
-  };
-
-  const deleteGcEntry = async (identifier: string) => {
-    // Resolve to gcNo because backend delete expects /gc/:gcNo
-    // If 'identifier' is already the gcNo (e.g. '1050'), find returns it. 
-    // If 'identifier' is the _id, find finds it and we take .gcNo
-    const gc = gcEntries.find(g => g.gcNo === identifier || g.id === identifier);
-    if (!gc) return; // Should not happen if list is in sync
-
-    await api.delete(`/operations/gc/${gc.gcNo}`);
-    setGcEntries(prev => prev.filter(item => item.id !== gc.id));
-  };
-
+  const addGcEntry = async (data: GcEntry) => { await api.post('/operations/gc', data); };
+  const updateGcEntry = async (data: GcEntry) => { await api.put(`/operations/gc/${data.gcNo}`, data); };
+  const deleteGcEntry = async (identifier: string) => { await api.delete(`/operations/gc/${identifier}`); };
+  
   const saveLoadingProgress = async (gcId: string, selectedQuantities: number[]) => {
-    // gcId here is expected to be gcNo
-    const res = await api.put('/operations/loading/save', { gcId, selectedQuantities });
-    setGcEntries(prev => prev.map(item => item.gcNo === gcId ? res.data : item));
+    await api.put('/operations/loading/save', { gcId, selectedQuantities });
   };
 
   // --- TRIP SHEET ACTIONS ---
-  const addTripSheet = async (data: TripSheetEntry) => {
-    const res = await api.post('/operations/tripsheet', data);
-    setTripSheets(prev => [res.data, ...prev]);
-    const gcRes = await api.get('/operations/gc');
-    setGcEntries(gcRes.data);
+  const fetchTripSheetById = async (id: string) => {
+    try { const { data } = await api.get(`/operations/tripsheet/${id}`); return data; }
+    catch (e) { console.error(e); return null; }
   };
 
-  const updateTripSheet = async (data: TripSheetEntry) => {
-    const identifier = data.mfNo || data.id;
-    const res = await api.put(`/operations/tripsheet/${identifier}`, data);
-    setTripSheets(prev => prev.map(item => item.id === res.data.id ? res.data : item));
-    const gcRes = await api.get('/operations/gc');
-    setGcEntries(gcRes.data);
-  };
+  const addTripSheet = async (data: TripSheetEntry) => { await api.post('/operations/tripsheet', data); };
+  const updateTripSheet = async (data: TripSheetEntry) => { await api.put(`/operations/tripsheet/${data.mfNo}`, data); };
+  const deleteTripSheet = async (id: string) => { await api.delete(`/operations/tripsheet/${id}`); };
 
-  const deleteTripSheet = async (id: string) => {
-    await api.delete(`/operations/tripsheet/${id}`);
-    setTripSheets(prev => prev.filter(item => item.mfNo !== id));
-    const gcRes = await api.get('/operations/gc');
-    setGcEntries(gcRes.data);
-  };
-
-  const getTripSheet = (id: string) => tripSheets.find(ts => ts.mfNo === id || ts.id === id);
-
-  // --- MASTER ACTIONS (Standard) ---
-  // (Keeping standard CRUD for masters unchanged for brevity, they use ID)
+  // --- MASTER ACTIONS ---
   const addConsignor = async (data: Consignor) => { const res = await api.post('/master/consignors', data); setConsignors(prev => [res.data, ...prev]); };
   const updateConsignor = async (data: Consignor) => { const res = await api.put(`/master/consignors/${data.id}`, data); setConsignors(prev => prev.map(item => item.id === data.id ? res.data : item)); };
   const deleteConsignor = async (id: string) => { await api.delete(`/master/consignors/${id}`); setConsignors(prev => prev.filter(item => item.id !== id)); };
@@ -240,37 +193,29 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
 
   // --- UTILS ---
   const getUniqueDests = useCallback(() => {
-    const dests = new Set([
-      ...toPlaces.map(tp => tp.placeName),
-      ...consignees.map(c => c.destination),
-      ...gcEntries.map(gc => gc.destination)
-    ]);
+    const dests = new Set([...toPlaces.map(tp => tp.placeName), ...consignees.map(c => c.destination)]);
     return Array.from(dests).map(d => ({ value: d, label: d }));
-  }, [toPlaces, consignees, gcEntries]);
+  }, [toPlaces, consignees]);
   
-  const getPackingTypes = useCallback(() => {
-    return packingEntries.map(p => ({ value: p.packingName, label: p.packingName }));
-  }, [packingEntries]);
-  
-  const getContentsTypes = useCallback(() => {
-    return contentEntries.map(c => ({ value: c.contentName, label: c.contentName }));
-  }, [contentEntries]);
+  const getPackingTypes = useCallback(() => packingEntries.map(p => ({ value: p.packingName, label: p.packingName })), [packingEntries]);
+  const getContentsTypes = useCallback(() => contentEntries.map(c => ({ value: c.contentName, label: c.contentName })), [contentEntries]);
 
   const value = useMemo(() => ({
-    consignors, consignees, gcEntries, fromPlaces, toPlaces, packingEntries, contentEntries, tripSheets, vehicleEntries, driverEntries,
+    consignors, consignees, gcEntries: [], tripSheets: [], // Empty for compatibility
+    fromPlaces, toPlaces, packingEntries, contentEntries, vehicleEntries, driverEntries,
     addConsignor, updateConsignor, deleteConsignor,
     addConsignee, updateConsignee, deleteConsignee,
-    getNextGcNo, getGcEntry, addGcEntry, updateGcEntry, deleteGcEntry, saveLoadingProgress,
+    getNextGcNo, fetchGcById, fetchTripSheetById, addGcEntry, updateGcEntry, deleteGcEntry, saveLoadingProgress,
     addFromPlace, updateFromPlace, deleteFromPlace,
     addToPlace, updateToPlace, deleteToPlace,
     addPackingEntry, updatePackingEntry, deletePackingEntry,
     addContentEntry, updateContentEntry, deleteContentEntry,
-    addTripSheet, updateTripSheet, deleteTripSheet, getTripSheet,
+    addTripSheet, updateTripSheet, deleteTripSheet,
     addVehicleEntry, updateVehicleEntry, deleteVehicleEntry,
     addDriverEntry, updateDriverEntry, deleteDriverEntry,
     getUniqueDests, getPackingTypes, getContentsTypes,
     refreshData: fetchAllData
-  }), [consignors, consignees, gcEntries, fromPlaces, toPlaces, packingEntries, contentEntries, tripSheets, vehicleEntries, driverEntries, fetchAllData]);
+  }), [consignors, consignees, fromPlaces, toPlaces, packingEntries, contentEntries, vehicleEntries, driverEntries, fetchAllData]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 };

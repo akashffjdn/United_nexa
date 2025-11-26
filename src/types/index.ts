@@ -38,12 +38,15 @@ export interface Consignee {
 }
 
 export interface GcEntry {
-  date: string;
-  invoiceDate: string;
-  invoiceNo: string;
-  pkgDesc: string;
-  marks: any;
-  gcNo: string; // CHANGED from ReactNode to string
+  // Removed legacy fields like date/invoiceDate/invoiceNo/pkgDesc/marks 
+  // if they aren't used, but keeping them optional to prevent breakages if legacy code exists.
+  date?: string;
+  invoiceDate?: string;
+  invoiceNo?: string;
+  pkgDesc?: string;
+  marks?: any;
+  
+  gcNo: string; 
   id: string;
   gcDate: string;
   from: string;
@@ -76,7 +79,13 @@ export interface GcEntry {
   fromNo: string;
   netQty: string;
 
-  paidType: 'To Pay' | 'Paid';
+  // CHANGED: Renamed from paidType to paymentType to match backend Schema
+  paymentType: 'To Pay' | 'Paid'; 
+
+  // ADDED: Trip Sheet Linking Fields
+  tripSheetId?: string | null;
+  isLoaded?: boolean;
+  loadingStatus?: 'Pending' | 'Partially Loaded' | 'Loaded';
 }
 
 export interface FromPlace {
@@ -91,8 +100,6 @@ export interface ToPlace {
     shortName: string;
 }
 
-// --- NEW TYPES FOR MASTER MODULES ---
-
 export interface PackingEntry {
   id: string;
   packingName: string;
@@ -105,15 +112,12 @@ export interface ContentEntry {
   shortName: string;
 }
 
-// --- NEW TYPES FOR VEHICLES & DRIVERS ---
-
 export interface VehicleEntry {
   id: string;
   vehicleNo: string;
   vehicleName: string;
   ownerName?: string;
   ownerMobile?: string;
-
 }
 
 export interface DriverEntry {
@@ -122,8 +126,6 @@ export interface DriverEntry {
   dlNo: string;
   mobile: string;
 }
-
-// --- NEW TYPES FOR TRIP SHEET ---
 
 export interface TripSheetGCItem {
   gcNo: string;

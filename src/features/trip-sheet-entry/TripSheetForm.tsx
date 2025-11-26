@@ -1,14 +1,14 @@
-
 import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Save, Trash2, X } from "lucide-react";
 
-import type { TripSheetEntry, TripSheetGCItem } from "../../types";
+import type { TripSheetEntry, TripSheetGCItem, GcEntry } from "../../types";
 import { Button } from "../../components/shared/Button";
 import { Input } from "../../components/shared/Input";
 import { AutocompleteInput } from "../../components/shared/AutocompleteInput";
 import { useData } from "../../hooks/useData";
 import { getTodayDate } from "../../utils/dateHelpers";
+import api from "../../utils/api";
 
 const toNum = (v: any) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
@@ -19,86 +19,95 @@ export const TripSheetForm = () => {
   const {
     addTripSheet,
     updateTripSheet,
-    tripSheets,
+    // tripSheets, // REMOVED: Do not rely on global state for specific item edit
+    fetchTripSheetById, // ADDED: Use this to fetch single item
     consignors,
     consignees,
-    gcEntries,
     fromPlaces,
     toPlaces,
     driverEntries,
     vehicleEntries,
   } = useData();
 
-  // Determine Edit Mode
+  const [availableGcs, setAvailableGcs] = useState<GcEntry[]>([]);
   const isEditMode = !!id;
-
-  // Find editing entry (Memoized to update when tripSheets load)
-  const editing = useMemo(() => {
-    if (!isEditMode) return undefined;
-    return tripSheets.find((t) => t.id === id || t.mfNo === id);
-  }, [isEditMode, tripSheets, id]);
-
+  
   // --- STATE INITIALIZATION ---
-  const [mfNo, setMfNo] = useState<string | undefined>(editing?.mfNo);
-  const [tsDate, setTsDate] = useState<string>(editing?.tsDate ?? getTodayDate());
-
-  const [carriers, setCarriers] = useState<string>(editing?.carriers ?? "");
-  const [fromPlace, setFromPlace] = useState<string>(editing?.fromPlace ?? "Sivakasi");
-  const [toPlace, setToPlace] = useState<string>(editing?.toPlace ?? "");
-
-  const [items, setItems] = useState<TripSheetGCItem[]>(editing?.items ?? []);
-
-  const [unloadPlace, setUnloadPlace] = useState<string>(editing?.unloadPlace ?? "");
-  
-  const [driverName, setDriverName] = useState<string>(editing?.driverName ?? "");
-  const [dlNo, setDlNo] = useState<string>(editing?.dlNo ?? "");
-  const [driverMobile, setDriverMobile] = useState<string>(editing?.driverMobile ?? "");
-  
-  const [lorryNo, setLorryNo] = useState<string>(editing?.lorryNo ?? "");
-  const [lorryName, setLorryName] = useState<string>(editing?.lorryName ?? "");
-  const [ownerName, setOwnerName] = useState<string>(editing?.ownerName ?? "");
-  const [ownerMobile, setOwnerMobile] = useState<string>(editing?.ownerMobile ?? "");
+  const [mfNo, setMfNo] = useState<string>("");
+  const [tsDate, setTsDate] = useState<string>(getTodayDate());
+  const [carriers, setCarriers] = useState<string>("");
+  const [fromPlace, setFromPlace] = useState<string>("Sivakasi");
+  const [toPlace, setToPlace] = useState<string>("");
+  const [items, setItems] = useState<TripSheetGCItem[]>([]);
+  const [unloadPlace, setUnloadPlace] = useState<string>("");
+  const [driverName, setDriverName] = useState<string>("");
+  const [dlNo, setDlNo] = useState<string>("");
+  const [driverMobile, setDriverMobile] = useState<string>("");
+  const [lorryNo, setLorryNo] = useState<string>("");
+  const [lorryName, setLorryName] = useState<string>("");
+  const [ownerName, setOwnerName] = useState<string>("");
+  const [ownerMobile, setOwnerMobile] = useState<string>("");
 
   const [loading, setLoading] = useState(isEditMode);
 
-  // --- DATA SYNC EFFECT ---
+  // --- 1. FETCH AVAILABLE GCs (Optimized) ---
   useEffect(() => {
-    if (isEditMode) {
-      if (tripSheets.length === 0) return;
+    const fetchAvailableGcs = async () => {
+        try {
+            // Fetch only GCs that are NOT assigned (and only necessary fields)
+            const { data } = await api.get('/operations/gc', {
+                params: {
+                    availableForTripSheet: 'true',
+                    pagination: 'false' 
+                }
+            });
+            setAvailableGcs(data.data || []);
+        } catch (error) {
+            console.error("Failed to fetch available GCs", error);
+        }
+    };
+    fetchAvailableGcs();
+  }, []);
 
-      if (editing) {
-        setMfNo(editing.mfNo);
-        setTsDate(editing.tsDate);
-        setCarriers(editing.carriers ?? "");
-        setFromPlace(editing.fromPlace);
-        setToPlace(editing.toPlace);
+  // --- 2. LOAD DATA (Edit Mode) ---
+  useEffect(() => {
+    if (isEditMode && id) {
+      const loadData = async () => {
+        const sheet = await fetchTripSheetById(id);
         
-        // FIX: Correctly map backend items. Use rate if available, fallback to freight.
-        const mappedItems = (editing.items ?? []).map(item => ({
-            ...item,
-            // The backend now supports 'rate'. Fallback to freight only for old records.
-            rate: item.rate ?? (item as any).freight ?? 0,
-        }));
-        setItems(mappedItems);
+        if (sheet) {
+            setMfNo(sheet.mfNo);
+            setTsDate(sheet.tsDate);
+            setCarriers(sheet.carriers ?? "");
+            setFromPlace(sheet.fromPlace);
+            setToPlace(sheet.toPlace);
+            
+            const mappedItems = (sheet.items ?? []).map(item => ({
+                ...item,
+                rate: item.rate ?? (item as any).freight ?? 0,
+            }));
+            setItems(mappedItems);
 
-        setUnloadPlace(editing.unloadPlace ?? "");
-        setDriverName(editing.driverName ?? "");
-        setDlNo(editing.dlNo ?? "");
-        setDriverMobile(editing.driverMobile ?? "");
-        setLorryNo(editing.lorryNo ?? "");
-        setLorryName(editing.lorryName ?? "");
-        setOwnerName(editing.ownerName ?? "");
-        setOwnerMobile(editing.ownerMobile ?? "");
-        
-        setLoading(false);
-      } else {
-        alert("Trip Sheet not found.");
-        navigate("/trip-sheet");
-      }
+            setUnloadPlace(sheet.unloadPlace ?? "");
+            setDriverName(sheet.driverName ?? "");
+            setDlNo(sheet.dlNo ?? "");
+            setDriverMobile(sheet.driverMobile ?? "");
+            setLorryNo(sheet.lorryNo ?? "");
+            setLorryName(sheet.lorryName ?? "");
+            setOwnerName(sheet.ownerName ?? "");
+            setOwnerMobile(sheet.ownerMobile ?? "");
+            
+            setLoading(false);
+        } else {
+            alert("Trip Sheet not found.");
+            navigate("/trip-sheet");
+        }
+      };
+      loadData();
     } else {
         setLoading(false);
     }
-  }, [isEditMode, tripSheets, editing, navigate]);
+  }, [isEditMode, id, fetchTripSheetById, navigate]);
 
   // --- FORM LOGIC ---
 
@@ -111,14 +120,18 @@ export const TripSheetForm = () => {
   const [itemConsignee, setItemConsignee] = useState<string>("");
 
   const loadGc = (selectedGcNo: string) => {
-    const gc = gcEntries.find((g) => g.gcNo === selectedGcNo);
+    // Search in availableGcs (new items) or in current items (if editing)
+    let gc = availableGcs.find((g) => g.gcNo === selectedGcNo);
+    
+    // If not found in available (because it's already in the sheet being edited),
+    // we can't fully reload it without fetching it. 
+    // But typically user selects NEW GCs here.
+    
     if (!gc) return null;
 
     return {
       qty: parseFloat(gc.quantity) || 0,
-      // FIX: Load initial rate from GC freight (as starting point)
       rate: parseFloat(gc.freight) || 0,
-      // FIX: Handle both 'packing' and 'packingType' to show data
       packingDts: gc.packing || (gc as any).packingType || "",
       contentDts: gc.contents,
       consignor: consignors.find((c) => c.id === gc.consignorId)?.name ?? "",
@@ -179,12 +192,11 @@ export const TripSheetForm = () => {
   );
 
   useEffect(() => {
-    if (!editing) setUnloadPlace(toPlace);
-  }, [toPlace, editing]);
+    if (!isEditMode) setUnloadPlace(toPlace);
+  }, [toPlace, isEditMode]);
 
   const driverNameReadonly = dlNo !== "" || driverMobile !== "";
 
-  // Options
   const driverDlOptions = driverEntries.map((d) => ({ value: d.dlNo, label: d.dlNo }));
   const driverNameOptions = driverEntries.map((d) => ({ value: d.driverName.toUpperCase(), label: d.driverName.toUpperCase() }));
   const driverMobileOptions = driverEntries.map((d) => ({ value: d.mobile, label: d.mobile }));
@@ -219,36 +231,15 @@ export const TripSheetForm = () => {
 
   const onOwnerNameChange = (v: string) => setOwnerName(v.toUpperCase());
 
-  const usedGCs = useMemo(() => {
-    const arr: string[] = [];
-    tripSheets.forEach((ts) =>
-      ts.items?.forEach((it) => {
-        if (!editing || ts.mfNo !== editing.mfNo) arr.push(it.gcNo);
-      })
-    );
-    return arr;
-  }, [editing, tripSheets]);
-
-  const gcOptions = gcEntries
-    .filter((g) => {
-      const isInForm = items.some((i) => i.gcNo === g.gcNo);
-      const isUsedElsewhere = usedGCs.includes(g.gcNo);
-      if (editing && isInForm) return true;
-      return !isInForm && !isUsedElsewhere;
-    })
-    // FIX: Use g.gcNo as value to ensure readable ID is stored, NOT Mongo ID
+  // Filter Options: Show only GCs that are NOT already in the items list
+  const gcOptions = availableGcs
+    .filter((g) => !items.some((i) => i.gcNo === g.gcNo))
     .map((g) => ({ value: g.gcNo, label: g.gcNo }));
 
   const fromPlaceOptions = fromPlaces.map((p) => ({ value: p.placeName, label: p.placeName }));
   const toPlaceOptions = toPlaces.map((p) => ({ value: p.placeName, label: p.placeName }));
 
-  const generateNextMfNo = () => {
-    if (!tripSheets.length) return "1";
-    const max = Math.max(...tripSheets.map((t) => Number(t.mfNo || 0)));
-    return String(max + 1);
-  };
-
-  const handleSave = (e?: React.FormEvent) => {
+  const handleSave = async (e?: React.FormEvent) => {
     e?.preventDefault();
 
     if (!tsDate) { alert("Please enter TripSheet date."); return; }
@@ -256,20 +247,25 @@ export const TripSheetForm = () => {
     if (!unloadPlace) { alert("Please select Unload Place."); return; }
     if (!items || items.length === 0) { alert("Add at least 1 GC entry before saving."); return; }
     
+    // If ID is missing in edit mode, prevent save
+    if (isEditMode && !id) return;
+
+    // CRITICAL FIX: Do NOT calculate ID on frontend. 
+    // Send empty string so backend handles the counter.
     let finalMfNo = mfNo;
-    if (!editing) {
-      finalMfNo = generateNextMfNo();
-      setMfNo(finalMfNo);
+    if (!isEditMode) {
+        // We let backend generate it
+        finalMfNo = ""; 
     }
 
     const payload: TripSheetEntry = {
-      id: finalMfNo!, 
-      mfNo: finalMfNo!,
+      id: id || "", 
+      mfNo: finalMfNo,
       tsDate,
       carriers,
       fromPlace,
       toPlace,
-      items, // Items already contain 'rate', so we send them directly
+      items, 
       unloadPlace,
       totalAmount,
       driverName,
@@ -281,8 +277,8 @@ export const TripSheetForm = () => {
       lorryName,
     };
 
-    if (editing) updateTripSheet(payload);
-    else addTripSheet(payload);
+    if (isEditMode) await updateTripSheet(payload);
+    else await addTripSheet(payload);
 
     navigate("/trip-sheet");
   };
@@ -329,7 +325,11 @@ export const TripSheetForm = () => {
                   placeholder="Select To Place"
                   options={toPlaceOptions}
                   value={toPlace}
-                  onSelect={(v) => setToPlace(v)}
+                  onSelect={(v) => { 
+                      setToPlace(v); 
+                      // Auto-fill unload place if creating new
+                      if(!isEditMode) setUnloadPlace(v); 
+                  }}
                   required
                 />
               </div>
@@ -354,7 +354,7 @@ export const TripSheetForm = () => {
                 <div className="col-span-1 sm:col-span-1 lg:col-span-4">
                   <AutocompleteInput
                     label="Select GC No"
-                    placeholder="Search GC..."
+                    placeholder="Search Pending GC..."
                     options={gcOptions}
                     value={gcNo}
                     onSelect={handleGcChange}

@@ -1,6 +1,4 @@
-// src/features/trip-sheet-entry/TripSheetPrintManager.tsx
-
-import { useEffect, useMemo } from "react";
+import { useEffect, useState } from "react";
 import ReactDOM from "react-dom";
 import { useData } from "../../hooks/useData";
 import { TripSheetPrintCopy } from "./TripSheetPrintCopy";
@@ -15,23 +13,40 @@ export const TripSheetPrintManager = ({
   mfNos,
   onClose,
 }: TripSheetPrintManagerProps) => {
-  const { getTripSheet } = useData();
+  // CHANGED: Use fetchTripSheetById instead of getTripSheet
+  const { fetchTripSheetById } = useData();
+  
+  const [sheets, setSheets] = useState<TripSheetEntry[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Prepare print pages similar to GCPrintManager
-  const printPages = useMemo(() => {
-    const sheets: TripSheetEntry[] = mfNos
-      .map((id) => getTripSheet(id))
-      .filter(Boolean) as TripSheetEntry[];
-
-    return sheets.map((sheet) => (
-      <div className="print-page" key={sheet.mfNo}>
-        <TripSheetPrintCopy sheet={sheet} />
-      </div>
-    ));
-  }, [mfNos, getTripSheet]);
-
-  // Auto-print + auto-close
+  // 1. Fetch Data Async
   useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const promises = mfNos.map((id) => fetchTripSheetById(id));
+        const results = await Promise.all(promises);
+        // Filter out nulls in case an ID wasn't found
+        const validSheets = results.filter((s): s is TripSheetEntry => s !== null);
+        setSheets(validSheets);
+      } catch (error) {
+        console.error("Failed to load trip sheets for printing", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (mfNos.length > 0) {
+      loadData();
+    } else {
+      setLoading(false);
+    }
+  }, [mfNos, fetchTripSheetById]);
+
+  // 2. Trigger Print Dialog once data is loaded
+  useEffect(() => {
+    if (loading || sheets.length === 0) return;
+
     const handleAfterPrint = () => {
       onClose();
       window.removeEventListener("afterprint", handleAfterPrint);
@@ -39,15 +54,19 @@ export const TripSheetPrintManager = ({
 
     window.addEventListener("afterprint", handleAfterPrint);
 
-    // Small delay ensures content mounts first
-    setTimeout(() => {
+    // Small delay ensures content renders into the portal before printing
+    const timer = setTimeout(() => {
       window.print();
-    }, 100);
+    }, 500);
 
     return () => {
+      clearTimeout(timer);
       window.removeEventListener("afterprint", handleAfterPrint);
     };
-  }, [onClose]);
+  }, [loading, sheets, onClose]);
+
+  // Don't render anything until loaded
+  if (loading || sheets.length === 0) return null;
 
   const printContent = (
     <div className="ts-print-wrapper">
@@ -86,7 +105,11 @@ export const TripSheetPrintManager = ({
         }
       `}</style>
 
-      {printPages}
+      {sheets.map((sheet) => (
+        <div className="print-page" key={sheet.mfNo}>
+          <TripSheetPrintCopy sheet={sheet} />
+        </div>
+      ))}
     </div>
   );
 
