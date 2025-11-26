@@ -1,5 +1,3 @@
-// src/features/trip-sheet-entry/TripSheetPrintManager.tsx
-
 import { useEffect, useMemo, useRef } from "react";
 import ReactDOM from "react-dom";
 import { useData } from "../../hooks/useData";
@@ -14,6 +12,7 @@ interface TripSheetPrintManagerProps {
 export const TripSheetPrintManager = ({
   mfNos,
   onClose,
+
 }: TripSheetPrintManagerProps) => {
   const { getTripSheet } = useData();
   const printRef = useRef<HTMLDivElement>(null);
