@@ -8,7 +8,7 @@ export interface AppUser {
   password: string; 
   mobile: string;
   role: 'admin' | 'user';
-}
+ }
 
 export interface Consignor {
   id: string;
