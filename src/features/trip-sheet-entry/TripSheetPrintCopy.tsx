@@ -62,7 +62,9 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
           padding: 10px;
           box-sizing: border-box;
           width: 100%;
+          max-width: 100%;
         }
+
 
         .header-flex {
           display:flex;

@@ -11,7 +11,10 @@ interface TripSheetPrintManagerProps {
   onClose: () => void;
 }
 
-export const TripSheetPrintManager = ({ mfNos, onClose }: TripSheetPrintManagerProps) => {
+export const TripSheetPrintManager = ({
+  mfNos,
+  onClose,
+}: TripSheetPrintManagerProps) => {
   const { getTripSheet } = useData();
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -35,9 +38,10 @@ export const TripSheetPrintManager = ({ mfNos, onClose }: TripSheetPrintManagerP
 
     window.addEventListener("afterprint", afterPrint);
 
+    // delay ensures print DOM is mounted
     setTimeout(() => {
-      window.print(); // SAME PRINT BEHAVIOR FOR MOBILE & DESKTOP
-    }, 300);
+      window.print();
+    }, 350);
 
     return () => window.removeEventListener("afterprint", afterPrint);
   }, [onClose]);
@@ -48,26 +52,29 @@ export const TripSheetPrintManager = ({ mfNos, onClose }: TripSheetPrintManagerP
         
         @media print {
 
-          body * {
+          /* Hide entire application */
+
+          body > *:not(.ts-print-wrapper) {
+            display: none !important;
             visibility: hidden !important;
           }
 
-          .ts-print-wrapper, .ts-print-wrapper * {
-            visibility: visible !important;
-          }
-
+          /* FORCE SHOW print wrapper */
+          
           .ts-print-wrapper {
             display: block !important;
-            position: fixed;
-            inset: 0;
-            margin: 0;
-            padding: 0;
-            background: white;
-            z-index: 9999;
+            visibility: visible !important;
+            position: fixed !important;
+            inset: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+            z-index: 999999 !important;
           }
 
           .print-page {
-            page-break-after: always;
+            page-break-after: always !important;
+            page-break-inside: avoid !important;
           }
 
           @page {
@@ -75,6 +82,7 @@ export const TripSheetPrintManager = ({ mfNos, onClose }: TripSheetPrintManagerP
             margin: 12mm;
           }
         }
+
       `}</style>
 
       {printPages}
@@ -83,4 +91,3 @@ export const TripSheetPrintManager = ({ mfNos, onClose }: TripSheetPrintManagerP
 
   return ReactDOM.createPortal(printContent, document.body);
 };
-
