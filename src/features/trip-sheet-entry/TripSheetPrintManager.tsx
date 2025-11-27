@@ -53,7 +53,7 @@ export const TripSheetPrintManager = ({
     // 3. Define afterprint listener
     const afterPrint = () => {
       // Use a timeout to ensure styles are restored *after* the print dialog closes
-      setTimeout(cleanupStyles); 
+      setTimeout(cleanupStyles, 500); 
     };
 
     window.addEventListener("afterprint", afterPrint);
