@@ -21,7 +21,8 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
   const total = sheet.totalAmount ?? 0;
   const totalWords = numberToWordsInRupees(total);
 
-  const visibleRowCount = 15;
+  // 1. ⬇️ REDUCED ROWS: Decreased from 15 to 10 to fit on a single page
+  const visibleRowCount = 15; 
   const items: TripSheetGCItem[] = sheet.items ?? [];
   const fillerCount = Math.max(0, visibleRowCount - items.length);
 
@@ -33,22 +34,20 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
     <div style={{ fontFamily: "Arial, Helvetica, sans-serif", color: "#000" }}>
       <style>
         {`
-        @page {
-          size: A4;
-          margin: 10mm;
-        }
+        
+        /* GENERAL PRINT STYLES */
         @media print {
-          body, html {
-            background: #ffffff !important;
+          /* Force colors to print and remove shadows for clean output */
+          body, html, * {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
-          }
-
-          * {
-            background: #ffffff !important;
+            box-shadow: none !important; 
           }
         }
 
+        /* ---------------------------------- */
+        /* LAYOUT & COMPONENT SPECIFIC STYLES */
+        /* ---------------------------------- */
 
         .page-heading {
           text-align: center;
@@ -65,33 +64,56 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
           max-width: 100%;
         }
 
-
+        /* Use Flexbox for Screen, use Floats for Print */
         .header-flex {
-          display:flex;
+          display:flex; /* Default for screen view */
           justify-content:space-between;
           align-items:flex-start;
         }
-        .company-block { width: 70%; border-right: 1px solid #000; }
+
+        @media print {
+          .header-flex {
+            display: block; /* Override Flexbox for print */
+            overflow: hidden; 
+          }
+          .company-block { 
+            float: left; 
+            width: 65%; 
+            border-right: 1px solid #000;
+          }
+          .meta-block {
+            float: right; 
+            width: 35%;
+            padding: 0 0 0 10px;
+            text-align: left;
+            box-sizing: border-box;
+          }
+        }
+        
         .company-title { font-weight: 900; font-size: 20px; }
         .company-sub { font-size: 11px; margin-top: 3px; }
-
         .meta-block {
-          width: 30%;
-          text-align: left;
           font-size: 12px;
           line-height: 1.4;
           padding: 10px;
         }
 
+        /* From / To / Date layout using inline-block for side-by-side */
         .fromto {
-          display:flex;
-          justify-content:space-between;
+          display: block;
           margin-top: 8px;
           padding: 6px 2px;
           font-weight: 100;
           border-top: 1px solid #000;
+          overflow: hidden; 
         }
-
+        .fromto > div {
+          display: inline-block; 
+          width: 33.3%;
+          box-sizing: border-box;
+          float: left; 
+        }
+        
         .ts-table {
           width:100%;
           border-collapse: collapse;
@@ -142,13 +164,25 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
           min-width: 120px;
         }
 
+        /* 2. ⬇️ ROW LAYOUT: Trip footer is now three distinct rows */
         .trip-footer-grid {
           margin-top: 8px;
-          display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
-          gap: 10px;
           font-size: 12px;
+          display: block; 
         }
+        .trip-footer-grid > div {
+          display: block; /* Ensures each block (Driver/Owner/Lorry) is on its own line */
+          width: 100%; 
+          box-sizing: border-box;
+          margin-bottom: 8px; 
+        }
+        
+        /* 3. ✅ NEW FIX: Styles for the inline elements inside the footer blocks */
+        .trip-footer-grid-item {
+            display: inline-block; /* Makes the label/value pairs sit next to each other */
+            margin-right: 15px; /* Spacing between inline items */
+        }
+        
         .col-line {
           border-bottom:1px dashed #000;
           padding-bottom:3px; 
@@ -163,12 +197,23 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
           line-height: 1.35;
         }
 
-        .sigs {
-          display:flex;
-          justify-content:space-between;
-          margin-top: 14px;
+        /* Use Floats for Signatures */
+        @media print {
+          .sigs {
+            display: block; 
+            overflow: hidden; 
+            margin-top: 14px;
+          }
+          .sig-box { 
+            width: 45%; 
+            text-align: center;
+            float: left; 
+          }
+          .sigs > .sig-box:last-child {
+            float: right; 
+          }
         }
-        .sig-box { width:45%; text-align:center; }
+
         .sig-line {
           display:block;
           width: 70%;
@@ -176,8 +221,7 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
           margin: 0 auto 6px;
           border-top: 1px solid #000;
         }
-      `}
-      </style>
+      `}</style>
 
       <div className="page-heading">TRIP SHEET</div>
 
@@ -185,7 +229,7 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
         {/* Header */}
         <div className="header-flex">
           <div className="company-block">
-            <div style={{  }}>
+            <div style={{}}>
 
               <div style={{ fontSize: 11 }}>
                 <div>GSTIN: 33ABLPV5082H3Z8 </div> <div>Mobile: 9787718433</div>
@@ -258,9 +302,9 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
         </table>
 
         {/* Footer */}
-         <div className="footer no-gap">
+        <div className="footer no-gap">
           Goods have been loaded in good condition. All Checkpost papers have been handed over to the truck driver.
-          Goods to be unloaded at<span className="dash bold font-semibold">{sheet.unloadPlace     ?? sheet.toPlace}</span>
+          Goods to be unloaded at<span className="dash bold font-semibold">{sheet.unloadPlace ?? sheet.toPlace}</span>
           &nbsp;&nbsp; Please pay lorry hire Rs. <span className="dash bold">₹{total.toLocaleString("en-IN")}</span>,
           &nbsp;&nbsp; <strong className="dash bold">{totalWords}</strong> on receiving the goods in sound condition.
         </div>
@@ -268,30 +312,39 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
         {/* Driver / Owner / Lorry */}
         <div style={{ borderTop: "1px solid #000", marginTop: 8, paddingTop: 8 }}>
           <div className="trip-footer-grid font-thin">
-          <div>
-            <div><strong>Driver Name</strong> <span className="col-line font-semibold">{(sheet.driverName    ?? "").toUpperCase()}</span></div>
-            <div style={{ marginTop: 6 }}>
-              <strong>D.L.No.</strong> <span className="col-line font-semibold">{(sheet.dlNo ?? "").toUpperCase()}</span>
+            {/* Block 1: Driver Details - ALL IN ONE LINE (using trip-footer-grid-item) */}
+            <div className="trip-footer-row">
+              <span className="trip-footer-grid-item">
+                <strong>Driver Name</strong> <span className="col-line font-semibold">{(sheet.driverName ?? "").toUpperCase()}</span>
+              </span>
+              <span className="trip-footer-grid-item">
+                <strong>D.L.No.</strong> <span className="col-line font-semibold">{(sheet.dlNo ?? "").toUpperCase()}</span>
+              </span>
+              <span className="trip-footer-grid-item">
+                <strong>Driver number</strong> <span className="col-line font-semibold">{(sheet.driverMobile ?? "").toUpperCase()}</span>
+              </span>
             </div>
-            <div style={{ marginTop: 6 }}>
-              <strong>Driver number</strong> <span className="col-line font-semibold">{(sheet.driverMobile ?? "").toUpperCase()}</span>
-            </div>
-          </div>
 
-          <div>
-            <div><strong>Owner Name</strong> <span className="col-line font-semibold">{(sheet.ownerName ?? "").toUpperCase()}</span></div>
-            <div style={{ marginTop: 6 }}>
-              <strong>Owner number</strong> <span className="col-line font-semibold">{(sheet.ownerMobile ?? "").toUpperCase()}</span>
+            {/* Block 2: Owner Details - ALL IN ONE LINE */}
+            <div className="trip-footer-row">
+              <span className="trip-footer-grid-item">
+                <strong>Owner Name</strong> <span className="col-line font-semibold">{(sheet.ownerName ?? "").toUpperCase()}</span>
+              </span>
+              <span className="trip-footer-grid-item">
+                <strong>Owner number</strong> <span className="col-line font-semibold">{(sheet.ownerMobile ?? "").toUpperCase()}</span>
+              </span>
             </div>
-          </div>
 
-          <div>
-            <div><strong>Lorry No.</strong> <span className="col-line font-semibold">{(sheet.lorryNo ?? "").toUpperCase()}</span></div>
-            <div style={{ marginTop: 6 }}>
-              <strong>Lorry Name</strong> <span className="col-line font-semibold">{(sheet.lorryName ?? "").toUpperCase()}</span>
+            {/* Block 3: Lorry Details - ALL IN ONE LINE */}
+            <div className="trip-footer-row">
+              <span className="trip-footer-grid-item">
+                <strong>Lorry No.</strong> <span className="col-line font-semibold">{(sheet.lorryNo ?? "").toUpperCase()}</span>
+              </span>
+              <span className="trip-footer-grid-item">
+                <strong>Lorry Name</strong> <span className="col-line font-semibold">{(sheet.lorryName ?? "").toUpperCase()}</span>
+              </span>
             </div>
           </div>
-        </div>
         </div>
 
         {/* Legal + Signature */}
@@ -299,7 +352,7 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
           <div className="legal mb-3">
             I have received the goods noted above in good and condition along with the documents. I am responsible for the safe delivery at the destination.
             All risks and expenses EN ROUTE will be of the driver. Transit risks are covered by driver/owner.
-            Received all the related documents & goods intact. We will not be responsible for the unloading on holidays.      
+            Received all the related documents & goods intact. We will not be responsible for the unloading on holidays.
           </div>
 
           <div style={{ height: "25px" }}></div>
