@@ -22,8 +22,9 @@ export const TripSheetList = () => {
   const consignorOptions = useMemo(() => consignors.map(c => ({ value: c.id, label: c.name })), [consignors]);
   const consigneeOptions = useMemo(() => consignees.map(c => ({ value: c.id, label: c.name })), [consignees]);
 
-  // --- 2. SERVER PAGINATION ---
-  // Standardized hook usage like GcEntryList
+  // --- 2. SERVER PAGINATION (Optimized Payload) ---
+  // This endpoint now returns ONLY: mfNo, fromPlace, toPlace, tsDate, totalAmount
+  // The 'items' array is excluded to reduce latency.
   const {
     data: paginatedData,
     loading,
@@ -51,7 +52,6 @@ export const TripSheetList = () => {
 
   // --- Filter Handlers ---
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Updates the hook's filter directly, triggering debounce and fetch
     setFilters({ search: e.target.value });
   };
 
@@ -124,9 +124,11 @@ export const TripSheetList = () => {
     setDelId(null); 
   };
   
+  // Triggers TripSheetPrintManager, which fetches FULL data for each ID
   const handlePrintSingle = (id: string) => setPrintIds([id]);
   const handlePrintSelected = () => { if (selected.length > 0) setPrintIds(selected); };
   
+  // Uses list data directly (safe because ReportView only needs summary fields)
   const handleShowReport = () => { 
     if (paginatedData.length > 0) setReportPrintingJobs(paginatedData); 
     else alert("No data to report."); 

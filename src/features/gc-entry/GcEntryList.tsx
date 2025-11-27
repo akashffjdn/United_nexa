@@ -15,7 +15,7 @@ import type { GcEntry } from '../../types';
 
 export const GcEntryList = () => {
   const navigate = useNavigate();
-  const { deleteGcEntry, consignors, consignees, getUniqueDests } = useData();
+  const { deleteGcEntry, consignors, consignees, getUniqueDests, fetchGcById } = useData();
   
   // Use Server Pagination Hook
   const {
@@ -120,24 +120,52 @@ export const GcEntryList = () => {
     setDeletingId(null); 
   };
   
-  const handlePrintSingle = (gcNo: string) => {
-    const gc = paginatedData.find(g => g.gcNo === gcNo);
-    if (!gc) return;
-    const consignor = consignors.find(c => c.id === gc.consignorId);
-    const consignee = consignees.find(c => c.id === gc.consigneeId);
-    if (consignor && consignee) setPrintingJobs([{ gc, consignor, consignee }]);
+  // --- OPTIMIZED PRINT HANDLERS ---
+  // Fetches full data on demand because list API is stripped
+  const handlePrintSingle = async (gcNo: string) => {
+    // Fetch full GC data by ID
+    const fullGc = await fetchGcById(gcNo);
+    
+    if (!fullGc) {
+        alert("Failed to fetch GC details for printing.");
+        return;
+    }
+    
+    const consignor = consignors.find(c => c.id === fullGc.consignorId);
+    const consignee = consignees.find(c => c.id === fullGc.consigneeId);
+    
+    if (consignor && consignee) {
+        setPrintingJobs([{ gc: fullGc, consignor, consignee }]);
+    } else {
+        alert("Consignor or Consignee not found.");
+    }
   };
   
-  const handlePrintSelected = () => {
+  const handlePrintSelected = async () => {
     if (selectedGcIds.length === 0) return;
-    const jobs = selectedGcIds.map(id => {
-      const gc = paginatedData.find(g => g.gcNo === id);
-      if (!gc) return null;
-      const consignor = consignors.find(c => c.id === gc.consignorId);
-      const consignee = consignees.find(c => c.id === gc.consigneeId);
-      return (consignor && consignee) ? { gc, consignor, consignee } : null;
-    }).filter(Boolean) as GcPrintJob[];
-    if (jobs.length > 0) { setPrintingJobs(jobs); setSelectedGcIds([]); }
+    
+    const jobs: GcPrintJob[] = [];
+    
+    // Fetch all selected GCs in parallel
+    const promises = selectedGcIds.map(id => fetchGcById(id));
+    const results = await Promise.all(promises);
+    
+    results.forEach(fullGc => {
+        if (!fullGc) return;
+        const consignor = consignors.find(c => c.id === fullGc.consignorId);
+        const consignee = consignees.find(c => c.id === fullGc.consigneeId);
+        
+        if (consignor && consignee) {
+            jobs.push({ gc: fullGc, consignor, consignee });
+        }
+    });
+
+    if (jobs.length > 0) { 
+      setPrintingJobs(jobs); 
+      setSelectedGcIds([]); 
+    } else {
+      alert("Could not prepare print jobs. Check data integrity.");
+    }
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {

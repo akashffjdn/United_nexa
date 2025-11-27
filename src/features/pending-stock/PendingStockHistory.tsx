@@ -11,7 +11,7 @@ import { MultiSelect } from '../../components/shared/MultiSelect';
 import { StockReportPrint } from './StockReportView';
 import { GcPrintManager, type GcPrintJob } from '../gc-entry/GcPrintManager';
 import type { GcEntry, Consignor, Consignee } from '../../types';
-import { useServerPagination } from '../../hooks/useServerPagination'; // Used for server-side pagination
+import { useServerPagination } from '../../hooks/useServerPagination'; 
 import { Pagination } from '../../components/shared/Pagination';
 
 type ReportJob = {
@@ -22,10 +22,9 @@ type ReportJob = {
 
 export const PendingStockHistory = () => {
   const navigate = useNavigate();
-  const { deleteGcEntry, consignors, consignees, getUniqueDests } = useData();
+  const { deleteGcEntry, consignors, consignees, getUniqueDests, fetchGcById } = useData();
   
   // --- SERVER-SIDE PAGINATION HOOK ---
-  // Connects to the new /pending-stock endpoint
   const {
     data: paginatedData,
     loading,
@@ -39,7 +38,7 @@ export const PendingStockHistory = () => {
     filters,
     refresh
   } = useServerPagination<GcEntry>({ 
-    endpoint: '/operations/pending-stock', // Targeted specific endpoint
+    endpoint: '/operations/pending-stock', 
     initialFilters: { search: '', filterType: 'all' }
   });
 
@@ -123,30 +122,40 @@ export const PendingStockHistory = () => {
   const handleConfirmDelete = async () => { 
     if (deletingId) {
       await deleteGcEntry(deletingId); 
-      refresh(); // Refresh list after delete
+      refresh(); 
     }
     setIsConfirmOpen(false); 
     setDeletingId(null); 
   };
   
-  const handlePrintSingle = (gcNo: string) => {
-    const gc = paginatedData.find(g => g.gcNo === gcNo);
-    if (gc) {
-      const consignor = consignors.find(c => c.id === gc.consignorId);
-      const consignee = consignees.find(c => c.id === gc.consigneeId);
-      if(consignor && consignee) setGcPrintingJobs([{ gc, consignor, consignee }]);
+  // --- OPTIMIZED PRINT: Fetch Full Data ---
+  const handlePrintSingle = async (gcNo: string) => {
+    const fullGc = await fetchGcById(gcNo);
+    
+    if (fullGc) {
+      const consignor = consignors.find(c => c.id === fullGc.consignorId);
+      const consignee = consignees.find(c => c.id === fullGc.consigneeId);
+      if(consignor && consignee) setGcPrintingJobs([{ gc: fullGc, consignor, consignee }]);
+    } else {
+        alert("Failed to fetch GC data.");
     }
   };
   
-  const handlePrintSelected = () => {
+  const handlePrintSelected = async () => {
     if (selectedGcIds.length === 0) return;
-    const jobs = selectedGcIds.map(id => {
-      const gc = paginatedData.find(g => g.gcNo === id);
-      if (!gc) return null;
-      const consignor = consignors.find(c => c.id === gc.consignorId);
-      const consignee = consignees.find(c => c.id === gc.consigneeId);
-      return (consignor && consignee) ? { gc, consignor, consignee } : null;
-    }).filter(Boolean) as GcPrintJob[];
+    
+    const jobs: GcPrintJob[] = [];
+    const promises = selectedGcIds.map(id => fetchGcById(id));
+    const results = await Promise.all(promises);
+    
+    results.forEach(fullGc => {
+        if (!fullGc) return;
+        const consignor = consignors.find(c => c.id === fullGc.consignorId);
+        const consignee = consignees.find(c => c.id === fullGc.consigneeId);
+        if (consignor && consignee) {
+            jobs.push({ gc: fullGc, consignor, consignee });
+        }
+    });
     
     if (jobs.length > 0) { 
       setGcPrintingJobs(jobs); 
@@ -154,6 +163,8 @@ export const PendingStockHistory = () => {
     }
   };
 
+  // Report generation uses the list data directly (which contains packing/contents/date)
+  // This is acceptable for "Report"
   const handleShowReport = () => {
     if (paginatedData.length === 0) return;
     const jobs: ReportJob[] = paginatedData.map(gc => ({

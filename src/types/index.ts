@@ -1,5 +1,3 @@
-
-// --- User Interface ---
 export interface AppUser {
   id: string;
   name: string;
@@ -38,8 +36,7 @@ export interface Consignee {
 }
 
 export interface GcEntry {
-  // Removed legacy fields like date/invoiceDate/invoiceNo/pkgDesc/marks 
-  // if they aren't used, but keeping them optional to prevent breakages if legacy code exists.
+  // Optional legacy fields
   date?: string;
   invoiceDate?: string;
   invoiceNo?: string;
@@ -79,13 +76,15 @@ export interface GcEntry {
   fromNo: string;
   netQty: string;
 
-  // CHANGED: Renamed from paidType to paymentType to match backend Schema
   paymentType: 'To Pay' | 'Paid'; 
 
-  // ADDED: Trip Sheet Linking Fields
+  // Trip Sheet & Loading Fields
   tripSheetId?: string | null;
   isLoaded?: boolean;
   loadingStatus?: 'Pending' | 'Partially Loaded' | 'Loaded';
+  
+  // --- FIX ADDED HERE ---
+  loadedPackages?: number[]; 
 }
 
 export interface FromPlace {
