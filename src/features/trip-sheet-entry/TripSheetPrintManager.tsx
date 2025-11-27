@@ -14,7 +14,7 @@ export const TripSheetPrintManager = ({
   onClose,
 }: TripSheetPrintManagerProps) => {
   const { getTripSheet } = useData();
-  const printRef = useRef<HTMLDivElement>(null);
+  const printRef = useRef<HTMLDivElement>(null); // Ref for the print wrapper
 
   const printPages = useMemo(() => {
     const sheets: TripSheetEntry[] = mfNos
@@ -29,86 +29,99 @@ export const TripSheetPrintManager = ({
   }, [mfNos, getTripSheet]);
 
   useEffect(() => {
-    const afterPrint = () => {
+    const rootElement = document.getElementById("root");
+    const printWrapper = printRef.current;
+
+    if (!rootElement || !printWrapper) {
+      console.error("Print elements (root or wrapper) not found.");
+      return;
+    }
+
+    // --- JS FORCE FIX START ---
+    // 1. Store original styles
+    const originalRootDisplay = rootElement.style.display;
+    const originalWrapperDisplay = printWrapper.style.display;
+
+    // 2. Define the cleanup function
+    const cleanupStyles = () => {
+      rootElement.style.display = originalRootDisplay;
+      printWrapper.style.display = originalWrapperDisplay;
       onClose();
       window.removeEventListener("afterprint", afterPrint);
+    };
+    
+    // 3. Define afterprint listener
+    const afterPrint = () => {
+      // Use a timeout to ensure styles are restored *after* the print dialog closes
+      setTimeout(cleanupStyles, 500); 
     };
 
     window.addEventListener("afterprint", afterPrint);
 
-    // delay ensures print DOM is mounted before window.print() is called
+    // 4. Force visibility change before print call
+    // This overrides any conflicting CSS for the print context
+    rootElement.style.display = "none";
+    printWrapper.style.display = "block";
+
+    // 5. Trigger print after a delay
     setTimeout(() => {
       window.print();
     }, 350);
 
-    return () => window.removeEventListener("afterprint", afterPrint);
+    // --- JS FORCE FIX END ---
+
+    // 6. Return cleanup function to run on component unmount (before print)
+    return () => {
+      window.removeEventListener("afterprint", afterPrint);
+      // Ensure styles are reverted if component unmounts before print
+      cleanupStyles(); 
+    };
   }, [onClose]);
 
   const printContent = (
-    <div className="ts-print-wrapper" ref={printRef}>
+    // Set display to none initially, let JS control its visibility
+    <div className="ts-print-wrapper" ref={printRef} style={{ display: 'none' }}>
       <style>
-  {`
-    /* ------------------------------------------------ */
-    /* UNIVERSAL PRINT RESET AND CONTAINER HIDING LOGIC */
-    /* ------------------------------------------------ */
-    @media print {
+        {`
+          /* ------------------------------------------------ */
+          /* UNIVERSAL PRINT RESET AND CONTAINER HIDING LOGIC */
+          /* ------------------------------------------------ */
+          /* CSS is now mainly a fallback, but still necessary for non-JS print */
+          @media print {
+            
+            /* HIDE EVERYTHING EXCEPT THE PRINT WRAPPER */
+            #root, 
+            body > *:not(.ts-print-wrapper) {
+              display: none !important;
+              visibility: hidden !important;
+              /* Aggressive resets */
+              width: 0 !important;
+              height: 0 !important;
+              position: fixed !important; 
+              top: -9999px !important;
+            }
+
+            /* ENSURE THE PRINT WRAPPER IS VISIBLE AND DOMINANT */
+            .ts-print-wrapper {
+              display: block !important;
+              visibility: visible !important;
+              position: static !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+
+            /* MOBILE SPECIFIC BODY RESET (Fallback) */
+            body {
+              display: block !important;
+              visibility: visible !important;
+              overflow: visible !important;
+            }
+          }
+        `}
+      </style>
       
-      /* 🛑 FIX 1: HIDE EVERYTHING EXCEPT THE PRINT WRAPPER */
-      /* This targets the main app container (#root) and all its siblings.
-         This is generally the cleanest way to hide the entire app view. */
-      #root, 
-      body > *:not(.ts-print-wrapper) {
-         display: none !important;
-         visibility: hidden !important;
-         opacity: 0 !important;
-         /* Optional aggressive size reset for mobile */
-         width: 0 !important;
-         height: 0 !important;
-         position: fixed !important; 
-         top: -9999px !important;
-      }
-
-      /* 🛑 FIX 2: ENSURE THE PRINT WRAPPER IS VISIBLE AND DOMINANT */
-      /* We explicitly make the wrapper visible and ensure it takes up the print area. */
-      .ts-print-wrapper {
-        display: block !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        
-        /* Reset positioning for print context */
-        position: static !important;
-        top: auto !important;
-        left: auto !important;
-
-        /* Maximize print area usage */
-        width: 100% !important;
-        max-width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-      }
-
-      /* 🛑 FIX 3: MOBILE SPECIFIC HIDING (Just in case the other rules fail) */
-      /* Hiding the top-level <body> element when it's not the print wrapper */
-      /* This is a common workaround for mobile print engines ignoring the #root hide */
-      body {
-        display: block !important; /* Must be block so children can be flexed/positioned */
-        visibility: visible !important;
-        overflow: visible !important;
-        
-        /* Hide all BODY's direct children first */
-        & > * {
-          display: none !important;
-        }
-        
-        /* Then explicitly show the print wrapper if it is a direct body child */
-        & > .ts-print-wrapper {
-          display: block !important;
-        }
-      }
-    }
-  `}
-</style>
-
       {printPages}
     </div>
   );
