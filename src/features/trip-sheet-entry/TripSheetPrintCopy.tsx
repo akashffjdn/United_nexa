@@ -39,6 +39,7 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
         @media print {
           /* Force colors to print and remove shadows for clean output */
           body, html, * {
+             background-color: #fff !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
             box-shadow: none !important; 
