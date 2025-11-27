@@ -145,6 +145,7 @@ export const LoadListPrintManager: React.FC<LoadListPrintManagerProps> = ({ jobs
                     /* 🛑 HIDE EVERYTHING AGGRESSIVELY: Target #root and body children */
                     #root,
                     body > *:not(.load-list-print-wrapper) {
+                        background-color: #fff !important;
                         display: none !important;
                         visibility: hidden !important;
                         width: 0 !important;
@@ -233,7 +234,7 @@ export const LoadListPrintManager: React.FC<LoadListPrintManagerProps> = ({ jobs
                 {/* --- UPDATED FOOTER STRUCTURE FOR LEFT/RIGHT SPLIT --- */}
                 {/* 🛑 NOTE: I have removed the 'fixed' styles in the print media query above. 
                     This outer div still needs a high enough margin/padding to not overlap the content. */}
-                <div className="print-footer-total"> 
+                <div className="fixed bottom-20 left-0 right-0 z-10 p-4"> 
                     <div className="max-w-4xl font-bold text-lg mx-auto">
                         <div className="border-t-2 border-black w-full my-2"></div>
 
