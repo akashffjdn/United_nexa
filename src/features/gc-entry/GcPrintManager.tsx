@@ -78,7 +78,7 @@ export const GcPrintManager = ({ jobs, onClose }: GcPrintManagerProps) => {
     // Define afterprint listener to clean up styles after print dialog is closed
     const afterPrint = () => {
         // Use a timeout to ensure cleanup runs *after* the print dialog closes
-        setTimeout(cleanupStyles, 500); 
+        setTimeout(cleanupStyles, 100); 
     };
 
     window.addEventListener("afterprint", afterPrint);
