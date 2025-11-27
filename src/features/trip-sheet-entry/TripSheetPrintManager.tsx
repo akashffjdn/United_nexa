@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from "react";
-import ReactDOMServer from "react-dom/server";
+import { useEffect, useMemo, useRef } from "react";
+import ReactDOM from "react-dom";
 import { useData } from "../../hooks/useData";
 import { TripSheetPrintCopy } from "./TripSheetPrintCopy";
 import type { TripSheetEntry } from "../../types";
@@ -9,78 +9,90 @@ interface TripSheetPrintManagerProps {
   onClose: () => void;
 }
 
-export const TripSheetPrintManager = ({ mfNos, onClose }: TripSheetPrintManagerProps) => {
+export const TripSheetPrintManager = ({
+  mfNos,
+  onClose,
+}: TripSheetPrintManagerProps) => {
   const { getTripSheet } = useData();
+  const printRef = useRef<HTMLDivElement>(null);
 
-  const pages = useMemo(() => {
+  const printPages = useMemo(() => {
     const sheets: TripSheetEntry[] = mfNos
       .map((id) => getTripSheet(id))
       .filter(Boolean) as TripSheetEntry[];
 
-    return sheets.map(
-      (sheet) =>
-        `<div class="print-page">
-          ${ReactDOMServer.renderToString(<TripSheetPrintCopy sheet={sheet} />)}
-        </div>`
-    );
+    return sheets.map((sheet) => (
+      <div className="print-page" key={sheet.mfNo}>
+        <TripSheetPrintCopy sheet={sheet} />
+      </div>
+    ));
   }, [mfNos, getTripSheet]);
 
   useEffect(() => {
-    if (!pages.length) return;
-
-    const printWindow = window.open("", "_blank");
-
-    if (!printWindow) {
-      alert("Popup blocked — please allow popups to print.");
-      return;
-    }
-
-    printWindow.document.open();
-    printWindow.document.write(`
-        <html>
-          <head>
-            <title>Trip Sheet</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-
-            <style>
-              @page {
-                size: A4;
-                margin: 12mm;
-              }
-
-              body {
-                font-family: Arial, sans-serif;
-                margin: 0;
-                padding: 0;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-              }
-
-              .print-page {
-                page-break-after: always;
-                padding: 10px;
-              }
-            </style>
-          </head>
-
-          <body>${pages.join("")}</body>
-        </html>
-      `);
-
-    printWindow.document.close();
-
-    // Wait for full load
-    printWindow.onload = () => {
-      printWindow.focus();
-
-      // Safari/iOS needs delay
-      setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
-        onClose();
-      }, 300);
+    const afterPrint = () => {
+      onClose();
+      window.removeEventListener("afterprint", afterPrint);
     };
-  }, [pages, onClose]);
 
-  return null; // No portal needed anymore
+    window.addEventListener("afterprint", afterPrint);
+
+    // delay ensures print DOM is mounted before window.print() is called
+    setTimeout(() => {
+      window.print();
+    }, 350);
+
+    return () => window.removeEventListener("afterprint", afterPrint);
+  }, [onClose]);
+
+  const printContent = (
+    <div className="ts-print-wrapper" ref={printRef}>
+      <style>{`
+        
+        @media print {
+          /* 🛑 CRITICAL MOBILE FIX: Explicitly hide the main React app container. 
+             You MUST ensure '#root' matches the ID of your application's mounting element. */
+          #root {
+             display: none !important;
+             visibility: hidden !important;
+          }
+
+          /* Hide ALL other body children except the print wrapper */
+          body > *:not(.ts-print-wrapper) {
+            display: none !important;
+            visibility: hidden !important;
+          }
+
+          /* FORCE SHOW print wrapper */
+          .ts-print-wrapper {
+            display: block !important;
+            visibility: visible !important;
+            
+            /* Use absolute positioning over fixed for better print spooler reliability */
+            position: absolute !important; 
+            inset: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+            z-index: 999999 !important;
+          }
+
+          .print-page {
+            page-break-after: always !important;
+            page-break-inside: avoid !important;
+          }
+
+          /* Set page size and margin once in the manager */
+          @page {
+            size: A4;
+            margin: 12mm;
+          }
+        }
+
+      `}</style>
+
+      {printPages}
+    </div>
+  );
+
+  return ReactDOM.createPortal(printContent, document.body);
 };
