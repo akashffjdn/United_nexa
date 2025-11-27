@@ -46,49 +46,53 @@ export const TripSheetPrintManager = ({
 
   const printContent = (
     <div className="ts-print-wrapper" ref={printRef}>
-      <style>{`
-        
-        @media print {
-          /* 🛑 CRITICAL MOBILE FIX: Explicitly hide the main React app container. 
-             You MUST ensure '#root' matches the ID of your application's mounting element. */
-          #root {
-             display: none !important;
-             visibility: hidden !important;
-          }
-
-          /* Hide ALL other body children except the print wrapper */
-          body > *:not(.ts-print-wrapper) {
-            display: none !important;
-            visibility: hidden !important;
-          }
-
-          /* FORCE SHOW print wrapper */
-          .ts-print-wrapper {
-            display: block !important;
-            visibility: visible !important;
+      <style>
+        {`
+          /* Force mobile browsers to render the print media query */
+          @media print {
             
-            /* Use absolute positioning over fixed for better print spooler reliability */
-            position: absolute !important; 
-            inset: 0 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: white !important;
-            z-index: 999999 !important;
-          }
+            /* 🛑 CRITICAL MOBILE FIX: Explicitly hide the HTML and BODY children */
+            html > body {
+                display: block !important;
+                visibility: visible !important;
+                overflow: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            
+            /* 🛑 AGGRESSIVE MOBILE FIX: Hides the main app container */
+            #root, 
+            html > body > #root, 
+            html, 
+            body {
+              display: none !important;
+              visibility: hidden !important;
+              width: 0 !important;
+              height: 0 !important;
+            }
+            
+            /* Target all top-level children of the body, except our print wrapper */
+            body > *:not(.ts-print-wrapper) {
+              display: none !important;
+              visibility: hidden !important;
+            }
 
-          .print-page {
-            page-break-after: always !important;
-            page-break-inside: avoid !important;
+            /* Ensure the print wrapper itself is visible and takes up space */
+            .ts-print-wrapper {
+              display: block !important;
+              visibility: visible !important;
+              position: absolute !important; 
+              top: 0 !important;
+              left: 0 !important;
+              width: 100% !important;
+              min-height: 100% !important;
+              z-index: 9999 !important;
+              padding: 0;
+              margin: 0;
+            }
           }
-
-          /* Set page size and margin once in the manager */
-          @page {
-            size: A4;
-            margin: 12mm;
-          }
-        }
-
-      `}</style>
+        `}
+      </style>
 
       {printPages}
     </div>
