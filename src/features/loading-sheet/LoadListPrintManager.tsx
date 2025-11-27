@@ -104,7 +104,7 @@ export const LoadListPrintManager: React.FC<LoadListPrintManagerProps> = ({ jobs
         };
         
         const afterPrint = () => {
-            setTimeout(cleanupStyles, 500); 
+            setTimeout(cleanupStyles, 100); 
         };
 
         window.addEventListener("afterprint", afterPrint);
