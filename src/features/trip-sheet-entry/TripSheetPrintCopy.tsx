@@ -306,7 +306,7 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
         <div className="footer no-gap">
           Goods have been loaded in good condition. All Checkpost papers have been handed over to the truck driver.
           Goods to be unloaded at<span className="dash bold font-semibold">{sheet.unloadPlace ?? sheet.toPlace}</span>
-          &nbsp;&nbsp; Please pay lorry hire Rs. <span className="dash bold">₹{total.toLocaleString("en-IN")}</span>,
+          &nbsp;&nbsp; Please pay lorry hire Rs. <span className="dash bold font-semibold">₹{total.toLocaleString("en-IN")}</span>,
           &nbsp;&nbsp; <strong className="dash bold">{totalWords}</strong> on receiving the goods in sound condition.
         </div>
 
