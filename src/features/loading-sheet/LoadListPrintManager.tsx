@@ -234,7 +234,7 @@ export const LoadListPrintManager: React.FC<LoadListPrintManagerProps> = ({ jobs
                         <div className="py-1 flex justify-between items-start print-split-footer">
                             {/* LEFT SIDE: Total Quantity */}
                             <div>
-                                Total : {grandTotalQuantity},
+                                Total : {grandTotalQuantity}
                             </div>
 
                             {/* RIGHT SIDE: User Name and Static Line */}
