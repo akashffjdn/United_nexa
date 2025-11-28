@@ -9,7 +9,7 @@ interface TripSheetPrintManagerProps {
   onClose: () => void;
 }
 
-// Helper to detect mobile devices (screens smaller than 768px)
+// Helper to detect mobile devices (screens smaller than 768px) - Retained for the print delay adjustment
 const isMobileScreen = () => window.innerWidth < 768;
 
 
@@ -32,95 +32,61 @@ export const TripSheetPrintManager = ({
     ));
   }, [mfNos, getTripSheet]);
 
+  // -------------------------------------------------------------------
+  // 💡 NEW LOGIC: Rely ONLY on CSS Overlay, use JS only for timing/cleanup
+  // -------------------------------------------------------------------
   useEffect(() => {
-    // Exit if no jobs or elements are missing
     if (mfNos.length === 0) return;
 
-    const rootElement = document.getElementById("root");
     const printWrapper = printRef.current;
-
-    if (!rootElement || !printWrapper) {
-      console.error("Print elements not found");
+    if (!printWrapper) {
+      console.error("Print wrapper not found");
       return;
     }
 
     const isMobile = isMobileScreen();
     let printTimeout: number | undefined;
 
-    // Store original styles outside the branches
-    const originalRootDisplay = rootElement.style.display;
-    const originalWrapperDisplay = printWrapper.style.display;
-    
-    // Define a single universal cleanup function that restores styles
+    // Define a single cleanup function
     const cleanupHandler = () => {
-        // Use a timeout to ensure cleanup runs *after* the print dialog closes
+        // Use a slight delay to ensure cleanup runs *after* the print dialog closes
         setTimeout(() => {
-            // Restore original styles (using the captured original values)
-            rootElement.style.display = originalRootDisplay;
-            printWrapper.style.display = originalWrapperDisplay;
-            // Clean up the event listener
             window.removeEventListener("afterprint", cleanupHandler);
+            // OnClose is the only cleanup needed here, as the CSS handles hiding/showing.
             onClose();
         }, 500);
     };
 
-    // ---------------------------------------------------------
-    // 📱 MOBILE LOGIC: Aggressive JS Force Fix
-    // ---------------------------------------------------------
-    if (isMobile) {
-      // 1. Listen for when print dialog closes (the single universal handler)
-      window.addEventListener("afterprint", cleanupHandler);
+    // 1. Listen for the end of the print job/dialog closure
+    window.addEventListener("afterprint", cleanupHandler);
 
-      // 2. FORCE DOM MANIPULATION (CRITICAL MOBILE FIX)
-      // Hide the main UI and show the print wrapper
-      rootElement.style.setProperty('display', 'none', 'important'); 
-      printWrapper.style.setProperty('display', 'block', 'important');
+    // 2. Trigger Print. Use a longer delay for mobile for maximum DOM readiness.
+    const delay = isMobile ? 750 : 350;
 
-      // 3. Trigger Print (increased delay for mobile rendering)
-      printTimeout = setTimeout(() => {
+    printTimeout = setTimeout(() => {
+        // Force the print dialog
         window.print();
-      }, 750); 
-    } 
-    
-    // ---------------------------------------------------------
-    // 🖥️ DESKTOP LOGIC: CSS ONLY
-    // ---------------------------------------------------------
-    else {
-      // 1. Listen for cleanup (the single universal handler)
-      window.addEventListener("afterprint", cleanupHandler);
+    }, delay); 
 
-      // 2. Trigger Print 
-      printTimeout = setTimeout(() => {
-        window.print();
-      }, 350);
-    }
-
-    // Cleanup on unmount (safety net)
+    // 3. Cleanup on unmount
     return () => {
-        // Remove the listener
         window.removeEventListener("afterprint", cleanupHandler);
-        // Clear the print trigger timeout
         if (printTimeout) clearTimeout(printTimeout);
-        
-        // If the component unmounts while the mobile fix is active, revert styles immediately.
-        if (isMobile && rootElement.style.getPropertyValue('display') === 'none') {
-            rootElement.style.removeProperty('display');
-            printWrapper.style.removeProperty('display');
-        }
     };
 
   }, [onClose, mfNos.length]);
 
   const printContent = (
-    // The print wrapper does not need an inline style, as it's hidden by CSS @media screen
+    // We are deliberately NOT using an inline style here.
+    // CSS @media screen will keep it hidden.
     <div className="ts-print-wrapper" ref={printRef}> 
       <style>{`
         @media print {
           /* --------------------------------------------------- */
-          /* AGGRESSIVE HIDING: Ensures the print wrapper is the only thing visible */
-          /* This covers both desktop (via CSS) and acts as a safety net for mobile (already hidden by JS) */
+          /* CRITICAL FIX: AGGRESSIVE HIDE & OVERLAY             */
           /* --------------------------------------------------- */
 
+          /* HIDE EVERYTHING (including #root) via CSS */
           #root, 
           body > *:not(.ts-print-wrapper) {
             display: none !important;
@@ -129,17 +95,22 @@ export const TripSheetPrintManager = ({
             height: 0 !important;
             position: fixed !important; 
             top: -9999px !important;
-            background-color: white !important;
           }
 
-          /* Force show our wrapper (the print content) */
+          /* FORCE SHOW & OVERLAY our wrapper using fixed position */
           .ts-print-wrapper {
             display: block !important;
             visibility: visible !important;
-            position: absolute !important; 
+            
+            /* Use fixed positioning to force it over any default rendering */
+            position: fixed !important; 
             top: 0 !important;
             left: 0 !important;
-            width: 100% !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            
+            width: auto !important; /* Let content dictate width within margins */
+            height: auto !important; /* Let content dictate height */
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
@@ -150,18 +121,21 @@ export const TripSheetPrintManager = ({
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-
-          /* --------------------------------------------------- */
-          /* SHARED STYLES                                       */
-          /* --------------------------------------------------- */
+          
+          /* The print pages themselves need to revert to static/flow inside the fixed wrapper */
           .print-page {
+            position: static !important; 
             page-break-after: always !important;
             page-break-inside: avoid !important;
           }
 
+          /* --------------------------------------------------- */
+          /* PAGE & BACKGROUND STYLES                           */
+          /* --------------------------------------------------- */
+
           @page {
             size: A4;
-            margin: 12mm;
+            margin: 12mm; /* Match your desired print margin */
           }
           
           html, body {
@@ -187,5 +161,3 @@ export const TripSheetPrintManager = ({
 
   return ReactDOM.createPortal(printContent, document.body);
 };
-// Removed the placeholder global functions to fix the runtime error.
-// The cleanup logic is now correctly defined within the useEffect.
