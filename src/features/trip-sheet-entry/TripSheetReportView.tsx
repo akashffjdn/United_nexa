@@ -124,7 +124,7 @@ export const TripSheetReportPrint = ({
   sheets: TripSheetEntry[];
   onClose: () => void;
 }) => {
-  const printRef = useRef<HTMLDivElement>(null); // 🛑 NEW: Ref for the wrapper
+  const printRef = useRef<HTMLDivElement>(null);
 
   // ▬▬▬ GRAND TOTAL ▬▬▬
   const grandTotal = useMemo(
@@ -142,65 +142,70 @@ export const TripSheetReportPrint = ({
     return arr;
   }, [sheets]);
 
-  // ▬▬▬ PRINT + CLOSE (FIXED) ▬▬▬
+  // ▬▬▬ PRINT + CLOSE (FIXED FOR ALL BROWSERS) ▬▬▬
   useEffect(() => {
     if (sheets.length === 0) return;
 
     const rootElement = document.getElementById("root");
-    const printWrapper = printRef.current; // Get the wrapper element
+    const printWrapper = printRef.current; 
 
     if (!rootElement || !printWrapper) {
-        console.error("Print elements (root or wrapper) not found.");
-        return;
+      console.error("Print elements (root or wrapper) not found.");
+      return;
     }
 
-    // --- 1. JS FORCE FIX START (CRITICAL FOR MOBILE/BLANK DESKTOP) ---
+    // --- 1. JS FORCE FIX START (UNIVERSAL RELIABILITY FIX) ---
     // Store original styles to ensure the app is restored correctly
     const originalRootDisplay = rootElement.style.display;
     const originalWrapperDisplay = printWrapper.style.display;
+    let printTimeout: number;
 
     const cleanupStyles = () => {
-        // Restore original styles
-        rootElement.style.display = originalRootDisplay;
-        printWrapper.style.display = originalWrapperDisplay;
-        onClose(); // Close the manager
-        window.removeEventListener("afterprint", afterPrint);
+      // Use setTimeout to ensure cleanup runs *after* the print dialog is truly closed
+      setTimeout(() => {
+          // Restore original styles
+          rootElement.style.display = originalRootDisplay;
+          printWrapper.style.display = originalWrapperDisplay;
+          window.removeEventListener("afterprint", afterPrint);
+          onClose(); // Close the manager
+      }, 500); 
     };
     
     // Define afterprint listener to clean up styles after print dialog is closed
     const afterPrint = () => {
-        // Use a timeout to ensure cleanup runs *after* the print dialog closes
-        setTimeout(cleanupStyles, 500); 
+      cleanupStyles(); 
     };
 
     window.addEventListener("afterprint", afterPrint);
 
-    // Force visibility change *before* print call
+    // Force visibility change *before* print call using aggressive style setting
     // This is the direct DOM manipulation that fixes the mobile display issue.
     rootElement.style.display = "none";
     printWrapper.style.display = "block";
 
     // Trigger print after a short delay
-    const printTimeout = setTimeout(() => {
-        window.print();
-    }, 350); // Increased delay slightly for safety
+    printTimeout = setTimeout(() => {
+      window.print();
+    }, 500); // Using 500ms universally for better reliability
 
     // --- JS FORCE FIX END ---
 
     // Return cleanup function to run on component unmount
     return () => {
-        window.removeEventListener("afterprint", afterPrint);
-        clearTimeout(printTimeout);
-        // Ensure cleanup runs if the component unmounts unexpectedly
-        cleanupStyles(); 
+      window.removeEventListener("afterprint", afterPrint);
+      clearTimeout(printTimeout);
+      // Ensure cleanup runs if the component unmounts unexpectedly before print
+      // We must restore styles here if they were modified by the JS
+      rootElement.style.display = originalRootDisplay;
+      printWrapper.style.display = originalWrapperDisplay;
     };
 
   }, [sheets, onClose]); // Added dependencies
 
   // ▬▬▬ PORTAL CONTENT ▬▬▬
   const printContent = (
-    // 🛑 NEW: Set initial style to 'none' and use the ref
-    <div className="trip-report-wrapper" ref={printRef} style={{ display: 'none' }}>
+    // Set initial style to 'none' for screen view. JS/CSS will override it for print.
+    <div className="trip-report-wrapper" ref={printRef} style={{ display: 'none' }}> 
       <style>{`
         @media print {
           /* 🛑 HIDE EVERYTHING AGGRESSIVELY: Target #root and body children */
@@ -218,7 +223,7 @@ export const TripSheetReportPrint = ({
           .trip-report-wrapper {
             display: block !important;
             visibility: visible !important;
-            position: static !important;
+            position: static !important; /* Ensure content flows naturally */
             width: 100% !important;
             background-color: #fff !important; 
             -webkit-print-color-adjust: exact !important;
@@ -230,6 +235,8 @@ export const TripSheetReportPrint = ({
             page-break-after: always !important;
             page-break-inside: avoid !important;
           }
+          
+          /* Page size and margin */
           @page { size: A4; margin: 0; }
           
           /* Ensure body and html are white */
@@ -241,6 +248,7 @@ export const TripSheetReportPrint = ({
         }
 
         @media screen {
+          /* Ensure wrapper is hidden when not printing */
           .trip-report-wrapper { display: none; }
         }
       `}</style>
