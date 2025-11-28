@@ -9,16 +9,12 @@ interface TripSheetPrintManagerProps {
   onClose: () => void;
 }
 
-// Helper to detect mobile devices (screens smaller than 768px) - Retained for the print delay adjustment
-const isMobileScreen = () => window.innerWidth < 768;
-
-
 export const TripSheetPrintManager = ({
   mfNos,
   onClose,
 }: TripSheetPrintManagerProps) => {
   const { getTripSheet } = useData();
-  const printRef = useRef<HTMLDivElement>(null);
+  const printRef = useRef<HTMLDivElement>(null); // Ref for the print wrapper
 
   const printPages = useMemo(() => {
     const sheets: TripSheetEntry[] = mfNos
@@ -32,129 +28,100 @@ export const TripSheetPrintManager = ({
     ));
   }, [mfNos, getTripSheet]);
 
-  // -------------------------------------------------------------------
-  // 💡 NEW LOGIC: Rely ONLY on CSS Overlay, use JS only for timing/cleanup
-  // -------------------------------------------------------------------
   useEffect(() => {
-    if (mfNos.length === 0) return;
-
+    const rootElement = document.getElementById("root");
     const printWrapper = printRef.current;
-    if (!printWrapper) {
-      console.error("Print wrapper not found");
+
+    if (!rootElement || !printWrapper) {
+      console.error("Print elements (root or wrapper) not found.");
       return;
     }
 
-    const isMobile = isMobileScreen();
-    let printTimeout: number | undefined;
+    // --- JS FORCE FIX START ---
+    // 1. Store original styles
+    const originalRootDisplay = rootElement.style.display;
+    const originalWrapperDisplay = printWrapper.style.display;
 
-    // Define a single cleanup function
-    const cleanupHandler = () => {
-        // Use a slight delay to ensure cleanup runs *after* the print dialog closes
-        setTimeout(() => {
-            window.removeEventListener("afterprint", cleanupHandler);
-            // OnClose is the only cleanup needed here, as the CSS handles hiding/showing.
-            onClose();
-        }, 500);
+    // 2. Define the cleanup function
+    const cleanupStyles = () => {
+      rootElement.style.display = originalRootDisplay;
+      printWrapper.style.display = originalWrapperDisplay;
+      onClose();
+      window.removeEventListener("afterprint", afterPrint);
+    };
+    
+    // 3. Define afterprint listener
+    const afterPrint = () => {
+      // Use a timeout to ensure styles are restored *after* the print dialog closes
+      setTimeout(cleanupStyles, 500); 
     };
 
-    // 1. Listen for the end of the print job/dialog closure
-    window.addEventListener("afterprint", cleanupHandler);
+    window.addEventListener("afterprint", afterPrint);
 
-    // 2. Trigger Print. Use a longer delay for mobile for maximum DOM readiness.
-    const delay = isMobile ? 750 : 350;
+    // 4. Force visibility change before print call
+    // This overrides any conflicting CSS for the print context
+    rootElement.style.display = "none";
+    printWrapper.style.display = "block";
 
-    printTimeout = setTimeout(() => {
-        // Force the print dialog
-        window.print();
-    }, delay); 
+    // 5. Trigger print after a delay
+    setTimeout(() => {
+      window.print();
+    }, 350);
 
-    // 3. Cleanup on unmount
+    // --- JS FORCE FIX END ---
+
+    // 6. Return cleanup function to run on component unmount (before print)
     return () => {
-        window.removeEventListener("afterprint", cleanupHandler);
-        if (printTimeout) clearTimeout(printTimeout);
+      window.removeEventListener("afterprint", afterPrint);
+      // Ensure styles are reverted if component unmounts before print
+      cleanupStyles(); 
     };
-
-  }, [onClose, mfNos.length]);
+  }, [onClose]);
 
   const printContent = (
-    // We are deliberately NOT using an inline style here.
-    // CSS @media screen will keep it hidden.
-    <div className="ts-print-wrapper" ref={printRef}> 
-      <style>{`
-        @media print {
-          /* --------------------------------------------------- */
-          /* CRITICAL FIX: AGGRESSIVE HIDE & OVERLAY             */
-          /* --------------------------------------------------- */
-
-          /* HIDE EVERYTHING (including #root) via CSS */
-          #root, 
-          body > *:not(.ts-print-wrapper) {
-            display: none !important;
-            visibility: hidden !important;
-            width: 0 !important;
-            height: 0 !important;
-            position: fixed !important; 
-            top: -9999px !important;
-          }
-
-          /* FORCE SHOW & OVERLAY our wrapper using fixed position */
-          .ts-print-wrapper {
-            display: block !important;
-            visibility: visible !important;
+    // Set display to none initially, let JS control its visibility
+    <div className="ts-print-wrapper" ref={printRef} style={{ display: 'none' }}>
+      <style>
+        {`
+          /* ------------------------------------------------ */
+          /* UNIVERSAL PRINT RESET AND CONTAINER HIDING LOGIC */
+          /* ------------------------------------------------ */
+          /* CSS is now mainly a fallback, but still necessary for non-JS print */
+          @media print {
             
-            /* Use fixed positioning to force it over any default rendering */
-            position: fixed !important; 
-            top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
-            
-            width: auto !important; /* Let content dictate width within margins */
-            height: auto !important; /* Let content dictate height */
-            margin: 0 !important;
-            padding: 0 !important;
-            background: white !important;
-            z-index: 999999 !important;
-            
-            /* Ensure text is black for PDF generation */
-            color: black !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          
-          /* The print pages themselves need to revert to static/flow inside the fixed wrapper */
-          .print-page {
-            position: static !important; 
-            page-break-after: always !important;
-            page-break-inside: avoid !important;
-          }
-
-          /* --------------------------------------------------- */
-          /* PAGE & BACKGROUND STYLES                           */
-          /* --------------------------------------------------- */
-
-          @page {
-            size: A4;
-            margin: 12mm; /* Match your desired print margin */
-          }
-          
-          html, body {
-            background-color: #fff !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-        }
-        
-        /* --------------------------------------------------- */
-        /* SCREEN STYLES (Hides the print content when not printing) */
-        /* --------------------------------------------------- */
-        @media screen {
-            .ts-print-wrapper {
-                display: none;
+            /* HIDE EVERYTHING EXCEPT THE PRINT WRAPPER */
+            #root, 
+            body > *:not(.ts-print-wrapper) {
+              display: none !important;
+              visibility: hidden !important;
+              /* Aggressive resets */
+              width: 0 !important;
+              height: 0 !important;
+              position: fixed !important; 
+              top: -9999px !important;
             }
-        }
-      `}</style>
 
+            /* ENSURE THE PRINT WRAPPER IS VISIBLE AND DOMINANT */
+            .ts-print-wrapper {
+              display: block !important;
+              visibility: visible !important;
+              position: static !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+
+            /* MOBILE SPECIFIC BODY RESET (Fallback) */
+            body {
+              display: block !important;
+              visibility: visible !important;
+              overflow: visible !important;
+            }
+          }
+        `}
+      </style>
+      
       {printPages}
     </div>
   );
