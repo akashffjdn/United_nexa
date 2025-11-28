@@ -9,7 +9,7 @@ interface TripSheetPrintManagerProps {
   onClose: () => void;
 }
 
-// Helper to detect mobile devices
+// Helper to detect mobile devices (screens smaller than 768px)
 const isMobileScreen = () => window.innerWidth < 768;
 
 export const TripSheetPrintManager = ({
@@ -43,15 +43,17 @@ export const TripSheetPrintManager = ({
 
     const isMobile = isMobileScreen();
 
-    // ---------------------------------------------------------
-    // 📱 MOBILE LOGIC: Aggressive JS Force-Hide (Reliability)
-    // ---------------------------------------------------------
+    // =========================================================
+    // 📱 MOBILE LOGIC: JS FORCE FIX
+    // =========================================================
+    // Problem: Mobile browsers ignore CSS hiding, printing the background app.
+    // Solution: Manually set display:none on the app container before printing.
     if (isMobile) {
       // 1. Save original styles
       const originalRootDisplay = rootElement.style.display;
       const originalWrapperDisplay = printWrapper.style.display;
 
-      // 2. Define Cleanup
+      // 2. Define Cleanup (Restore UI)
       const cleanupMobile = () => {
         rootElement.style.display = originalRootDisplay;
         printWrapper.style.display = originalWrapperDisplay;
@@ -59,25 +61,30 @@ export const TripSheetPrintManager = ({
         onClose();
       };
 
+      // 3. Listen for when print dialog closes
       window.addEventListener("afterprint", cleanupMobile);
 
-      // 3. Force Hide UI / Show Wrapper using JS
+      // 4. FORCE DOM MANIPULATION
+      // Hide the main app
       rootElement.style.display = "none";
+      // Show the print wrapper
       printWrapper.style.display = "block";
 
-      // 4. Trigger Print
+      // 5. Trigger Print (with delay to ensure DOM updates)
       setTimeout(() => {
         window.print();
-        // Fallback cleanup if afterprint fails on some mobile browsers
-        setTimeout(cleanupMobile, 1000); 
+        // Fallback cleanup in case afterprint misses on specific mobile browsers
+        // setTimeout(cleanupMobile, 2000); 
       }, 500);
     } 
     
-    // ---------------------------------------------------------
-    // 🖥️ DESKTOP LOGIC: Passive CSS (Aesthetics)
-    // ---------------------------------------------------------
+    // =========================================================
+    // 🖥️ DESKTOP LOGIC: CSS ONLY
+    // =========================================================
+    // Problem: JS Fix makes the background go white, which looks bad on Desktop.
+    // Solution: Don't touch DOM. Let CSS @media print hide the background.
     else {
-      // 1. Just handle the close event
+      // 1. Simple Cleanup
       const cleanupDesktop = () => {
         window.removeEventListener("afterprint", cleanupDesktop);
         onClose();
@@ -85,24 +92,25 @@ export const TripSheetPrintManager = ({
 
       window.addEventListener("afterprint", cleanupDesktop);
 
-      // 2. Trigger Print (The CSS below will handle hiding/showing)
+      // 2. Trigger Print directly
+      // The CSS in <style> tag will handle showing/hiding content
       setTimeout(() => {
         window.print();
       }, 350);
     }
 
-    // Cleanup on unmount (safety net)
+    // Unmount cleanup
     return () => {
-        // We can't easily reference the specific cleanup function here without 
-        // extracting them, but since onClose unmounts this component, 
-        // the logic generally holds. 
+        // We can't strictly reference the specific function here easily due to scope,
+        // but since onClose unmounts this component, the logic generally holds safe.
     };
 
   }, [onClose]);
 
   const printContent = (
-    // Note: 'display: none' is helpful for the JS Logic initial state, 
-    // but for Desktop CSS logic, the @media print overrides it.
+    // Note: display: none is the default state.
+    // Mobile JS changes this to 'block'.
+    // Desktop CSS overrides this with 'display: block !important'
     <div className="ts-print-wrapper" ref={printRef} style={{ display: 'none' }}>
       <style>{`
         
@@ -122,7 +130,7 @@ export const TripSheetPrintManager = ({
           .ts-print-wrapper {
             display: block !important;
             visibility: visible !important;
-            position: absolute !important; /* Changed to absolute for better flow */
+            position: absolute !important; 
             top: 0 !important;
             left: 0 !important;
             width: 100% !important;
@@ -130,6 +138,9 @@ export const TripSheetPrintManager = ({
             padding: 0 !important;
             background: white !important;
             z-index: 999999 !important;
+            
+            /* Ensure text is black for PDF generation */
+            color: black !important;
           }
 
           /* --------------------------------------------------- */
