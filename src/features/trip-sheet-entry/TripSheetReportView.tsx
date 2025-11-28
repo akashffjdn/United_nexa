@@ -124,6 +124,7 @@ export const TripSheetReportPrint = ({
   sheets: TripSheetEntry[];
   onClose: () => void;
 }) => {
+  // 🛑 NEW: Ref for the print wrapper
   const printRef = useRef<HTMLDivElement>(null);
 
   // ▬▬▬ GRAND TOTAL ▬▬▬
@@ -142,69 +143,68 @@ export const TripSheetReportPrint = ({
     return arr;
   }, [sheets]);
 
-  // ▬▬▬ PRINT + CLOSE (FIXED FOR ALL BROWSERS) ▬▬▬
+  // ▬▬▬ PRINT + CLOSE (UNIVERSAL JS FIX) ▬▬▬
   useEffect(() => {
     if (sheets.length === 0) return;
 
     const rootElement = document.getElementById("root");
-    const printWrapper = printRef.current; 
+    const printWrapper = printRef.current; // Get the wrapper element
 
     if (!rootElement || !printWrapper) {
       console.error("Print elements (root or wrapper) not found.");
       return;
     }
 
-    // --- 1. JS FORCE FIX START (UNIVERSAL RELIABILITY FIX) ---
-    // Store original styles to ensure the app is restored correctly
+    // --- JS FORCE FIX START (UNIVERSAL RELIABILITY FIX) ---
+    // 1. Store original styles
     const originalRootDisplay = rootElement.style.display;
     const originalWrapperDisplay = printWrapper.style.display;
     let printTimeout: number;
 
+    // 2. Define Cleanup (Restore UI)
     const cleanupStyles = () => {
-      // Use setTimeout to ensure cleanup runs *after* the print dialog is truly closed
+      // Use a timeout to ensure cleanup runs *after* the print dialog is truly closed
       setTimeout(() => {
-          // Restore original styles
-          rootElement.style.display = originalRootDisplay;
-          printWrapper.style.display = originalWrapperDisplay;
-          window.removeEventListener("afterprint", afterPrint);
-          onClose(); // Close the manager
+        // Restore original styles
+        rootElement.style.display = originalRootDisplay;
+        printWrapper.style.display = originalWrapperDisplay;
+        window.removeEventListener("afterprint", afterPrint);
+        onClose(); // Close the manager
       }, 500); 
     };
     
-    // Define afterprint listener to clean up styles after print dialog is closed
+    // 3. Define afterprint listener
     const afterPrint = () => {
       cleanupStyles(); 
     };
 
     window.addEventListener("afterprint", afterPrint);
 
-    // Force visibility change *before* print call using aggressive style setting
-    // This is the direct DOM manipulation that fixes the mobile display issue.
+    // 4. Force visibility change *before* print call (THE MOBILE FIX)
     rootElement.style.display = "none";
     printWrapper.style.display = "block";
 
-    // Trigger print after a short delay
+    // 5. Trigger print after a short delay
     printTimeout = setTimeout(() => {
       window.print();
     }, 500); // Using 500ms universally for better reliability
 
     // --- JS FORCE FIX END ---
 
-    // Return cleanup function to run on component unmount
+    // 6. Return cleanup function to run on component unmount
     return () => {
       window.removeEventListener("afterprint", afterPrint);
       clearTimeout(printTimeout);
-      // Ensure cleanup runs if the component unmounts unexpectedly before print
-      // We must restore styles here if they were modified by the JS
+      // Ensure cleanup runs if the component unmounts unexpectedly
       rootElement.style.display = originalRootDisplay;
       printWrapper.style.display = originalWrapperDisplay;
     };
 
-  }, [sheets, onClose]); // Added dependencies
+  }, [sheets, onClose]); 
 
   // ▬▬▬ PORTAL CONTENT ▬▬▬
   const printContent = (
-    // Set initial style to 'none' for screen view. JS/CSS will override it for print.
+    // 🛑 NEW: Use the ref and set initial style to 'none'
     <div className="trip-report-wrapper" ref={printRef} style={{ display: 'none' }}> 
       <style>{`
         @media print {
@@ -223,7 +223,7 @@ export const TripSheetReportPrint = ({
           .trip-report-wrapper {
             display: block !important;
             visibility: visible !important;
-            position: static !important; /* Ensure content flows naturally */
+            position: static !important; 
             width: 100% !important;
             background-color: #fff !important; 
             -webkit-print-color-adjust: exact !important;
