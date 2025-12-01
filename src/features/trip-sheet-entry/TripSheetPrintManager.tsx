@@ -44,72 +44,66 @@ export const TripSheetPrintManager = ({
     }
 
    const isMobile = isMobileScreen();
-    let printTimeout: number | undefined;
+   let printTimeout: number | undefined;
 
-    // ---------------------------------------------------------
-    // 📱 MOBILE LOGIC: Aggressive JS Force Fix
-    // ---------------------------------------------------------
-    if (isMobile) {
-      // 1. Save original styles
-      const originalRootDisplay = rootElement.style.display;
-      const originalWrapperDisplay = printWrapper.style.display;
+   // Define cleanup functions inside the effect to correctly access their scope
+   const cleanupPrintStyles = () => {
+       // Restore styles if they were changed for mobile
+       rootElement.style.removeProperty('display');
+       printWrapper.style.removeProperty('display');
+       window.removeEventListener("afterprint", afterPrintHandler);
+       onClose();
+   };
 
-      // 2. Define Cleanup (Restore UI)
-      const cleanupMobile = () => {
-        // Use setTimeout to ensure cleanup runs *after* the print dialog closes
-        setTimeout(() => {
-            rootElement.style.display = originalRootDisplay;
-            printWrapper.style.display = originalWrapperDisplay;
-            window.removeEventListener("afterprint", cleanupMobile);
-            onClose();
-        }, 500); 
-      };
+   const afterPrintHandler = () => {
+       // Use a timeout to ensure cleanup runs *after* the print dialog closes
+       setTimeout(cleanupPrintStyles, 500); 
+   };
 
-      // 3. Listen for when print dialog closes
-      window.addEventListener("afterprint", cleanupMobile);
+   // Attach the listener immediately
+   window.addEventListener("afterprint", afterPrintHandler);
 
-      // 4. FORCE DOM MANIPULATION
-      // We are being more aggressive here with !important to ensure the style applies
-      rootElement.style.setProperty('display', 'none', 'important'); 
-      printWrapper.style.setProperty('display', 'block', 'important');
+   // ---------------------------------------------------------
+   // 📱 MOBILE LOGIC: Aggressive JS Force Fix (NO CHANGE to this core logic)
+   // ---------------------------------------------------------
+   if (isMobile) {
+       // Save original styles (though using removeProperty later is safer)
+       // const originalRootDisplay = rootElement.style.display;
+       // const originalWrapperDisplay = printWrapper.style.display;
+   
+       // FORCE DOM MANIPULATION
+       rootElement.style.setProperty('display', 'none', 'important'); 
+       printWrapper.style.setProperty('display', 'block', 'important');
 
-      // 5. Trigger Print (increased delay for mobile rendering)
-      printTimeout = setTimeout(() => {
-        window.print();
-      }, 750); // Increased delay for mobile responsiveness
-    } 
-    
-    // ---------------------------------------------------------
-    // 🖥️ DESKTOP LOGIC: CSS ONLY
-    // ---------------------------------------------------------
-    else {
-      // 1. Simple Cleanup
-      const cleanupDesktop = () => {
-        window.removeEventListener("afterprint", cleanupDesktop);
-        onClose();
-      };
+       // Trigger Print (increased delay for mobile rendering)
+       printTimeout = setTimeout(() => {
+           window.print();
+       }, 750); // Increased delay for mobile responsiveness
+   } 
+   
+   // ---------------------------------------------------------
+   // 🖥️ DESKTOP LOGIC: CSS ONLY (NO CHANGE to this core logic)
+   // ---------------------------------------------------------
+   else {
+       // Trigger Print 
+       printTimeout = setTimeout(() => {
+           window.print();
+       }, 350);
+   }
 
-      window.addEventListener("afterprint", cleanupDesktop);
+   // Cleanup on unmount (safety net)
+   return () => {
+       window.removeEventListener("afterprint", afterPrintHandler);
+       if (printTimeout) clearTimeout(printTimeout);
+       
+       // Restore styles immediately on unmount if they were forced
+       if (isMobile) {
+           rootElement.style.removeProperty('display');
+           printWrapper.style.removeProperty('display');
+       }
+   };
 
-      // 2. Trigger Print 
-      printTimeout = setTimeout(() => {
-        window.print();
-      }, 350);
-    }
-
-    // Cleanup on unmount (safety net)
-    return () => {
-        window.removeEventListener("afterprint", printWrapper.style.display === 'none' ? cleanupMobile : cleanupDesktop);
-        if (printTimeout) clearTimeout(printTimeout);
-        
-        // If the component unmounts while in mobile mode, ensure styles are reverted.
-        if (isMobile && rootElement.style.getPropertyValue('display') === 'none') {
-            rootElement.style.removeProperty('display');
-            printWrapper.style.removeProperty('display');
-        }
-    };
-
-  }, [onClose]);
+  }, [onClose]);
 
   const printContent = (
     // Set display to none initially, let JS control its visibility
@@ -119,7 +113,6 @@ export const TripSheetPrintManager = ({
           /* ------------------------------------------------ */
           /* UNIVERSAL PRINT RESET AND CONTAINER HIDING LOGIC */
           /* ------------------------------------------------ */
-          /* CSS is now mainly a fallback, but still necessary for non-JS print */
           @media print {
             
             /* HIDE EVERYTHING EXCEPT THE PRINT WRAPPER */
@@ -161,11 +154,3 @@ export const TripSheetPrintManager = ({
 
   return ReactDOM.createPortal(printContent, document.body);
 };
-
-function cleanupMobile(this: Window, _ev: Event) {
-  throw new Error("Function not implemented.");
-}
-
-function cleanupDesktop(this: Window, _ev: Event) {
-  throw new Error("Function not implemented.");
-}
