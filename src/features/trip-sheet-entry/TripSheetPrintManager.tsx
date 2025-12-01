@@ -5,43 +5,45 @@ import { TripSheetPrintCopy } from "./TripSheetPrintCopy";
 import type { TripSheetEntry } from "../../types";
 
 interface TripSheetPrintManagerProps {
-  mfNos: string[];
-  onClose: () => void;
+  mfNos: string[];
+  onClose: () => void;
 }
+
 
 // Helper to detect mobile devices (screens smaller than 768px)
 const isMobileScreen = () => window.innerWidth < 768;
 
 
+
 export const TripSheetPrintManager = ({
-  mfNos,
-  onClose,
+  mfNos,
+  onClose,
 }: TripSheetPrintManagerProps) => {
-  const { getTripSheet } = useData();
-  const printRef = useRef<HTMLDivElement>(null);
+  const { getTripSheet } = useData();
+  const printRef = useRef<HTMLDivElement>(null); // Ref for the print wrapper
 
-  const printPages = useMemo(() => {
-    const sheets: TripSheetEntry[] = mfNos
-      .map((id) => getTripSheet(id))
-      .filter(Boolean) as TripSheetEntry[];
+  const printPages = useMemo(() => {
+    const sheets: TripSheetEntry[] = mfNos
+      .map((id) => getTripSheet(id))
+      .filter(Boolean) as TripSheetEntry[];
 
-    return sheets.map((sheet) => (
-      <div className="print-page" key={sheet.mfNo}>
-        <TripSheetPrintCopy sheet={sheet} />
-      </div>
-    ));
-  }, [mfNos, getTripSheet]);
+    return sheets.map((sheet) => (
+      <div className="print-page" key={sheet.mfNo}>
+        <TripSheetPrintCopy sheet={sheet} />
+      </div>
+    ));
+  }, [mfNos, getTripSheet]);
 
-  useEffect(() => {
-    const rootElement = document.getElementById("root");
-    const printWrapper = printRef.current;
+  useEffect(() => {
+    const rootElement = document.getElementById("root");
+    const printWrapper = printRef.current;
 
-    if (!rootElement || !printWrapper) {
-      console.error("Print elements not found");
-      return;
-    }
+    if (!rootElement || !printWrapper) {
+      console.error("Print elements (root or wrapper) not found.");
+      return;
+    }
 
-    const isMobile = isMobileScreen();
+   const isMobile = isMobileScreen();
     let printTimeout: number | undefined;
 
     // ---------------------------------------------------------
@@ -109,82 +111,60 @@ export const TripSheetPrintManager = ({
 
   }, [onClose]);
 
-  const printContent = (
-    // We remove the inline style from the print wrapper, and rely solely on the JS/CSS
-    <div className="ts-print-wrapper" ref={printRef}> 
-      <style>{`
-        
-        @media print {
-          /* --------------------------------------------------- */
-          /* DESKTOP CSS LOGIC (Standard CSS Hiding)             */
-          /* This runs when we DON'T hide #root via JS           */
-          /* --------------------------------------------------- */
+  const printContent = (
+    // Set display to none initially, let JS control its visibility
+    <div className="ts-print-wrapper" ref={printRef} style={{ display: 'none' }}>
+      <style>
+        {`
+          /* ------------------------------------------------ */
+          /* UNIVERSAL PRINT RESET AND CONTAINER HIDING LOGIC */
+          /* ------------------------------------------------ */
+          /* CSS is now mainly a fallback, but still necessary for non-JS print */
+          @media print {
+            
+            /* HIDE EVERYTHING EXCEPT THE PRINT WRAPPER */
+            #root, 
+            body > *:not(.ts-print-wrapper) {
+              display: none !important;
+              visibility: hidden !important;
+              /* Aggressive resets */
+              width: 0 !important;
+              height: 0 !important;
+              position: fixed !important; 
+              top: -9999px !important;
+            }
 
-          /* Hide everything in body that isn't our wrapper */
-          body > *:not(.ts-print-wrapper) {
-            display: none !important;
-            visibility: hidden !important;
-          }
+            /* ENSURE THE PRINT WRAPPER IS VISIBLE AND DOMINANT */
+            .ts-print-wrapper {
+              display: block !important;
+              visibility: visible !important;
+              position: static !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              margin: 0 !important;
+              padding: 0 !important;
+            }
 
-          /* Force show our wrapper */
-          .ts-print-wrapper {
-            display: block !important;
-            visibility: visible !important;
-            position: absolute !important; 
-            top: 0 !important;
-            left: 0 !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: white !important;
-            z-index: 999999 !important;
-            
-            /* Ensure text is black for PDF generation */
-            color: black !important;
-          }
+            /* MOBILE SPECIFIC BODY RESET (Fallback) */
+            body {
+              display: block !important;
+              visibility: visible !important;
+              overflow: visible !important;
+            }
+          }
+        `}
+      </style>
+      
+      {printPages}
+    </div>
+  );
 
-          /* --------------------------------------------------- */
-          /* SHARED STYLES                                       */
-          /* --------------------------------------------------- */
-          .print-page {
-            page-break-after: always !important;
-            page-break-inside: avoid !important;
-          }
-
-          @page {
-            size: A4;
-            margin: 12mm;
-          }
-          
-          /* Ensure white background */
-          html, body {
-            background-color: #fff !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-        }
-        
-        /* --------------------------------------------------- */
-        /* SCREEN STYLES (To ensure initial hiding on desktop) */
-        /* --------------------------------------------------- */
-        @media screen {
-            .ts-print-wrapper {
-                display: none;
-            }
-        }
-      `}</style>
-
-      {printPages}
-    </div>
-  );
-
-  return ReactDOM.createPortal(printContent, document.body);
+  return ReactDOM.createPortal(printContent, document.body);
 };
 
 function cleanupMobile(this: Window, _ev: Event) {
   throw new Error("Function not implemented.");
 }
-
 
 function cleanupDesktop(this: Window, _ev: Event) {
   throw new Error("Function not implemented.");
