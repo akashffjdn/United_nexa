@@ -5,6 +5,8 @@ export interface AppUser {
   password: string; 
   mobile: string;
   role: 'admin' | 'user';
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface Consignor {
@@ -17,6 +19,8 @@ export interface Consignor {
   aadhar?: string;
   mobile?: string;
   address: string;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface Consignee {
@@ -33,6 +37,8 @@ export interface Consignee {
   phone: string;
   destination: string;
   mobile?: string;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface GcEntry {
@@ -83,32 +89,43 @@ export interface GcEntry {
   isLoaded?: boolean;
   loadingStatus?: 'Pending' | 'Partially Loaded' | 'Loaded';
   
-  // --- FIX ADDED HERE ---
   loadedPackages?: number[]; 
+
+  // Audit Fields
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface FromPlace {
     id: string;
     placeName: string;
     shortName: string;
+    createdBy?: string;
+    updatedBy?: string;
 }
 
 export interface ToPlace {
     id: string;
     placeName: string;
     shortName: string;
+    createdBy?: string;
+    updatedBy?: string;
 }
 
 export interface PackingEntry {
   id: string;
   packingName: string;
   shortName: string;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface ContentEntry {
   id: string;
   contentName: string;
   shortName: string;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface VehicleEntry {
@@ -117,6 +134,8 @@ export interface VehicleEntry {
   vehicleName: string;
   ownerName?: string;
   ownerMobile?: string;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface DriverEntry {
@@ -124,6 +143,8 @@ export interface DriverEntry {
   driverName: string;
   dlNo: string;
   mobile: string;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface TripSheetGCItem {
@@ -157,4 +178,6 @@ export interface TripSheetEntry {
   lorryName?: string;
   consignorid?: string; 
   consigneeid?: string;
+  createdBy?: string;
+  updatedBy?: string;
 }
