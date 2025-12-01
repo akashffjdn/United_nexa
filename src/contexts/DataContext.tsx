@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useMemo, useEffect, useCallback } from 'react';
 import type { 
   Consignor, 
@@ -15,6 +16,7 @@ import api from '../utils/api';
 import { useAuth } from '../hooks/useAuth';
 
 interface DataContextType {
+  // ... [Existing Types] ...
   consignors: Consignor[];
   consignees: Consignee[];
   gcEntries: GcEntry[]; 
@@ -35,16 +37,23 @@ interface DataContextType {
   getNextGcNo: () => Promise<string>;
   fetchGcById: (id: string) => Promise<GcEntry | null>;
   fetchTripSheetById: (id: string) => Promise<TripSheetEntry | null>;
-  addGcEntry: (gcEntry: GcEntry) => Promise<void>;
-  updateGcEntry: (gcEntry: GcEntry) => Promise<void>;
+  
+  // 🟢 UPDATED: These now return the saved object (Promise<any>)
+  addGcEntry: (gcEntry: GcEntry) => Promise<any>;
+  updateGcEntry: (gcEntry: GcEntry) => Promise<any>;
+  
   deleteGcEntry: (identifier: string) => Promise<void>;
   saveLoadingProgress: (gcId: string, selectedQuantities: number[]) => Promise<void>;
   
   fetchGcPrintData: (gcNos: string[], selectAll?: boolean, filters?: any) => Promise<any[]>;
   fetchLoadingSheetPrintData: (gcNos: string[], selectAll?: boolean, filters?: any) => Promise<any[]>;
-  
-  // UPDATED: Added selectAll and filters params
   fetchTripSheetPrintData: (mfNos: string[], selectAll?: boolean, filters?: any) => Promise<TripSheetEntry[]>;
+  
+  fetchPendingStockReport: (filters: any) => Promise<any[]>;
+  fetchTripSheetReport: (filters: any) => Promise<any[]>;
+
+  // 🟢 NEW: Fetch specific GC details for Trip Sheet Form
+  fetchGcDetailsForTripSheet: (gcNo: string) => Promise<any>;
 
   addFromPlace: (fromPlace: FromPlace) => Promise<void>;
   updateFromPlace: (fromPlace: FromPlace) => Promise<void>;
@@ -132,6 +141,18 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     catch (e) { console.error(e); return null; }
   };
 
+  // 🟢 NEW: Fetch Specific Details for Trip Sheet
+  const fetchGcDetailsForTripSheet = async (gcNo: string) => {
+    try {
+      // Calls the new backend endpoint
+      const { data } = await api.get(`/operations/gc/details/${gcNo}`);
+      return data;
+    } catch (e) {
+      console.error("Error fetching GC details for trip sheet:", e);
+      return null;
+    }
+  };
+
   const fetchGcPrintData = async (gcNos: string[], selectAll?: boolean, filters?: any) => {
     try {
       const { data } = await api.post('/operations/gc/print-data', { gcNos, selectAll, filters });
@@ -152,7 +173,6 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // UPDATED: fetchTripSheetPrintData
   const fetchTripSheetPrintData = async (mfNos: string[], selectAll?: boolean, filters?: any) => {
     try {
       const { data } = await api.post('/operations/tripsheet/print-data', { mfNos, selectAll, filters });
@@ -163,15 +183,44 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const addGcEntry = async (data: GcEntry) => { await api.post('/operations/gc', data); };
-  const updateGcEntry = async (data: GcEntry) => { await api.put(`/operations/gc/${data.gcNo}`, data); };
+  const fetchPendingStockReport = async (filters: any) => {
+    try {
+      const { data } = await api.get('/operations/pending-stock/report', { params: filters });
+      return data;
+    } catch (e) {
+      console.error("Error fetching pending stock report:", e);
+      return [];
+    }
+  };
+
+  const fetchTripSheetReport = async (filters: any) => {
+    try {
+      const { data } = await api.get('/operations/tripsheet/report', { params: filters });
+      return data;
+    } catch (e) {
+      console.error("Error fetching trip sheet report:", e);
+      return [];
+    }
+  };
+
+  // 🟢 UPDATED: Return the response data (which contains the assigned GC No)
+  const addGcEntry = async (data: GcEntry) => { 
+    const response = await api.post('/operations/gc', data); 
+    return response.data;
+  };
+  
+  // 🟢 UPDATED: Return response for consistency
+  const updateGcEntry = async (data: GcEntry) => { 
+    const response = await api.put(`/operations/gc/${data.gcNo}`, data); 
+    return response.data;
+  };
+  
   const deleteGcEntry = async (identifier: string) => { await api.delete(`/operations/gc/${identifier}`); };
   
   const saveLoadingProgress = async (gcId: string, selectedQuantities: number[]) => {
     await api.put('/operations/loading/save', { gcId, selectedQuantities });
   };
 
-  // --- TRIP SHEET ACTIONS ---
   const fetchTripSheetById = async (id: string) => {
     try { const { data } = await api.get(`/operations/tripsheet/${id}`); return data; }
     catch (e) { console.error(e); return null; }
@@ -181,7 +230,6 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   const updateTripSheet = async (data: TripSheetEntry) => { await api.put(`/operations/tripsheet/${data.mfNo}`, data); };
   const deleteTripSheet = async (id: string) => { await api.delete(`/operations/tripsheet/${id}`); };
 
-  // --- MASTER ACTIONS ---
   const addConsignor = async (data: Consignor) => { const res = await api.post('/master/consignors', data); setConsignors(prev => [res.data, ...prev]); };
   const updateConsignor = async (data: Consignor) => { const res = await api.put(`/master/consignors/${data.id}`, data); setConsignors(prev => prev.map(item => item.id === data.id ? res.data : item)); };
   const deleteConsignor = async (id: string) => { await api.delete(`/master/consignors/${id}`); setConsignors(prev => prev.filter(item => item.id !== id)); };
@@ -231,6 +279,9 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     fetchGcPrintData,
     fetchLoadingSheetPrintData,
     fetchTripSheetPrintData,
+    fetchPendingStockReport, 
+    fetchTripSheetReport,
+    fetchGcDetailsForTripSheet, // 🟢 ADDED TO CONTEXT
     addFromPlace, updateFromPlace, deleteFromPlace,
     addToPlace, updateToPlace, deleteToPlace,
     addPackingEntry, updatePackingEntry, deletePackingEntry,

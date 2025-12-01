@@ -17,13 +17,13 @@ export const GcEntryForm = () => {
   const { 
     consignors, 
     consignees, 
-    getNextGcNo, 
     addGcEntry, 
     updateGcEntry, 
     fetchGcById, 
     getUniqueDests,
     getPackingTypes,
     getContentsTypes,
+    // getNextGcNo - Removed usage here
   } = useData();
   
   const isEditMode = !!gcNo;
@@ -73,8 +73,6 @@ export const GcEntryForm = () => {
         const gc = await fetchGcById(gcNo);
         
         if (gc) {
-          // --- LOGIC: If tripSheetAmount exists (populated by backend), use it for display
-          // Otherwise fall back to the stored balanceToPay
           // 'tripSheetAmount' is a virtual field from aggregation
           const tripAmount = (gc as any).tripSheetAmount;
           
@@ -120,7 +118,6 @@ export const GcEntryForm = () => {
     setForm(prev => {
       const newData = { ...prev, [name]: value };
       if (name === 'quantity') newData.netQty = value;
-      // Auto-calculation is removed per requirement, balance is manual or trip-sheet based
       return newData;
     });
   };
@@ -157,23 +154,42 @@ export const GcEntryForm = () => {
   const quantityNum = parseFloat(form.quantity) || 0;
   const toNo = (fromNoNum > 0 && quantityNum > 0) ? (fromNoNum + quantityNum) - 1 : 0;
 
+  // 🟢 UPDATED HANDLE SAVE
   const handleSave = async (andPrint = false) => {
     if (!form.consignorId || !form.consigneeId) { alert('Please select a Consignor and Consignee.'); return; }
-    const finalGcNo = isEditMode ? form.gcNo! : await getNextGcNo();
+    
+    // --- CHANGE: Don't fetch next number here. Send empty if new. ---
+    const finalGcNo = isEditMode ? form.gcNo : ""; 
+    
     const gcData: GcEntry = { ...form, id: isEditMode ? (form as any).id : undefined, gcNo: finalGcNo } as GcEntry;
 
-    // Preserve the tripSheetAmount if it was injected during load, so print uses it
+    // Preserve virtual field for editing if needed
     if ((form as any).tripSheetAmount) {
         (gcData as any).tripSheetAmount = (form as any).tripSheetAmount;
     }
 
-    if (isEditMode) await updateGcEntry(gcData); else await addGcEntry(gcData);
+    let savedData;
+    
+    if (isEditMode) {
+       savedData = await updateGcEntry(gcData);
+       // Fallback if update doesn't return full object (though context now does)
+       if (!savedData) savedData = gcData; 
+    } else {
+       // Backend generates ID and returns full object
+       savedData = await addGcEntry(gcData);
+    }
 
-    if (andPrint) {
-      const consignor = consignors.find(c => c.id === gcData.consignorId);
-      const consignee = consignees.find(c => c.id === gcData.consigneeId);
-      if (consignor && consignee) setPrintingJobs([{ gc: gcData, consignor, consignee }]);
-      else { alert("Error: Cannot find consignor/consignee data."); navigate('/gc-entry'); }
+    if (andPrint && savedData) {
+      // Use savedData to ensure we have the generated gcNo
+      const consignor = consignors.find(c => c.id === savedData.consignorId);
+      const consignee = consignees.find(c => c.id === savedData.consigneeId);
+      
+      if (consignor && consignee) {
+        setPrintingJobs([{ gc: savedData, consignor, consignee }]);
+      } else { 
+        alert("Error: Cannot find consignor/consignee data."); 
+        navigate('/gc-entry'); 
+      }
     } else {
       navigate('/gc-entry');
     }

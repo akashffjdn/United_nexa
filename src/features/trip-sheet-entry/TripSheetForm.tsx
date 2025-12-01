@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Save, Trash2, X } from "lucide-react";
@@ -20,12 +21,13 @@ export const TripSheetForm = () => {
     addTripSheet,
     updateTripSheet,
     fetchTripSheetById, 
-    consignors,
-    consignees,
+    // consignors, // Not needed in handleGcChange anymore with new API
+    // consignees, // Not needed in handleGcChange anymore with new API
     fromPlaces,
     toPlaces,
     driverEntries,
     vehicleEntries,
+    fetchGcDetailsForTripSheet, // 🟢 IMPORTED NEW FUNCTION
   } = useData();
 
   const [availableGcs, setAvailableGcs] = useState<GcEntry[]>([]);
@@ -113,68 +115,71 @@ export const TripSheetForm = () => {
   const [gcNo, setGcNo] = useState<string>("");
   const [qty, setQty] = useState<number>(0);
   const [rate, setRate] = useState<number>(0);
-  const [packingDts, setPackingDts] = useState<string>("");
-  const [contentDts, setContentDts] = useState<string>("");
-  const [itemConsignor, setItemConsignor] = useState<string>("");
-  const [itemConsignee, setItemConsignee] = useState<string>("");
+  
+  // 🟢 REMOVED extra state variables (packingDts, contentDts, etc.) since we fetch them on Add
 
-  const loadGc = (selectedGcNo: string) => {
-    // Search in availableGcs (new items) or in current items (if editing)
-    let gc = availableGcs.find((g) => g.gcNo === selectedGcNo);
-    
-    if (!gc) return null;
-
-    return {
-      qty: parseFloat(gc.quantity) || 0,
-      rate: parseFloat(gc.freight) || 0,
-      packingDts: gc.packing || (gc as any).packingType || "",
-      contentDts: gc.contents,
-      consignor: consignors.find((c) => c.id === gc.consignorId)?.name ?? "",
-      consignee: consignees.find((c) => c.id === gc.consigneeId)?.name ?? "",
-    };
-  };
-
+  // 🟢 UPDATED: Only sets GC and local Rate (Freight) from dropdown data
   const handleGcChange = (value: string) => {
     setGcNo(value);
-    const g = loadGc(value);
-    if (!g) return;
-    setQty(g.qty);
-    setRate(g.rate);
-    setPackingDts(g.packingDts);
-    setContentDts(g.contentDts);
-    setItemConsignor(g.consignor);
-    setItemConsignee(g.consignee);
+    
+    // Auto-fill Rate/Freight from the already loaded dropdown list to show it immediately
+    const existingGc = availableGcs.find((g) => g.gcNo === value);
+    if (existingGc) {
+        setRate(parseFloat(existingGc.freight) || 0);
+        // We do NOT set packing/contents here anymore, as per requirement
+    } else {
+        setRate(0);
+    }
   };
 
   const resetGC = () => {
     setGcNo("");
     setQty(0);
     setRate(0);
-    setPackingDts("");
-    setContentDts("");
-    setItemConsignor("");
-    setItemConsignee("");
   };
 
-  const handleAddGC = () => {
+  // 🟢 UPDATED: Async function to fetch details from API on Add
+  const handleAddGC = async () => {
     if (!gcNo) {
       alert("Please select a GC No before adding.");
       return;
     }
 
-    const row: TripSheetGCItem = {
-      gcNo,
-      qty,
-      rate,
-      packingDts,
-      contentDts,
-      consignor: itemConsignor,
-      consignee: itemConsignee,
-      amount: qty * rate,
-    };
+    try {
+        // 1. Fetch specific details from API
+        const details = await fetchGcDetailsForTripSheet(gcNo);
+        
+        if (!details) {
+            alert("Failed to fetch details for this GC.");
+            return;
+        }
 
-    setItems((p) => [...p, row]);
-    resetGC();
+        // 2. Construct row using API data + Form inputs
+        // Note: Use form 'qty' if entered, else fallback to API total quantity? 
+        // Usually user enters the quantity loaded for this trip.
+        // If qty is 0 (user didn't type), we might default to API quantity? 
+        // Let's assume user input takes precedence, if 0 use API (or just 0).
+        const finalQty = qty > 0 ? qty : (details.quantity || 0);
+
+        const row: TripSheetGCItem = {
+          gcNo,
+          qty: finalQty,
+          rate, // From local state (pre-filled from availableGcs)
+          packingDts: details.packing || "",
+          contentDts: details.contents || "",
+          // API returns objects: { name: "..." }
+          consignor: details.consignor?.name || "",
+          consignee: details.consignee?.name || "",
+          amount: finalQty * rate,
+        };
+
+        setItems((p) => [...p, row]);
+        resetGC();
+
+    } catch (err) {
+        console.error("Error adding GC row", err);
+        alert("Error adding GC. Please try again.");
+    }
   };
 
   const handleDeleteGC = (i: number) => {
@@ -367,6 +372,7 @@ export const TripSheetForm = () => {
                 </div>
 
                 <div className="col-span-1 sm:col-span-1 lg:col-span-2">
+                  {/* CHANGED: onClick now triggers async fetching */}
                   <Button type="button" variant="primary" className="w-full" onClick={handleAddGC}>
                     Add GC
                   </Button>

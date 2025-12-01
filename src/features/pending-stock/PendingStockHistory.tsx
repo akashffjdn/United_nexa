@@ -21,10 +21,10 @@ type ReportJob = {
 
 export const PendingStockHistory = () => {
   const navigate = useNavigate();
-  // CHANGED: Removed fetchGcById, Added fetchGcPrintData
-  const { deleteGcEntry, consignors, consignees, getUniqueDests, fetchGcPrintData } = useData();
+  // 🟢 IMPORTED fetchPendingStockReport
+  const { deleteGcEntry, consignors, consignees, getUniqueDests, fetchGcPrintData, fetchPendingStockReport } = useData();
   
-  // --- SERVER-SIDE PAGINATION HOOK ---
+  // ... [Server Pagination Hook - Unchanged] ...
   const {
     data: paginatedData,
     loading,
@@ -40,28 +40,21 @@ export const PendingStockHistory = () => {
   } = useServerPagination<GcEntry>({ 
     endpoint: '/operations/pending-stock', 
     initialFilters: { search: '', filterType: 'all' },
-    
   });
 
   const [showFilters, setShowFilters] = useState(false);
-  
-  // --- UI STATE ---
   const [selectedGcIds, setSelectedGcIds] = useState<string[]>([]);
-  // NEW: State to track if "Select All" is active
   const [selectAllMode, setSelectAllMode] = useState(false);
-
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteMessage, setDeleteMessage] = useState(""); 
   const [reportPrintingJobs, setReportPrintingJobs] = useState<ReportJob[] | null>(null);
   const [gcPrintingJobs, setGcPrintingJobs] = useState<GcPrintJob[] | null>(null);
   
-  // --- OPTIONS ---
   const allConsignorOptions = useMemo(() => consignors.map(c => ({ value: c.id, label: c.name })), [consignors]);
   const allConsigneeOptions = useMemo(() => consignees.map(c => ({ value: c.id, label: c.name })), [consignees]);
   const allDestinationOptions = useMemo(getUniqueDests, [getUniqueDests]);
 
-  // --- FILTER HANDLERS ---
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFilters({ search: e.target.value });
   };
@@ -114,7 +107,6 @@ export const PendingStockHistory = () => {
     });
   };
 
-  // --- ACTIONS ---
   const handleEdit = (gcNo: string) => navigate(`/gc-entry/edit/${gcNo}`);
   
   const handleDelete = (gcNo: string) => { 
@@ -133,7 +125,6 @@ export const PendingStockHistory = () => {
   };
   
   // --- OPTIMIZED PRINT HANDLERS ---
-
   const handlePrintSingle = async (gcNo: string) => {
     try {
         const printData = await fetchGcPrintData([gcNo]);
@@ -163,12 +154,9 @@ export const PendingStockHistory = () => {
         let printData = [];
         
         if (selectAllMode) {
-            // 1. Call Optimized Backend Endpoint with Select All Mode
-            // Pass a special flag so backend knows to enforce "Pending Stock" logic (tripSheetId match)
             const printFilters = { ...filters, pendingStockView: true };
             printData = await fetchGcPrintData([], true, printFilters);
         } else {
-            // 2. Call for specific IDs
             printData = await fetchGcPrintData(selectedGcIds);
         }
         
@@ -177,7 +165,6 @@ export const PendingStockHistory = () => {
             return;
         }
 
-        // 3. Map response to GcPrintJob structure
         const jobs = printData.map((item: any): GcPrintJob | null => {
             const { consignor, consignee, ...gcData } = item;
             
@@ -195,7 +182,6 @@ export const PendingStockHistory = () => {
 
         if (jobs.length > 0) { 
           setGcPrintingJobs(jobs); 
-          // Reset selection unless user explicitly wants to keep it
           if (!selectAllMode) setSelectedGcIds([]); 
           setSelectAllMode(false); 
         } else {
@@ -207,22 +193,77 @@ export const PendingStockHistory = () => {
     }
   };
 
-  // Report generation uses the list data directly (which contains packing/contents/date)
-  // This is acceptable for "Report"
-  const handleShowReport = () => {
-    if (paginatedData.length === 0) return;
-    const jobs: ReportJob[] = paginatedData.map(gc => ({
-       gc, 
-       consignor: consignors.find(c => c.id === gc.consignorId), 
-       consignee: consignees.find(c => c.id === gc.consigneeId)
-    }));
-    setReportPrintingJobs(jobs);
+  // 🟢 UPDATED: Use New API Call for Report
+  const handleShowReport = async () => {
+    // Note: We use 'filters' (state) which contains current search criteria
+    try {
+        const reportData = await fetchPendingStockReport(filters);
+        
+        if (reportData.length === 0) {
+            alert("No pending stock found for current filters.");
+            return;
+        }
+
+        // Map the lightweight API response to the format expected by StockReportView
+        const jobs: ReportJob[] = reportData.map((item: any) => ({
+            gc: {
+                // Pass basic fields needed for the report table
+                id: item.id,
+                gcNo: item.gcNo,
+                gcDate: item.gcDate,
+                quantity: item.quantity,
+                packing: item.packing,
+                contents: item.contents,
+                // These mandatory fields are not in the response, passing defaults is fine for report view
+                from: '', 
+                destination: '',
+                consignorId: '',
+                consigneeId: '',
+                consigneeProofType: 'gst',
+                consigneeProofValue: '',
+                billDate: '',
+                deliveryAt: '',
+                freightUptoAt: '',
+                godown: '',
+                billNo: '',
+                billValue: '',
+                tollFee: '',
+                freight: '',
+                godownCharge: '',
+                statisticCharge: '',
+                advanceNone: '',
+                balanceToPay: '',
+                prefix: '',
+                fromNo: '',
+                netQty: '',
+                paymentType: 'To Pay'
+            } as GcEntry,
+            
+            // Map the nested name objects to Satisfy Consignor/Consignee interfaces
+            consignor: { 
+                id: 'report-only', 
+                name: item.consignor.name, 
+                from: '', filingDate: '', gst: '', address: '' 
+            } as Consignor,
+            
+            consignee: { 
+                id: 'report-only', 
+                name: item.consignee.name, 
+                destination: '', address: '', phone: '', filingDate: '' 
+            } as Consignee
+        }));
+
+        setReportPrintingJobs(jobs);
+
+    } catch (error) {
+        console.error("Error fetching report data", error);
+        alert("Failed to generate report.");
+    }
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
         setSelectAllMode(true);
-        // Visually select current page
         setSelectedGcIds(paginatedData.map(gc => gc.gcNo));
     } else {
         setSelectAllMode(false);
@@ -230,7 +271,6 @@ export const PendingStockHistory = () => {
     }
   };
 
-  // Ensure visual state persists when data updates (e.g., page change)
   useEffect(() => {
     if (selectAllMode) {
         setSelectedGcIds(paginatedData.map(gc => gc.gcNo));
@@ -239,7 +279,7 @@ export const PendingStockHistory = () => {
   
   const handleSelectRow = (e: React.ChangeEvent<HTMLInputElement>, id: string) => {
     if (selectAllMode) {
-        setSelectAllMode(false); // Disable global select if user deselects one
+        setSelectAllMode(false); 
         if (!e.target.checked) {
             setSelectedGcIds(prev => prev.filter(x => x !== id));
         }
@@ -252,7 +292,6 @@ export const PendingStockHistory = () => {
   const hasActiveFilters = !!filters.destination || !!filters.consignor || (filters.consignee && filters.consignee.length > 0) || filters.filterType !== 'all' || !!filters.search;
   const responsiveBtnClass = "flex-1 md:flex-none text-[10px] xs:text-xs sm:text-sm h-8 sm:h-10 px-1 sm:px-4 whitespace-nowrap";
   
-  // Calculate display count for button
   const printButtonText = selectAllMode 
     ? `Print All (${totalItems})` 
     : `Print (${selectedGcIds.length})`;
@@ -287,7 +326,7 @@ export const PendingStockHistory = () => {
           <Button 
             variant="secondary" 
             onClick={handleShowReport} 
-            disabled={paginatedData.length === 0}
+            // Removed disabled check based on pagination length, as we fetch from server now
             className={responsiveBtnClass}
           >
             <FileText size={14} className="mr-1 sm:mr-2" /> Report

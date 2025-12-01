@@ -15,7 +15,8 @@ import { TripSheetReportPrint } from "./TripSheetReportView";
 
 export const TripSheetList = () => {
   const navigate = useNavigate();
-  const { deleteTripSheet, consignees, consignors, getUniqueDests, fetchTripSheetPrintData } = useData(); 
+  // 🟢 UPDATED: Imported fetchTripSheetReport
+  const { deleteTripSheet, consignees, consignors, getUniqueDests, fetchTripSheetPrintData, fetchTripSheetReport } = useData(); 
 
   // --- 1. FILTER OPTIONS ---
   const placeOptions = useMemo(getUniqueDests, [getUniqueDests]);
@@ -190,9 +191,23 @@ export const TripSheetList = () => {
     }
   };
   
-  const handleShowReport = () => { 
-    if (paginatedData.length > 0) setReportPrintingJobs(paginatedData); 
-    else alert("No data to report."); 
+  // 🟢 UPDATED: New Report Logic
+  const handleShowReport = async () => { 
+    try {
+        // Call new API with current filters
+        const reportData = await fetchTripSheetReport(filters);
+        
+        if (reportData && reportData.length > 0) {
+            // Cast to TripSheetEntry[] as the report view only needs specific fields
+            // which are present in the lightweight API response
+            setReportPrintingJobs(reportData as TripSheetEntry[]); 
+        } else {
+            alert("No data found for report."); 
+        }
+    } catch (e) {
+        console.error("Report generation error:", e);
+        alert("Error generating report.");
+    }
   };
 
   const hasActiveFilters = !!filters.toPlace || !!filters.consignor || (filters.consignee && filters.consignee.length > 0) || filters.filterType !== 'all' || !!filters.search;
