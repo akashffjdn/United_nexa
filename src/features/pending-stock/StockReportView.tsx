@@ -1,6 +1,7 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import type { GcEntry, Consignor, Consignee } from '../../types';
+import { X, Printer } from 'lucide-react';
 
 // --- Report Header (Fixed for Even Alignment) ---
 const ReportHeader = () => (
@@ -15,12 +16,6 @@ const ReportHeader = () => (
       
       {/* Left Section (Company Info) */}
       <div className="w-[70%] border-r border-black p-2">
-        
-        {/* FIX APPLIED HERE: 
-           1. items-baseline: Aligns text perfectly on the bottom line.
-           2. lining-nums: Forces numbers to be the same height as caps (no dipping).
-           3. leading-none: Removes extra line-height gap.
-        */}
         <div className="flex justify-between items-baseline text-xs font-bold mb-1 lining-nums leading-none">
           <span>GSTIN:33ABLPV5082H3Z8</span>
           <span>Mobile : 9787718433</span>
@@ -69,10 +64,10 @@ const ReportPage = ({
 }: ReportPageProps) => {
   return (
     <div 
-      className="report-page bg-white text-black"
+      className="report-page bg-white text-black relative"
       style={{ 
         width: "210mm", 
-        minHeight: "297mm", 
+        height: "297mm",  // Changed to fixed height for consistent footer positioning
         padding: "10mm 10mm",
         boxSizing: "border-box",
         fontFamily: '"Times New Roman", Times, serif' 
@@ -126,9 +121,11 @@ const ReportPage = ({
         </tbody>
       </table>
 
-      {/* Page Number Footer */}
-      <div className="text-center text-[10px] mt-4 font-sans">
-        Page {pageNumber} of {totalPages}
+      {/* Static Footer */}
+      <div className="absolute bottom-0 left-0 w-full pb-8 text-center">
+        <div className="text-[10px] font-sans text-black">
+          Page {pageNumber} of {totalPages}
+        </div>
       </div>
     </div>
   );
@@ -145,6 +142,7 @@ interface StockReportPrintProps {
 }
 
 export const StockReportPrint = ({ jobs, onClose }: StockReportPrintProps) => {
+  const printTriggered = useRef(false);
   
   // 1. Calculate Grand Total of Quantity
   const grandTotal = useMemo(() => {
@@ -164,65 +162,261 @@ export const StockReportPrint = ({ jobs, onClose }: StockReportPrintProps) => {
     return chunks;
   }, [jobs]);
 
-  // 3. Print Lifecycle
+  // 3. Auto Print Trigger
   useEffect(() => {
-    const handleAfterPrint = () => {
-      onClose();
-    };
-    window.addEventListener('afterprint', handleAfterPrint);
+    if (jobs.length === 0) return;
+    if (printTriggered.current) return;
 
-    setTimeout(() => {
-      window.print();
-    }, 100); 
+    // Small delay ensures content renders into the portal before printing
+    const timer = setTimeout(() => {
+        printTriggered.current = true;
+        window.print();
+    }, 1000); 
 
     return () => {
-      window.removeEventListener('afterprint', handleAfterPrint);
+        clearTimeout(timer);
     };
-  }, [onClose]);
+  }, [jobs]);
+
+  const handleManualPrint = () => {
+    window.print();
+  };
 
   const printContent = (
-    <div className="print-report-wrapper">
+    <div className="stock-report-print-wrapper">
       <style>{`
+        /* =========================================
+           1. PRINT STYLES (The Output Paper)
+           ========================================= */
         @media print {
+          /* Remove browser default margins */
+          @page {
+            size: A4;
+            margin: 0; 
+          }
+
+          /* Hide main app UI */
+          body > *:not(.stock-report-print-wrapper) {
+            display: none !important;
+          }
           #root {
             display: none !important;
-            visibility: hidden !important;
           }
-          .print-report-wrapper {
+
+          /* Reset HTML/Body */
+          html, body {
+            height: 100%;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            background: white !important;
+          }
+
+          /* Wrapper takes over */
+          .stock-report-print-wrapper {
             display: block !important;
-            visibility: visible !important;
-            position: absolute !important;
+            position: absolute;
             top: 0;
             left: 0;
             width: 100%;
-            background: white;
-          }
-          .report-page {
-            page-break-after: always !important;
-            page-break-inside: avoid !important;
-          }
-          @page {
-            size: A4;
             margin: 0;
+            padding: 0;
+            background: white;
+            z-index: 9999;
+          }
+
+          /* Force black text */
+          .stock-report-print-wrapper * {
+            color: black !important;
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
+          }
+
+          /* Hide Toolbar */
+          .print-actions { display: none !important; }
+
+          /* Page Breaks */
+          .report-page {
+            break-after: page;
+            page-break-after: always;
+            width: 210mm;
+            height: 297mm; /* Force exact height */
+            overflow: hidden;
+            position: relative;
           }
         }
+
+        /* =========================================
+           2. SCREEN STYLES (The Preview Overlay)
+           ========================================= */
         @media screen {
-          .print-report-wrapper {
-            display: none;
+          .stock-report-print-wrapper {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            width: 100vw;
+            height: 100dvh; /* Mobile-friendly viewport height */
+            
+            /* Theme-aware background color */
+            background-color: hsl(var(--muted)); 
+            
+            z-index: 2147483647; /* Max Z-Index */
+            overflow-y: auto;
+            overflow-x: hidden;
+            
+            /* Layout for centering pages */
+            padding-top: 80px; /* Space for fixed header */
+            padding-bottom: 40px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            
+            -webkit-overflow-scrolling: touch;
           }
+
+          /* Desktop Page Preview Style */
+          .report-page {
+            background: white;
+            color: black; /* Preview text always black */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            margin-bottom: 24px;
+            transform-origin: top center;
+            transition: transform 0.2s ease;
+            width: 210mm; /* Fixed A4 width */
+            height: 297mm; /* Fixed height for preview */
+            position: relative;
+          }
+        }
+
+        /* =========================================
+           3. MOBILE RESPONSIVENESS (Scaling)
+           ========================================= */
+        @media screen and (max-width: 800px) {
+          .stock-report-print-wrapper {
+            padding-top: 70px;
+            padding-left: 0;
+            padding-right: 0;
+            background-color: #1f2937; /* Darker background on mobile */
+          }
+
+          .report-page {
+            /* Scale A4 (794px) down to fit ~375px screens */
+            transform: scale(0.46); 
+            /* Pull up the whitespace caused by scaling */
+            margin-bottom: -135mm; 
+            margin-top: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+          }
+        }
+
+        @media screen and (min-width: 450px) and (max-width: 800px) {
+           /* Tablets */
+           .report-page {
+             transform: scale(0.65);
+             margin-bottom: -90mm;
+           }
+        }
+
+        /* =========================================
+           4. TOOLBAR STYLES (Themed)
+           ========================================= */
+        .print-actions {
+          position: fixed;
+          top: 0; left: 0;
+          width: 100%;
+          height: 64px;
+          
+          /* Theme variables for colors */
+          background-color: hsl(var(--card));
+          color: hsl(var(--foreground));
+          border-bottom: 1px solid hsl(var(--border));
+          
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 16px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+          z-index: 2147483648;
+        }
+
+        .preview-title {
+          font-weight: 700;
+          font-size: 16px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .action-group {
+          display: flex;
+          gap: 10px;
+        }
+
+        .btn-base {
+          display: flex; align-items: center; gap: 8px;
+          padding: 8px 16px;
+          border-radius: 6px;
+          font-weight: 600;
+          font-size: 14px;
+          border: none;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        
+        /* Themed Primary Button */
+        .print-btn {
+          background-color: hsl(var(--primary));
+          color: hsl(var(--primary-foreground));
+        }
+        .print-btn:active { transform: scale(0.96); }
+        .print-btn:hover { opacity: 0.9; }
+
+        /* Themed Destructive Button */
+        .close-btn {
+          background-color: hsl(var(--destructive));
+          color: hsl(var(--destructive-foreground));
+        }
+        .close-btn:active { transform: scale(0.96); }
+        .close-btn:hover { opacity: 0.9; }
+
+        /* Small screen adjustments for toolbar */
+        @media screen and (max-width: 480px) {
+          .preview-title { font-size: 14px; max-width: 120px; }
+          .btn-base { padding: 6px 12px; font-size: 13px; }
+          .action-group { gap: 8px; }
         }
       `}</style>
 
-      {pages.map((pageJobs, index) => (
-        <ReportPage
-          key={index}
-          jobs={pageJobs}
-          pageNumber={index + 1}
-          totalPages={pages.length}
-          isLastPage={index === pages.length - 1}
-          grandTotal={grandTotal}
-        />
-      ))}
+      {/* HEADER TOOLBAR */}
+      <div className="print-actions">
+        <span className="preview-title">
+          Stock Report Preview
+        </span>
+        <div className="action-group">
+          <button onClick={handleManualPrint} className="btn-base print-btn">
+            <Printer size={18} />
+            <span>Print</span>
+          </button>
+          <button onClick={onClose} className="btn-base close-btn">
+            <X size={18} />
+            <span>Close</span>
+          </button>
+        </div>
+      </div>
+
+      {/* DOCUMENT PAGES */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        {pages.map((pageJobs, index) => (
+          <ReportPage
+            key={index}
+            jobs={pageJobs}
+            pageNumber={index + 1}
+            totalPages={pages.length}
+            isLastPage={index === pages.length - 1}
+            grandTotal={grandTotal}
+          />
+        ))}
+      </div>
     </div>
   );
 

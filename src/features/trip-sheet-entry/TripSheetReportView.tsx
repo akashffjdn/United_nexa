@@ -1,10 +1,10 @@
-// src/features/trip-sheet-entry/TripSheetReportPrint.tsx
-import { useEffect, useMemo } from "react";
-import ReactDOM from "react-dom";
-import type { TripSheetEntry } from "../../types";
+import { useEffect, useMemo, useRef } from 'react';
+import ReactDOM from 'react-dom';
+import type { TripSheetEntry } from '../../types';
+import { X, Printer } from 'lucide-react';
 
 // --------------------------------------------------
-// REPORT HEADER (Same Style as Stock Report)
+// REPORT HEADER (Fixed for Even Alignment)
 // --------------------------------------------------
 const ReportHeader = () => (
   <div
@@ -66,49 +66,55 @@ const ReportPage = ({
       padding: "10mm",
       boxSizing: "border-box",
       fontFamily: '"Times New Roman", Times, serif',
+      display: "flex",        // Enable Flexbox
+      flexDirection: "column" // Stack children vertically
     }}
   >
-    <ReportHeader />
+    {/* CONTENT SECTION (Grows to fill space) */}
+    <div className="flex-1">
+      <ReportHeader />
 
-    {/* TABLE */}
-    <table className="w-full table-fixed border-collapse border-x border-b border-black text-[11px] leading-tight mt-0">
-      <thead>
-        <tr className="h-8">
-          <th className="border border-black w-[12%] p-1 text-left font-bold text-xs">TS No</th>
-          <th className="border border-black w-[12%] p-1 text-left font-bold text-xs">Date</th>
-          <th className="border border-black w-[20%] p-1 text-left font-bold text-xs">From</th>
-          <th className="border border-black w-[20%] p-1 text-left font-bold text-xs">To</th>
-          <th className="border border-black w-[15%] p-1 text-right font-bold text-xs">Amount</th>
-        </tr>
-      </thead>
-
-      <tbody>
-        {entries.map((ts) => (
-          <tr key={ts.mfNo} className="h-6">
-            <td className="border border-black p-1 px-2">{ts.mfNo}</td>
-            <td className="border border-black p-1 px-2">{ts.tsDate}</td>
-            <td className="border border-black p-1 px-2">{ts.fromPlace}</td>
-            <td className="border border-black p-1 px-2">{ts.toPlace}</td>
-            <td className="border border-black p-1 px-2 text-right">
-              ₹{(ts.totalAmount ?? 0).toLocaleString("en-IN")}
-            </td>
+      {/* TABLE */}
+      <table className="w-full table-fixed border-collapse border-x border-b border-black text-[11px] leading-tight mt-0">
+        <thead>
+          <tr className="h-8">
+            <th className="border border-black w-[12%] p-1 text-left font-bold text-xs">TS No</th>
+            <th className="border border-black w-[12%] p-1 text-left font-bold text-xs">Date</th>
+            <th className="border border-black w-[20%] p-1 text-left font-bold text-xs">From</th>
+            <th className="border border-black w-[20%] p-1 text-left font-bold text-xs">To</th>
+            <th className="border border-black w-[15%] p-1 text-right font-bold text-xs">Amount</th>
           </tr>
-        ))}
+        </thead>
 
-        {isLastPage && (
-          <tr className="h-8 font-bold bg-gray-50">
-            <td className="border border-black p-1 px-2 text-right" colSpan={4}>
-              TOTAL:
-            </td>
-            <td className="border border-black p-1 px-2 text-right">
-              ₹{grandTotal.toLocaleString("en-IN")}
-            </td>
-          </tr>
-        )}
-      </tbody>
-    </table>
+        <tbody>
+          {entries.map((ts) => (
+            <tr key={ts.mfNo} className="h-6">
+              <td className="border border-black p-1 px-2">{ts.mfNo}</td>
+              <td className="border border-black p-1 px-2">{ts.tsDate}</td>
+              <td className="border border-black p-1 px-2">{ts.fromPlace}</td>
+              <td className="border border-black p-1 px-2">{ts.toPlace}</td>
+              <td className="border border-black p-1 px-2 text-right">
+                ₹{(ts.totalAmount ?? 0).toLocaleString("en-IN")}
+              </td>
+            </tr>
+          ))}
 
-    <div className="text-center text-[10px] mt-4 font-sans">
+          {isLastPage && (
+            <tr className="h-8 font-bold bg-gray-50">
+              <td className="border border-black p-1 px-2 text-right" colSpan={4}>
+                TOTAL:
+              </td>
+              <td className="border border-black p-1 px-2 text-right">
+                ₹{grandTotal.toLocaleString("en-IN")}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+
+    {/* FOOTER (Pushed to bottom via flex-1 above) */}
+    <div className="mt-auto pt-4 text-center text-[10px] font-sans">
       Page {pageNumber} of {totalPages}
     </div>
   </div>
@@ -124,13 +130,15 @@ export const TripSheetReportPrint = ({
   sheets: TripSheetEntry[];
   onClose: () => void;
 }) => {
-  // ▬▬▬ GRAND TOTAL ▬▬▬
+  const printTriggered = useRef(false);
+
+  // 1. Calculate Grand Total
   const grandTotal = useMemo(
     () => sheets.reduce((s, ts) => s + (ts.totalAmount ?? 0), 0),
     [sheets]
   );
 
-  // ▬▬▬ SPLIT INTO PAGES ▬▬▬
+  // 2. Split into Pages
   const ENTRIES_PER_PAGE = 35;
   const pages = useMemo(() => {
     const arr: TripSheetEntry[][] = [];
@@ -140,63 +148,263 @@ export const TripSheetReportPrint = ({
     return arr;
   }, [sheets]);
 
-  // ▬▬▬ PRINT + CLOSE ▬▬▬
+  // 3. Auto Print Trigger
   useEffect(() => {
     if (sheets.length === 0) return;
+    if (printTriggered.current) return;
 
-    const handleAfterPrint = () => {
-      onClose();
+    const timer = setTimeout(() => {
+      printTriggered.current = true;
+      window.print();
+    }, 1000);
+
+    return () => {
+      clearTimeout(timer);
     };
+  }, [sheets]);
 
-    window.addEventListener("afterprint", handleAfterPrint);
+  const handleManualPrint = () => {
+    window.print();
+  };
 
-    setTimeout(() => window.print(), 150);
-
-    return () =>
-      window.removeEventListener("afterprint", handleAfterPrint);
-  }, [sheets, onClose]);
-
-  // ▬▬▬ PORTAL CONTENT ▬▬▬
   const printContent = (
-    <div className="trip-report-wrapper">
+    <div className="trip-report-print-wrapper">
       <style>{`
+        /* =========================================
+           1. PRINT STYLES (The Output Paper)
+           ========================================= */
         @media print {
-          #root {
-            display: none !important;
-            visibility: hidden !important;
+          /* Remove browser default margins */
+          @page {
+            size: A4;
+            margin: 0; 
           }
 
-          .trip-report-wrapper {
+          /* Hide main app UI */
+          body > *:not(.trip-report-print-wrapper) {
+            display: none !important;
+          }
+          #root {
+            display: none !important;
+          }
+
+          /* Reset HTML/Body */
+          html, body {
+            height: 100%;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            background: white !important;
+          }
+
+          /* Wrapper takes over */
+          .trip-report-print-wrapper {
             display: block !important;
-            visibility: visible !important;
-            position: absolute !important;
+            position: absolute;
             top: 0;
             left: 0;
             width: 100%;
+            margin: 0;
+            padding: 0;
             background: white;
+            z-index: 9999;
           }
+
+          /* Force black text */
+          .trip-report-print-wrapper * {
+            color: black !important;
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
+          }
+
+          /* Hide Toolbar */
+          .print-actions { display: none !important; }
+
+          /* Page Breaks */
           .report-page {
-            page-break-after: always !important;
-            page-break-inside: avoid !important;
+            break-after: page;
+            page-break-after: always;
+            width: 210mm;
+            min-height: 297mm;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            flex-direction: column;
           }
-          @page { size: A4; margin: 0; }
         }
 
+        /* =========================================
+           2. SCREEN STYLES (The Preview Overlay)
+           ========================================= */
         @media screen {
-          .trip-report-wrapper { display: none; }
+          .trip-report-print-wrapper {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            width: 100vw;
+            height: 100dvh; /* Mobile-friendly viewport height */
+            
+            /* Theme-aware background color */
+            background-color: hsl(var(--muted)); 
+            
+            z-index: 2147483647; /* Max Z-Index */
+            overflow-y: auto;
+            overflow-x: hidden;
+            
+            /* Layout for centering pages */
+            padding-top: 80px; /* Space for fixed header */
+            padding-bottom: 40px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            
+            -webkit-overflow-scrolling: touch;
+          }
+
+          /* Desktop Page Preview Style */
+          .report-page {
+            background: white;
+            color: black; /* Preview text always black */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            margin-bottom: 24px;
+            transform-origin: top center;
+            transition: transform 0.2s ease;
+            width: 210mm; /* Fixed A4 width */
+            min-height: 297mm;
+            display: flex;
+            flex-direction: column;
+          }
+        }
+
+        /* =========================================
+           3. MOBILE RESPONSIVENESS (Scaling)
+           ========================================= */
+        @media screen and (max-width: 800px) {
+          .trip-report-print-wrapper {
+            padding-top: 70px;
+            padding-left: 0;
+            padding-right: 0;
+            background-color: #1f2937; /* Darker background on mobile */
+          }
+
+          .report-page {
+            /* Scale A4 (794px) down to fit ~375px screens */
+            transform: scale(0.46); 
+            /* Pull up the whitespace caused by scaling */
+            margin-bottom: -135mm; 
+            margin-top: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+          }
+        }
+
+        @media screen and (min-width: 450px) and (max-width: 800px) {
+           /* Tablets */
+           .report-page {
+             transform: scale(0.65);
+             margin-bottom: -90mm;
+           }
+        }
+
+        /* =========================================
+           4. TOOLBAR STYLES (Themed)
+           ========================================= */
+        .print-actions {
+          position: fixed;
+          top: 0; left: 0;
+          width: 100%;
+          height: 64px;
+          
+          /* Theme variables for colors */
+          background-color: hsl(var(--card));
+          color: hsl(var(--foreground));
+          border-bottom: 1px solid hsl(var(--border));
+          
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 16px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+          z-index: 2147483648;
+        }
+
+        .preview-title {
+          font-weight: 700;
+          font-size: 16px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .action-group {
+          display: flex;
+          gap: 10px;
+        }
+
+        .btn-base {
+          display: flex; align-items: center; gap: 8px;
+          padding: 8px 16px;
+          border-radius: 6px;
+          font-weight: 600;
+          font-size: 14px;
+          border: none;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        
+        /* Themed Primary Button */
+        .print-btn {
+          background-color: hsl(var(--primary));
+          color: hsl(var(--primary-foreground));
+        }
+        .print-btn:active { transform: scale(0.96); }
+        .print-btn:hover { opacity: 0.9; }
+
+        /* Themed Destructive Button */
+        .close-btn {
+          background-color: hsl(var(--destructive));
+          color: hsl(var(--destructive-foreground));
+        }
+        .close-btn:active { transform: scale(0.96); }
+        .close-btn:hover { opacity: 0.9; }
+
+        /* Small screen adjustments for toolbar */
+        @media screen and (max-width: 480px) {
+          .preview-title { font-size: 14px; max-width: 120px; }
+          .btn-base { padding: 6px 12px; font-size: 13px; }
+          .action-group { gap: 8px; }
         }
       `}</style>
 
-      {pages.map((p, i) => (
-        <ReportPage
-          key={i}
-          entries={p}
-          pageNumber={i + 1}
-          totalPages={pages.length}
-          isLastPage={i === pages.length - 1}
-          grandTotal={grandTotal}
-        />
-      ))}
+      {/* HEADER TOOLBAR */}
+      <div className="print-actions">
+        <span className="preview-title">
+          Trip Report Preview
+        </span>
+        <div className="action-group">
+          <button onClick={handleManualPrint} className="btn-base print-btn">
+            <Printer size={18} />
+            <span>Print</span>
+          </button>
+          <button onClick={onClose} className="btn-base close-btn">
+            <X size={18} />
+            <span>Close</span>
+          </button>
+        </div>
+      </div>
+
+      {/* DOCUMENT PAGES */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        {pages.map((p, i) => (
+          <ReportPage
+            key={i}
+            entries={p}
+            pageNumber={i + 1}
+            totalPages={pages.length}
+            isLastPage={i === pages.length - 1}
+            grandTotal={grandTotal}
+          />
+        ))}
+      </div>
     </div>
   );
 
