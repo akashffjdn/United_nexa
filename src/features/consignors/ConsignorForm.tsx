@@ -4,6 +4,8 @@ import { Input } from '../../components/shared/Input';
 import { Button } from '../../components/shared/Button';
 import { X, Info } from 'lucide-react';
 import { useData } from '../../hooks/useData';
+import { AutocompleteInput } from '../../components/shared/AutocompleteInput';
+
 
 // Get today's date in YYYY-MM-DD format
 const getTodayDate = () => new Date().toISOString().split('T')[0];
@@ -14,8 +16,23 @@ interface ConsignorFormProps {
   onSave: (consignor: Consignor, firstConsignee?: any) => void;
 }
 
+// Helper function to check for non-empty or non-zero value
+const isValueValid = (value: any): boolean => {
+    if (typeof value === 'string') {
+        return value.trim().length > 0;
+    }
+    // Check if it's a number and non-zero, or any other truthy value
+    return !!value; 
+};
+
+// Utility function to generate the prop used to hide the required marker
+const getValidationProp = (value: any) => ({
+    // This prop tells the Input component to hide the visual marker
+    hideRequiredIndicator: isValueValid(value)
+});
+
 export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormProps) => {
-  const { consignors } = useData();
+  const { consignors, toPlaces } = useData();
   const [duplicateMessage, setDuplicateMessage] = useState<string | null>(null);
 
   const [consignor, setConsignor] = useState({
@@ -47,6 +64,12 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
     const { name, value } = e.target;
     setConsignor(prev => ({ ...prev, [name]: value }));
     if (duplicateMessage) setDuplicateMessage(null);
+  };
+
+  // 🟢 4. DEDICATED HANDLER for AutocompleteInput (for Destination)
+  const handleDestinationChange = (value: string) => {
+      setConsignee(prev => ({ ...prev, destination: value }));
+      if (duplicateMessage) setDuplicateMessage(null);
   };
   
   const handleProofBlur = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -116,6 +139,10 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
     onSave(savedConsignor, savedConsignee);
   };
 
+  // 🟢 OPTIONS MAPPING
+  const destinationOptions = toPlaces.map(p => ({ value: p.placeName, label: p.placeName }));
+
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="relative w-full max-w-2xl bg-background rounded-lg shadow-xl max-h-[90vh] overflow-y-auto">
@@ -147,6 +174,7 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
                onChange={handleConsignorChange} 
                onBlur={handleProofBlur} 
                required 
+               { ...getValidationProp(consignor.gst) }
                placeholder="Enter GST..."
              />
              <Input 
@@ -170,11 +198,11 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input label="Consignor Name" id="name" name="name" value={consignor.name} onChange={handleConsignorChange} required />
-            <Input label="From (Place)" id="from" name="from" value={consignor.from} onChange={handleConsignorChange} required />
+            <Input label="Consignor Name" id="name" name="name" value={consignor.name} onChange={handleConsignorChange} required { ...getValidationProp(consignor.name)} />
+            <Input label="From (Place)" id="from" name="from" value={consignor.from} onChange={handleConsignorChange} required { ...getValidationProp(consignor.from)} />
             
             <Input label="Mobile Number" id="mobile" name="mobile" value={consignor.mobile} onChange={handleConsignorChange} />
-            <Input label="Filing Date" id="filingDate" name="filingDate" type="date" value={consignor.filingDate} onChange={handleConsignorChange} required />
+            <Input label="Filing Date" id="filingDate" name="filingDate" type="date" value={consignor.filingDate} onChange={handleConsignorChange} required { ...getValidationProp(consignor.filingDate)} />
             
             <div className="md:col-span-2">
               <label htmlFor="address" className="block text-sm font-medium text-muted-foreground">
@@ -188,6 +216,7 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
                 rows={3} 
                 className="w-full mt-1 px-3 py-2 bg-transparent text-foreground border border-muted-foreground/30 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary" 
                 required 
+                { ...getValidationProp(consignor.address)}
               /></div>
           </div>
 
@@ -222,16 +251,25 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
                       </select>
                     </div>
                     <div className="md:col-span-2">
-                      <Input label="Proof Number" id="c-proofValue" name="proofValue" value={consignee.proofValue} onChange={handleConsigneeChange} required={addFirstConsignee} />
+                      <Input label="Proof Number" id="c-proofValue" name="proofValue" value={consignee.proofValue} onChange={handleConsigneeChange} required={addFirstConsignee} { ...getValidationProp(consignee.proofValue)} />
                     </div>
                   </div>
 
-                  <Input label="Consignee Name" id="c-name" name="name" value={consignee.name} onChange={handleConsigneeChange} required={addFirstConsignee} />
-                  <Input label="Phone Number" id="c-phone" name="phone" value={consignee.phone} onChange={handleConsigneeChange} required={addFirstConsignee} />
-                  <Input label="Destination" id="c-destination" name="destination" value={consignee.destination} onChange={handleConsigneeChange} required={addFirstConsignee} />
+                  <Input label="Consignee Name" id="c-name" name="name" value={consignee.name} onChange={handleConsigneeChange} required={addFirstConsignee} { ...getValidationProp(consignee.name)} />
+                  <Input label="Phone Number" id="c-phone" name="phone" value={consignee.phone} onChange={handleConsigneeChange} required={addFirstConsignee} {...getValidationProp(consignee.phone)} />
+                  {/* 🟢 3. REPLACE Input WITH AutocompleteInput */}
+                  <AutocompleteInput 
+                      label="Destination" 
+                      placeholder="Select or type Destination"
+                      options={destinationOptions} // Use the mapped options
+                      value={consignee.destination} 
+                      onSelect={handleDestinationChange} // Use dedicated handler
+                      required 
+                      { ...getValidationProp(consignee.destination)} 
+                  />
                   <div>
                     <label htmlFor="c-address" className="block text-sm font-medium text-muted-foreground">
-                      Address {addFirstConsignee && <span className="text-destructive">*</span>}
+                      Address {addFirstConsignee && <span className="text-destructive">*</span>} 
                     </label>
                     <textarea 
                       id="c-address" 
@@ -241,6 +279,7 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
                       rows={2} 
                       className="w-full mt-1 px-3 py-2 bg-transparent text-foreground border border-muted-foreground/30 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary" 
                       required={addFirstConsignee} 
+                      { ...getValidationProp(consignee.address)}
                     /></div>
                 </div>
               )}

@@ -1,12 +1,13 @@
 // src/utils/api.ts
 import axios from 'axios';
 import { loadingManager } from './loadingManager';
-
-const API_URL = 'https://unitedtransportbackend-443415591723.asia-south1.run.app/api';
+export const API_URL = 'https://unitedtransportbackend-443415591723.asia-south1.run.app/api';
+// export const API_URL = 'http://localhost:5000/api';
 
 const api = axios.create({
   baseURL: API_URL,
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true, // 🟢 CRITICAL: Send cookies with every request
   paramsSerializer: (params) => {
     const parts: string[] = [];
     Object.entries(params).forEach(([key, val]) => {
@@ -23,11 +24,8 @@ const api = axios.create({
 
 // --- HELPER: Generate Dynamic Message ---
 const getLoadingMessage = (method: string = 'GET', url: string = '') => {
-  // Priority: Specific URL checks
   if (url.includes('/auth/login')) return 'Authenticating...';
   if (url.includes('/report')) return 'Generating Report...';
-
-  // Fallback: Method based checks
   switch (method.toUpperCase()) {
     case 'POST': return 'Saving Data...';
     case 'PUT': return 'Updating Records...';
@@ -40,11 +38,11 @@ const getLoadingMessage = (method: string = 'GET', url: string = '') => {
 // 1. Request Interceptor
 api.interceptors.request.use(
   (config) => {
-    // Calculate the dynamic message
-    const msg = getLoadingMessage(config.method, config.url);
-    
-    // Trigger loader with the message
-    loadingManager.show(msg);
+    // Only show loader if not a silent refresh
+    if (!config.url?.includes('/refresh')) {
+        const msg = getLoadingMessage(config.method, config.url);
+        loadingManager.show(msg);
+    }
 
     const userInfo = localStorage.getItem('authUser');
     if (userInfo) {
@@ -59,25 +57,53 @@ api.interceptors.request.use(
   }
 );
 
-// 2. Response Interceptor
+// 🟢 2. Response Interceptor (With Refresh Logic)
 api.interceptors.response.use(
   (response) => {
     loadingManager.hide();
     if (response.data) response.data = transformId(response.data);
     return response;
   },
-  (error) => {
+  async (error) => {
     loadingManager.hide();
-    if (error.response && error.response.status === 401) {
-      localStorage.removeItem('authUser');
-      localStorage.removeItem('authYear');
-      window.location.href = '/login';
+    const originalRequest = error.config;
+
+    // Check for 401 (Unauthorized) and ensure we haven't already retried
+    if (error.response && error.response.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true; // Mark as retried
+
+      try {
+        // Attempt to get a new access token using the HTTPOnly cookie
+        const { data } = await api.post('/auth/refresh');
+        
+        // Update LocalStorage with new Access Token
+        const userInfo = localStorage.getItem('authUser');
+        if (userInfo) {
+            const parsedUser = JSON.parse(userInfo);
+            parsedUser.token = data.token;
+            localStorage.setItem('authUser', JSON.stringify(parsedUser));
+        }
+
+        // Update default headers and retry original request
+        api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+        originalRequest.headers['Authorization'] = `Bearer ${data.token}`;
+        
+        return api(originalRequest);
+
+      } catch (refreshError) {
+        // Refresh failed (Cookie expired or invalid) -> Logout user
+        console.error("Session expired", refreshError);
+        localStorage.removeItem('authUser');
+        localStorage.removeItem('authYear');
+        window.location.href = '/login';
+      }
     }
+
     return Promise.reject(error);
   }
 );
 
-// ID Helper (unchanged)
+// ID Helper
 const transformId = (data: any): any => {
   if (Array.isArray(data)) return data.map(transformId);
   else if (data !== null && typeof data === 'object') {

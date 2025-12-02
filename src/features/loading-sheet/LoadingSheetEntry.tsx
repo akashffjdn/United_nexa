@@ -14,6 +14,7 @@ import { Pagination } from '../../components/shared/Pagination';
 import { StockReportPrint } from '../pending-stock/StockReportView';
 import { LoadListPrintManager, type LoadListJob } from './LoadListPrintManager';
 import { QtySelectionDialog } from './QtySelectionDialog';
+import { useToast } from '../../contexts/ToastContext';
 
 type ReportJob = {
   gc: GcEntry;
@@ -23,7 +24,7 @@ type ReportJob = {
 
 export const LoadingSheetEntry = () => {
   const { deleteGcEntry, consignors, consignees, getUniqueDests, saveLoadingProgress, fetchGcById, fetchLoadingSheetPrintData } = useData();
-
+  const toast = useToast();
   // --- SERVER-SIDE PAGINATION HOOK ---
   const {
     data: paginatedData,
@@ -152,11 +153,11 @@ export const LoadingSheetEntry = () => {
                 consignee: { ...consignee, id: consignee.id || consignee._id || 'unknown' } as Consignee
             }]);
         } else {
-            alert("Failed to fetch GC details.");
+            toast.error("Failed to fetch GC details.");
         }
     } catch (error) {
         console.error("Print error:", error);
-        alert("An error occurred while fetching print data.");
+        toast.error("An error occurred while fetching print data.");
     }
   };
 
@@ -176,7 +177,7 @@ export const LoadingSheetEntry = () => {
         }
 
         if (!results || results.length === 0) {
-            alert("No data received for selected GCs.");
+            toast.error("No data received for selected GCs.");
             return;
         }
 
@@ -204,7 +205,7 @@ export const LoadingSheetEntry = () => {
         }
     } catch (error) {
         console.error("Bulk print failed", error);
-        alert("Failed to prepare print jobs.");
+        toast.error("Failed to prepare print jobs.");
     }
   };
 
@@ -224,7 +225,7 @@ export const LoadingSheetEntry = () => {
         });
         setIsQtySelectOpen(true);
     } else {
-        alert("Failed to load GC details.");
+        toast.error("Failed to load GC details.");
     }
   };
 

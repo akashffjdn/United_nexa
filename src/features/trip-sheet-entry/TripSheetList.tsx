@@ -12,12 +12,13 @@ import type { TripSheetEntry } from "../../types";
 import { Pagination } from "../../components/shared/Pagination";
 import { TripSheetPrintManager } from "./TripSheetPrintManager";
 import { TripSheetReportPrint } from "./TripSheetReportView";
+import { useToast } from "../../contexts/ToastContext"; // 🟢 IMPORTED
 
 export const TripSheetList = () => {
   const navigate = useNavigate();
   // 🟢 UPDATED: Imported fetchTripSheetReport
   const { deleteTripSheet, consignees, consignors, getUniqueDests, fetchTripSheetPrintData, fetchTripSheetReport } = useData(); 
-
+  const toast = useToast();
   // --- 1. FILTER OPTIONS ---
   const placeOptions = useMemo(getUniqueDests, [getUniqueDests]);
   const consignorOptions = useMemo(() => consignors.map(c => ({ value: c.id, label: c.name })), [consignors]);
@@ -169,11 +170,11 @@ export const TripSheetList = () => {
             if (!selectAllMode) setSelected([]);
             setSelectAllMode(false);
         } else {
-            alert("Failed to load data for printing.");
+            toast.error("Failed to load data for printing.");
         }
     } catch (e) {
         console.error(e);
-        alert("Error loading print data.");
+        toast.error("Error loading print data.");
     }
   };
 
@@ -183,11 +184,11 @@ export const TripSheetList = () => {
         if (sheets && sheets.length > 0) {
             setPrintingSheets(sheets);
         } else {
-            alert("Failed to load data for printing.");
+            toast.error("Failed to load data for printing.");
         }
     } catch (e) {
         console.error(e);
-        alert("Error loading print data.");
+        toast.error("Error loading print data.");
     }
   };
   
@@ -202,11 +203,11 @@ export const TripSheetList = () => {
             // which are present in the lightweight API response
             setReportPrintingJobs(reportData as TripSheetEntry[]); 
         } else {
-            alert("No data found for report."); 
+            toast.error("No data found for report."); 
         }
     } catch (e) {
         console.error("Report generation error:", e);
-        alert("Error generating report.");
+        toast.error("Error generating report.");
     }
   };
 

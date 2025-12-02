@@ -11,6 +11,21 @@ interface FormErrors {
     // general: string | null; // For required field error
 }
 
+// Helper function to check for non-empty or non-zero value
+const isValueValid = (value: any): boolean => {
+    if (typeof value === 'string') {
+        return value.trim().length > 0;
+    }
+    // Check if it's a number and non-zero, or any other truthy value
+    return !!value; 
+};
+
+// Utility function to generate the prop used to hide the required marker
+const getValidationProp = (value: any) => ({
+    // This prop tells the Input component to hide the visual marker
+    hideRequiredIndicator: isValueValid(value)
+});
+
 interface FromPlacesFormProps {
     initialData?: FromPlace;
     onClose: () => void;
@@ -110,7 +125,7 @@ export const FromPlacesForm = ({ initialData, onClose, onSave, onError, checkDup
         // Modal Backdrop
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
             {/* Modal Panel */}
-            <div className="relative w-full max-w-lg bg-background rounded-lg shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="relative w-96 max-w-lg bg-background rounded-lg shadow-xl max-h-[90vh] overflow-y-auto">
                 {/* Modal Header */}
                 <div className="flex items-center justify-between p-4 border-b border-muted">
                     <h2 className="text-xl font-semibold text-foreground">
@@ -144,6 +159,7 @@ export const FromPlacesForm = ({ initialData, onClose, onSave, onError, checkDup
                                 value={fromPlace.placeName} 
                                 onChange={handleChange} 
                                 required 
+                                { ...getValidationProp(fromPlace.placeName)}
                             />
                             {fieldErrors.place && (
                                 <p className="mt-2 text-sm text-red-600 flex items-center">
@@ -161,6 +177,7 @@ export const FromPlacesForm = ({ initialData, onClose, onSave, onError, checkDup
                                 value={fromPlace.shortName} 
                                 onChange={handleChange} 
                                 required 
+                                { ...getValidationProp(fromPlace.shortName)}
                             />
                             {fieldErrors.short && (
                                 <p className="mt-2 text-sm text-red-600 flex items-center">

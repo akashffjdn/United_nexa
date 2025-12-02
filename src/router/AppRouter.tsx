@@ -1,8 +1,9 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Layout } from '../components/layout/Layout';
 import { useAuth } from '../hooks/useAuth';
+import { DataProvider } from '../contexts/DataContext'; 
 
-// Import Existing Features
+// Import Features
 import { LoginScreen } from '../features/auth/LoginScreen';
 import { ConsignorList } from '../features/consignors/ConsignorList';
 import { ConsigneeList } from '../features/consignees/ConsigneeList';
@@ -22,9 +23,13 @@ import { LoadingScreen } from '../components/shared/LoadingScreen';
 import { UserList } from '../features/users/UserList';
 import { VehicleList } from '../features/vehicle-details/VehicleList';
 import { DriverList } from '../features/driver-details copy/DriverList';
+// 🟢 NEW IMPORT
+import { OfflinePage } from '../features/misc/OfflinePage';
 
-// --- AUTH PROTECTION ---
-const ProtectedRoute = ({ children, noLayout = false, requireAdmin = false }: { children: React.ReactNode; noLayout?: boolean; requireAdmin?: boolean }) => {
+// Note: TermsAccessPage has been removed as per requirement
+
+// --- AUTH PROTECTION WRAPPER ---
+const ProtectedRoute = ({ requireAdmin = false }: { requireAdmin?: boolean }) => {
   const { user, loading } = useAuth();
 
   if (loading) return <LoadingScreen />;
@@ -34,10 +39,17 @@ const ProtectedRoute = ({ children, noLayout = false, requireAdmin = false }: { 
     return <Navigate to="/" replace />; 
   }
 
-  if (noLayout) return <>{children}</>;
-  return <Layout>{children}</Layout>;
+  // Wrap authenticated routes in DataProvider and Layout
+  return (
+    <DataProvider>
+      <Layout>
+        <Outlet />
+      </Layout>
+    </DataProvider>
+  );
 };
 
+// --- LOGIN ROUTE WRAPPER ---
 const LoginRoute = () => {
   const { user, loading } = useAuth();
   if (loading) return <LoadingScreen />;
@@ -49,61 +61,50 @@ const LoginRoute = () => {
 const AppRouter = () => {
   return (
     <Routes>
-      {/* Auth Routes */}
+      {/* 1. PUBLIC ROUTES */}
       <Route path="/login" element={<LoginRoute />} />
-      {/* Redirect /logout manually to /login just in case someone types it */}
       <Route path="/logout" element={<Navigate to="/login" replace />} />
-
-      {/* ===================================================
-          MAIN APPLICATION ROUTES
-         =================================================== */}
       
-      {/* Main Dashboard (Operations View) */}
-      <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+      {/* 🟢 NEW OFFLINE ROUTE */}
+      <Route path="/offline" element={<OfflinePage />} />
 
-      {/* GC Entry */}
-      <Route path="/gc-entry" element={<ProtectedRoute><GcEntryList /></ProtectedRoute>} />
-      <Route path="/gc-entry/new" element={<ProtectedRoute><GcEntryForm /></ProtectedRoute>} />
-      <Route path="/gc-entry/edit/:gcNo" element={<ProtectedRoute><GcEntryForm /></ProtectedRoute>} />
-      
-      {/* Pending Stock */}
-      <Route path="/pending-stock" element={<ProtectedRoute><PendingStockHistory /></ProtectedRoute>} />
+      {/* 2. PROTECTED ROUTES (Wrapped in DataProvider via Outlet) */}
+      <Route element={<ProtectedRoute />}>
+        {/* Main Dashboard */}
+        <Route path="/" element={<DashboardPage />} />
 
-      {/* Loading Sheet */}
-      <Route path="/loading-sheet" element={<ProtectedRoute><LoadingSheetEntry /></ProtectedRoute>} />
-      
-      {/* Trip Sheet */}
-      <Route path="/trip-sheet" element={<ProtectedRoute><TripSheetList /></ProtectedRoute>} />
-      <Route path="/tripsheet/new" element={<ProtectedRoute><TripSheetForm /></ProtectedRoute>} />
-      <Route path="/tripsheet/edit/:id" element={<ProtectedRoute><TripSheetForm /></ProtectedRoute>} />
+        {/* GC Entry */}
+        <Route path="/gc-entry" element={<GcEntryList />} />
+        <Route path="/gc-entry/new" element={<GcEntryForm />} />
+        <Route path="/gc-entry/edit/:gcNo" element={<GcEntryForm />} />
+        
+        {/* Pending Stock */}
+        <Route path="/pending-stock" element={<PendingStockHistory />} />
 
-      {/* ===================================================
-          DATA MANAGEMENT (Sub-Menu Items)
-         =================================================== */}
-      
-      {/* Master Dashboard Landing Page */}
-      <Route path="/master" element={<ProtectedRoute><MasterDashboardPage /></ProtectedRoute>} />
+        {/* Loading Sheet */}
+        <Route path="/loading-sheet" element={<LoadingSheetEntry />} />
+        
+        {/* Trip Sheet */}
+        <Route path="/trip-sheet" element={<TripSheetList />} />
+        <Route path="/tripsheet/new" element={<TripSheetForm />} />
+        <Route path="/tripsheet/edit/:id" element={<TripSheetForm />} />
 
-      <Route path="/master/consignors" element={<ProtectedRoute><ConsignorList /></ProtectedRoute>} />
-      <Route path="/master/consignees" element={<ProtectedRoute><ConsigneeList /></ProtectedRoute>} />
-      <Route path="/master/from-places" element={<ProtectedRoute><FromPlaceList /></ProtectedRoute>} />
-      <Route path="/master/to-places" element={<ProtectedRoute><ToPlacesList /></ProtectedRoute>} />
-      <Route path="/master/packings" element={<ProtectedRoute><PackingEntryList /></ProtectedRoute>} />
-      <Route path="/master/contents" element={<ProtectedRoute><ContentList /></ProtectedRoute>} />
-      
-      {/* Vehicle & Driver Management Routes */}
-      <Route path="/master/vehicles" element={<ProtectedRoute><VehicleList /></ProtectedRoute>} />
-      <Route path="/master/drivers" element={<ProtectedRoute><DriverList /></ProtectedRoute>} />
+        {/* Master Dashboard */}
+        <Route path="/master" element={<MasterDashboardPage />} />
+        <Route path="/master/consignors" element={<ConsignorList />} />
+        <Route path="/master/consignees" element={<ConsigneeList />} />
+        <Route path="/master/from-places" element={<FromPlaceList />} />
+        <Route path="/master/to-places" element={<ToPlacesList />} />
+        <Route path="/master/packings" element={<PackingEntryList />} />
+        <Route path="/master/contents" element={<ContentList />} />
+        <Route path="/master/vehicles" element={<VehicleList />} />
+        <Route path="/master/drivers" element={<DriverList />} />
+      </Route>
 
-      {/* Admin - User Management */}
-      <Route 
-        path="/users" 
-        element={
-          <ProtectedRoute requireAdmin={true}>
-            <UserList />
-          </ProtectedRoute>
-        } 
-      />
+      {/* 3. ADMIN ONLY ROUTES */}
+      <Route element={<ProtectedRoute requireAdmin={true} />}>
+        <Route path="/users" element={<UserList />} />
+      </Route>
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />

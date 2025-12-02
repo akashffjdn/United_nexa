@@ -12,6 +12,7 @@ import { GcPrintManager, type GcPrintJob } from '../gc-entry/GcPrintManager';
 import type { GcEntry, Consignor, Consignee } from '../../types';
 import { useServerPagination } from '../../hooks/useServerPagination'; 
 import { Pagination } from '../../components/shared/Pagination';
+import { useToast } from '../../contexts/ToastContext'; // 🟢 IMPORTED
 
 type ReportJob = {
   gc: GcEntry;
@@ -23,7 +24,7 @@ export const PendingStockHistory = () => {
   const navigate = useNavigate();
   // 🟢 IMPORTED fetchPendingStockReport
   const { deleteGcEntry, consignors, consignees, getUniqueDests, fetchGcPrintData, fetchPendingStockReport } = useData();
-  
+  const toast = useToast();
   // ... [Server Pagination Hook - Unchanged] ...
   const {
     data: paginatedData,
@@ -139,11 +140,11 @@ export const PendingStockHistory = () => {
                 consignee: consignee as Consignee 
             }]);
         } else {
-            alert("Failed to fetch GC details.");
+            toast.error("Failed to fetch GC details.");
         }
     } catch (error) {
         console.error("Print error:", error);
-        alert("An error occurred while fetching print data.");
+        toast.error("An error occurred while fetching print data.");
     }
   };
   
@@ -161,7 +162,7 @@ export const PendingStockHistory = () => {
         }
         
         if (!printData || printData.length === 0) {
-            alert("Could not fetch data for selected GCs.");
+            toast.error("Could not fetch data for selected GCs.");
             return;
         }
 
@@ -185,11 +186,11 @@ export const PendingStockHistory = () => {
           if (!selectAllMode) setSelectedGcIds([]); 
           setSelectAllMode(false); 
         } else {
-          alert("Could not prepare print jobs. Check data integrity.");
+          toast.error("Could not prepare print jobs. Check data integrity.");
         }
     } catch (error) {
         console.error("Bulk print error:", error);
-        alert("An error occurred while preparing print jobs.");
+        toast.error("An error occurred while preparing print jobs.");
     }
   };
 
@@ -200,7 +201,7 @@ export const PendingStockHistory = () => {
         const reportData = await fetchPendingStockReport(filters);
         
         if (reportData.length === 0) {
-            alert("No pending stock found for current filters.");
+            toast.error("No pending stock found for current filters.");
             return;
         }
 
@@ -257,7 +258,7 @@ export const PendingStockHistory = () => {
 
     } catch (error) {
         console.error("Error fetching report data", error);
-        alert("Failed to generate report.");
+        toast.error("Failed to generate report.");
     }
   };
 

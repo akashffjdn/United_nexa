@@ -8,10 +8,27 @@ import { Button } from '../../components/shared/Button';
 import { AutocompleteInput } from '../../components/shared/AutocompleteInput';
 import { Printer, Save, X } from 'lucide-react';
 import { GcPrintManager, type GcPrintJob } from './GcPrintManager';
+import { useToast } from '../../contexts/ToastContext';
 
 type ProofType = 'gst' | 'pan' | 'aadhar';
 
+// Helper function to check for non-empty or non-zero value
+const isValueValid = (value: any): boolean => {
+    if (typeof value === 'string') {
+        return value.trim().length > 0;
+    }
+    // Check if it's a number and non-zero, or any other truthy value
+    return !!value; 
+};
+
+// Utility function to generate the prop used to hide the required marker
+const getValidationProp = (value: any) => ({
+    // This prop tells the Input component to hide the visual marker
+    hideRequiredIndicator: isValueValid(value)
+});
+
 export const GcEntryForm = () => {
+  const toast = useToast();
   const { gcNo } = useParams<{ gcNo: string }>(); 
   const navigate = useNavigate();
   const { 
@@ -97,7 +114,7 @@ export const GcEntryForm = () => {
           }
           setLoading(false);
         } else {
-          alert('GC Entry not found.');
+          toast.error('GC Entry not found.');
           navigate('/gc-entry');
         }
       };
@@ -156,7 +173,7 @@ export const GcEntryForm = () => {
 
   // 🟢 UPDATED HANDLE SAVE
   const handleSave = async (andPrint = false) => {
-    if (!form.consignorId || !form.consigneeId) { alert('Please select a Consignor and Consignee.'); return; }
+   
     
     // --- CHANGE: Don't fetch next number here. Send empty if new. ---
     const finalGcNo = isEditMode ? form.gcNo : ""; 
@@ -187,7 +204,7 @@ export const GcEntryForm = () => {
       if (consignor && consignee) {
         setPrintingJobs([{ gc: savedData, consignor, consignee }]);
       } else { 
-        alert("Error: Cannot find consignor/consignee data."); 
+        toast.error("Error: Cannot find consignor/consignee data."); 
         navigate('/gc-entry'); 
       }
     } else {
@@ -206,13 +223,13 @@ export const GcEntryForm = () => {
             <h3 className="text-base font-bold text-primary border-b border-border pb-2 mb-4">GC Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="col-span-1">
-                <Input label="GC Date" type="date" name="gcDate" value={form.gcDate} onChange={handleChange} required />
+                <Input label="GC Date" type="date" name="gcDate" value={form.gcDate} onChange={handleChange} required {...getValidationProp(form.gcDate)} />
               </div>
               <div className="col-span-1">
-                <Input label="From (GC)" name="from" value={form.from} onChange={handleChange} required disabled />
+                <Input label="From (GC)" name="from" value={form.from} onChange={handleChange} required {...getValidationProp(form.from)} disabled />
               </div>
               <div className="col-span-1">
-                <AutocompleteInput label="Destination" options={destinationOptions} value={form.destination} onSelect={handleDestinationSelect} placeholder="" required />
+                <AutocompleteInput label="Destination" options={destinationOptions} value={form.destination} onSelect={handleDestinationSelect} placeholder="" required {...getValidationProp(form.destination)} />
               </div>
             </div>
           </div>
@@ -220,39 +237,39 @@ export const GcEntryForm = () => {
           <div>
             <h3 className="text-base font-bold text-primary border-b border-border pb-2 mb-4">Parties</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 mb-4">
-              <div className="col-span-1 sm:col-span-2 lg:col-span-5"><AutocompleteInput label="Consignor Name" options={consignorOptions} value={form.consignorId} onSelect={handleConsignorSelect} placeholder="" required /></div>
-              <div className="col-span-1 lg:col-span-4"><Input label="Consignor GSTIN" value={consignorGst} disabled required/></div>
-              <div className="col-span-1 lg:col-span-3"><Input label="Consignor From" value={form.from} disabled required/></div>
+              <div className="col-span-1 sm:col-span-2 lg:col-span-5"><AutocompleteInput label="Consignor Name" options={consignorOptions} value={form.consignorId} onSelect={handleConsignorSelect} placeholder="" required { ...getValidationProp(form.consignorId)} /></div>
+              <div className="col-span-1 lg:col-span-4"><Input label="Consignor GSTIN" value={consignorGst} disabled required { ...getValidationProp(consignorGst)} /></div>
+              <div className="col-span-1 lg:col-span-3"><Input label="Consignor From" value={form.from} disabled required { ...getValidationProp(form.from)} /></div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4">
-              <div className="col-span-1 sm:col-span-2 lg:col-span-5"><AutocompleteInput label="Consignee Name" options={consigneeOptions} value={form.consigneeId} onSelect={handleConsigneeSelect} placeholder="" required /></div>
-              <div className="col-span-1 lg:col-span-3"><Input label="Consignee Dest" value={consigneeDestDisplay} disabled required/></div>
+              <div className="col-span-1 sm:col-span-2 lg:col-span-5"><AutocompleteInput label="Consignee Name" options={consigneeOptions} value={form.consigneeId} onSelect={handleConsigneeSelect} placeholder="" required {...getValidationProp(form.consigneeId)} /></div>
+              <div className="col-span-1 lg:col-span-3"><Input label="Consignee Dest" value={consigneeDestDisplay} disabled required { ...getValidationProp(consigneeDestDisplay)} /></div>
               <div className="col-span-1 lg:col-span-2">
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Proof Type *</label>
                 <select name="consigneeProofType" value={form.consigneeProofType} onChange={handleProofTypeChange} className="w-full px-2 py-2 border border-muted-foreground/30 rounded-md bg-background text-xs focus:outline-none focus:ring-primary focus:border-primary"><option value="gst">GST</option><option value="pan">PAN</option><option value="aadhar">Aadhar</option></select>
               </div>
-              <div className="col-span-1 lg:col-span-2"><Input label="Proof Value" name="consigneeProofValue" value={form.consigneeProofValue} onChange={handleChange} required /></div>
+              <div className="col-span-1 lg:col-span-2"><Input label="Proof Value" name="consigneeProofValue" value={form.consigneeProofValue} onChange={handleChange} required { ...getValidationProp(form.consigneeProofValue)} /></div>
             </div>
           </div>
 
           <div>
              <h3 className="text-base font-bold text-primary border-b border-border pb-2 mb-4">Routing</h3>
              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="col-span-1"><AutocompleteInput label="Delivery At" options={destinationOptions} value={form.deliveryAt} onSelect={(v) => handleFormValueChange('deliveryAt', v)} placeholder="" required /></div>
-              <div className="col-span-1"><AutocompleteInput label="Freight Upto" options={destinationOptions} value={form.freightUptoAt} onSelect={(v) => handleFormValueChange('freightUptoAt', v)} placeholder="" required /></div>
-              <div className="col-span-1"><Input label="Godown" name="godown" value={form.godown} onChange={handleChange} required/></div>
+              <div className="col-span-1"><AutocompleteInput label="Delivery At" options={destinationOptions} value={form.deliveryAt} onSelect={(v) => handleFormValueChange('deliveryAt', v)} placeholder="" required { ...getValidationProp(form.deliveryAt)} /></div>
+              <div className="col-span-1"><AutocompleteInput label="Freight Upto" options={destinationOptions} value={form.freightUptoAt} onSelect={(v) => handleFormValueChange('freightUptoAt', v)} placeholder="" required { ...getValidationProp(form.freightUptoAt)} /></div>
+              <div className="col-span-1"><Input label="Godown" name="godown" value={form.godown} onChange={handleChange} /></div>
             </div>
           </div>
 
           <div>
              <h3 className="text-base font-bold text-primary border-b border-border pb-2 mb-4">Contents</h3>
              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-              <div className="col-span-1"><Input label="Qty" name="quantity" value={form.quantity} onChange={handleChange} required /></div>
-              <div className="col-span-1"><Input label="From No" name="fromNo" value={form.fromNo} onChange={handleChange} required /></div>
+              <div className="col-span-1"><Input label="Qty" name="quantity" value={form.quantity} onChange={handleChange} required {...getValidationProp(form.quantity)} /></div>
+              <div className="col-span-1"><Input label="From No" name="fromNo" value={form.fromNo} onChange={handleChange} required { ...getValidationProp(form.fromNo)} /></div>
               <div className="col-span-1"><Input label="To No" value={toNo > 0 ? toNo : ''} disabled /></div>
-              <div className="col-span-1"><Input label="Net Qty" name="netQty" value={form.netQty} onChange={handleChange} required /></div>
-              <div className="col-span-1"><AutocompleteInput label="Packing" options={packingOptions} value={form.packing} onSelect={(v) => handleFormValueChange('packing', v)} placeholder="" required /></div>
-              <div className="col-span-1"><AutocompleteInput label="Contents" options={contentsOptions} value={form.contents} onSelect={(v) => handleFormValueChange('contents', v)} placeholder="" required /></div>
+              <div className="col-span-1"><Input label="Net Qty" name="netQty" value={form.netQty} onChange={handleChange} required { ...getValidationProp(form.netQty)} /></div>
+              <div className="col-span-1"><AutocompleteInput label="Packing" options={packingOptions} value={form.packing} onSelect={(v) => handleFormValueChange('packing', v)} placeholder="" required { ...getValidationProp(form.packing)} /></div>
+              <div className="col-span-1"><AutocompleteInput label="Contents" options={contentsOptions} value={form.contents} onSelect={(v) => handleFormValueChange('contents', v)} placeholder="" required { ...getValidationProp(form.contents)} /></div>
               <div className="col-span-1"><Input label="Prefix" name="prefix" value={form.prefix} onChange={handleChange} /></div>
             </div>
           </div>
@@ -260,8 +277,8 @@ export const GcEntryForm = () => {
           <div>
              <h3 className="text-base font-bold text-primary border-b border-border pb-2 mb-4">Billing & Payment</h3>
              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
-              <div className="col-span-1"><Input label="Bill No" name="billNo" value={form.billNo} onChange={handleChange} /></div>
-              <div className="col-span-1"><Input label="Bill Value" name="billValue" value={form.billValue} onChange={handleChange} /></div>
+              <div className="col-span-1"><Input label="Bill No" name="billNo" value={form.billNo} onChange={handleChange} required { ...getValidationProp(form.billNo)} /></div>
+              <div className="col-span-1"><Input label="Bill Value" name="billValue" value={form.billValue} onChange={handleChange} required { ...getValidationProp(form.billValue)} /></div>
               <div className="col-span-1"><Input label="Toll" name="tollFee" value={form.tollFee} onChange={handleChange} /></div>
               <div className="col-span-1"><Input label="Freight" name="freight" value={form.freight} onChange={handleChange} /></div>
               <div className="col-span-1"><Input label="Godown" name="godownCharge" value={form.godownCharge} onChange={handleChange} /></div>

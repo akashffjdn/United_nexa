@@ -8,10 +8,10 @@ import { Button } from '../../components/shared/Button';
 import { usePagination } from '../../utils/usePagination';
 import { Pagination } from '../../components/shared/Pagination';
 import { CsvImporter } from '../../components/shared/CsvImporter';
-
+import { useToast } from '../../contexts/ToastContext';
 export const ContentList = () => {
   const { contentEntries, addContentEntry, updateContentEntry, deleteContentEntry } = useData();
-
+  const toast = useToast();
   const [search, setSearch] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<ContentEntry | undefined>(undefined);
@@ -55,7 +55,7 @@ export const ContentList = () => {
 
   const handleExport = () => {
     if (filteredEntries.length === 0) {
-      alert("No data to export");
+      toast.error("No data to export");
       return;
     }
     const headers = ['Content Name', 'Short Name'];

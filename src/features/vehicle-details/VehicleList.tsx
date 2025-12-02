@@ -8,6 +8,7 @@ import { Button } from "../../components/shared/Button";
 import { usePagination } from "../../utils/usePagination";
 import { Pagination } from "../../components/shared/Pagination";
 import { CsvImporter } from "../../components/shared/CsvImporter";
+import { useToast } from "../../contexts/ToastContext";
 
 export const VehicleList = () => {
   const {
@@ -16,7 +17,7 @@ export const VehicleList = () => {
     updateVehicleEntry,
     deleteVehicleEntry,
   } = useData();
-
+  const toast = useToast();
   const [search, setSearch] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<VehicleEntry | undefined>(undefined);
@@ -88,7 +89,7 @@ export const VehicleList = () => {
 
   const handleExport = () => {
     if (filteredEntries.length === 0) {
-      alert("No data to export");
+      toast.error("No data to export");
       return;
     }
     // UPDATED: Added Owner Name and Owner Mobile to headers

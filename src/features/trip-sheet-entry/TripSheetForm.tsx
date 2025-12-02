@@ -10,10 +10,27 @@ import { AutocompleteInput } from "../../components/shared/AutocompleteInput";
 import { useData } from "../../hooks/useData";
 import { getTodayDate } from "../../utils/dateHelpers";
 import api from "../../utils/api";
+import { useToast } from "../../contexts/ToastContext";
 
 const toNum = (v: any) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
+// Helper function to check for non-empty or non-zero value
+const isValueValid = (value: any): boolean => {
+    if (typeof value === 'string') {
+        return value.trim().length > 0;
+    }
+    // Check if it's a number and non-zero, or any other truthy value
+    return !!value; 
+};
+
+// Utility function to generate the prop used to hide the required marker
+const getValidationProp = (value: any) => ({
+    // This prop tells the Input component to hide the visual marker
+    hideRequiredIndicator: isValueValid(value)
+});
+
 export const TripSheetForm = () => {
+  const toast = useToast();
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>(); // id can be DB ID or MF No
 
@@ -100,7 +117,7 @@ export const TripSheetForm = () => {
             
             setLoading(false);
         } else {
-            alert("Trip Sheet not found.");
+            toast.error("Trip Sheet not found.");
             navigate("/trip-sheet");
         }
       };
@@ -141,16 +158,18 @@ export const TripSheetForm = () => {
   // 🟢 UPDATED: Async function to fetch details from API on Add
   const handleAddGC = async () => {
     if (!gcNo) {
-      alert("Please select a GC No before adding.");
+      toast.error("Please select a GC No before adding.");
       return;
     }
+    if (!rate) { toast.error("Please select QTY RATE."); return; }
+
 
     try {
         // 1. Fetch specific details from API
         const details = await fetchGcDetailsForTripSheet(gcNo);
         
         if (!details) {
-            alert("Failed to fetch details for this GC.");
+            toast.error("Failed to fetch details for this GC.");
             return;
         }
 
@@ -178,7 +197,7 @@ export const TripSheetForm = () => {
 
     } catch (err) {
         console.error("Error adding GC row", err);
-        alert("Error adding GC. Please try again.");
+        toast.error("Error adding GC. Please try again.");
     }
   };
 
@@ -242,11 +261,6 @@ export const TripSheetForm = () => {
   const handleSave = async (e?: React.FormEvent) => {
     e?.preventDefault();
 
-    if (!tsDate) { alert("Please enter TripSheet date."); return; }
-    if (!toPlace) { alert("Please select To Place."); return; }
-    if (!unloadPlace) { alert("Please select Unload Place."); return; }
-    if (!items || items.length === 0) { alert("Add at least 1 GC entry before saving."); return; }
-    
     // If ID is missing in edit mode, prevent save
     if (isEditMode && !id) return;
 
@@ -304,6 +318,7 @@ export const TripSheetForm = () => {
                   value={tsDate}
                   onChange={(e) => setTsDate(e.target.value)}
                   required
+                  {...getValidationProp(tsDate)}
                 />
               </div>
               <div className="col-span-1 lg:col-span-2">
@@ -314,6 +329,7 @@ export const TripSheetForm = () => {
                   value={fromPlace}
                   onSelect={(v) => setFromPlace(v)}
                   required
+                  {...getValidationProp(fromPlace)}
                 />
               </div>
 
@@ -329,6 +345,7 @@ export const TripSheetForm = () => {
                       if(!isEditMode) setUnloadPlace(v); 
                   }}
                   required
+                  {...getValidationProp(toPlace)}
                 />
               </div>
 
@@ -337,6 +354,8 @@ export const TripSheetForm = () => {
                   label="Carriers"
                   value={carriers}
                   onChange={(e) => setCarriers(e.target.value)}
+                  required
+                  {...getValidationProp(carriers)}
                 />
               </div>
             </div>
@@ -359,6 +378,7 @@ export const TripSheetForm = () => {
                     value={gcNo}
                     onSelect={handleGcChange}
                     required
+                    {...getValidationProp(gcNo)}
                   />
                 </div>
 
@@ -368,6 +388,8 @@ export const TripSheetForm = () => {
                     type="number"
                     value={rate}
                     onChange={(e) => setRate(Number(e.target.value) || 0)}
+                    required
+                    {...getValidationProp(rate)}
                   />
                 </div>
 
@@ -446,6 +468,7 @@ export const TripSheetForm = () => {
                     fillDriverFromDl(v);
                   }}
                   required
+                  {...getValidationProp(dlNo)}
                 />
               </div>
 
@@ -460,6 +483,7 @@ export const TripSheetForm = () => {
                     fillDriverFromMobile(v);
                   }}
                   required
+                  {...getValidationProp(driverMobile)}
                 />
               </div>
 
@@ -475,6 +499,7 @@ export const TripSheetForm = () => {
                   readOnly={driverNameReadonly}
                   disabled={driverNameReadonly}
                   required
+                  {...getValidationProp(driverName)}
                 />
               </div>
 
@@ -489,6 +514,7 @@ export const TripSheetForm = () => {
                     fillVehicleFromNo(v);
                   }}
                   required
+                  {...getValidationProp(lorryNo)}
                 />
               </div>
 
@@ -502,6 +528,7 @@ export const TripSheetForm = () => {
                   readOnly={!!lorryNo}
                   disabled={!!lorryNo}
                   required
+                  {...getValidationProp(lorryName)}
                 />
               </div>
 
@@ -512,6 +539,7 @@ export const TripSheetForm = () => {
                   onChange={(e) => onOwnerNameChange(e.target.value)}
                   readOnly={!!lorryNo}
                   required
+                  {...getValidationProp(ownerName)}
                 />
               </div>
 
@@ -521,6 +549,7 @@ export const TripSheetForm = () => {
                   value={ownerMobile}
                   onChange={(e) => setOwnerMobile(e.target.value)}
                   required
+                  {...getValidationProp(ownerMobile)}
                 />
               </div>
 
@@ -531,6 +560,7 @@ export const TripSheetForm = () => {
                   value={unloadPlace}
                   onChange={(e) => setUnloadPlace(e.target.value)}
                   required
+                  {...getValidationProp(unloadPlace)}
                 />
               </div>
 
@@ -555,3 +585,4 @@ export const TripSheetForm = () => {
     </div>
   );
 };
+

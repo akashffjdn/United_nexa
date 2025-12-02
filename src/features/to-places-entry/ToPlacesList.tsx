@@ -8,13 +8,13 @@ import { Button } from '../../components/shared/Button';
 import { usePagination } from '../../utils/usePagination';
 import { Pagination } from '../../components/shared/Pagination';
 import { CsvImporter } from '../../components/shared/CsvImporter';
-
+import { useToast } from '../../contexts/ToastContext';
 interface FormErrorState { general: string | null; }
 export type DuplicateCheckFn = (currentPlaceName: string, currentShortName: string, editingId: string | undefined) => { place: string | null; short: string | null; };
 
 export const ToPlacesList = () => {
     const { toPlaces, addToPlace, updateToPlace, deleteToPlace } = useData();
-
+    const toast = useToast();
     const [search, setSearch] = useState('');
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingToPlace, setEditingToPlace] = useState<ToPlace | undefined>(undefined);
@@ -88,7 +88,7 @@ export const ToPlacesList = () => {
 
     const handleExport = () => {
         if (filteredToPlaces.length === 0) {
-            alert("No data to export");
+            toast.error("No data to export");
             return;
         }
         const headers = ['To Place Name', 'Short Name'];

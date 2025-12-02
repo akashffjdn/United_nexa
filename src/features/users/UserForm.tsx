@@ -11,6 +11,21 @@ interface UserFormProps {
   onSave: (user: AppUser) => void;
 }
 
+// Helper function to check for non-empty or non-zero value
+const isValueValid = (value: any): boolean => {
+    if (typeof value === 'string') {
+        return value.trim().length > 0;
+    }
+    // Check if it's a number and non-zero, or any other truthy value
+    return !!value; 
+};
+
+// Utility function to generate the prop used to hide the required marker
+const getValidationProp = (value: any) => ({
+    // This prop tells the Input component to hide the visual marker
+    hideRequiredIndicator: isValueValid(value)
+});
+
 export const UserForm = ({ initialData, onClose, onSave }: UserFormProps) => {
   const { users } = useAuth(); 
   const [emailError, setEmailError] = useState<string>(""); 
@@ -77,6 +92,7 @@ export const UserForm = ({ initialData, onClose, onSave }: UserFormProps) => {
             value={formData.name} 
             onChange={handleChange} 
             required 
+            { ...getValidationProp(formData.name)}
           />
           
           <div>
@@ -87,7 +103,8 @@ export const UserForm = ({ initialData, onClose, onSave }: UserFormProps) => {
               type="email" 
               value={formData.email} 
               onChange={handleChange} 
-              required 
+              required
+              { ...getValidationProp(formData.email)} 
               className={emailError ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}
             />
             {emailError && (
@@ -112,6 +129,7 @@ export const UserForm = ({ initialData, onClose, onSave }: UserFormProps) => {
                    value={formData.password}
                    onChange={handleChange}
                    required={!initialData}
+                   { ...getValidationProp(formData.password)}
                    // Matches existing Input component styles + pr-10 for icon space
                    className="w-full px-3 py-2 bg-background text-foreground border border-muted-foreground/30 rounded-md shadow-sm placeholder-muted-foreground focus:outline-none focus:ring-primary focus:border-primary pr-10"
                  />
@@ -133,6 +151,7 @@ export const UserForm = ({ initialData, onClose, onSave }: UserFormProps) => {
                value={formData.mobile} 
                onChange={handleChange} 
                required 
+               { ...getValidationProp(formData.mobile)}
              />
           </div>
 

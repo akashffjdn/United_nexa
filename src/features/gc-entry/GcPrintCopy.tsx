@@ -1,20 +1,22 @@
+
 import React from "react";
 import type { GcEntry, Consignor, Consignee } from "../../types";
 import { numberToWords, numberToWordsInRupees } from "../../utils/toWords";
 import { useAuth } from "../../hooks/useAuth"; 
-
-// ==========================================
-// 🟢 CONFIGURATION: PDF LINK
-// ==========================================
-const TERMS_PDF_URL = "https://drive.google.com/file/d/1LXrbXLfGCRLYPoLLESWyjJol_nKvVUn-/preview";
+import { API_URL } from "../../utils/api"; // Import API_URL
 
 const formatCurrency = (amount: number | string | undefined) => {
   const num = parseFloat(amount?.toString() || "0");
   return num > 0 ? `${num.toLocaleString("en-IN")}` : "";
 };
 
-const generateQrUrl = (url: string) => {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&margin=0&data=${encodeURIComponent(url)}`;
+// Helper to determine role for URL based on copy type
+const getRoleSlug = (copyType: string) => {
+  const lower = copyType.toLowerCase();
+  if (lower.includes('consignor')) return 'consignor';
+  if (lower.includes('consignee')) return 'consignee';
+  if (lower.includes('lorry') || lower.includes('driver')) return 'driver';
+  return 'viewer';
 };
 
 interface Props {
@@ -32,13 +34,21 @@ export const GcPrintCopy: React.FC<Props> = ({
 }) => {
   const { user } = useAuth();
 
+  // --- QR Code Logic (Backend Direct) ---
+  // 1. Determine role
+  const roleSlug = getRoleSlug(copyType);
+  
+  // 2. Build Backend API URL (Direct Redirect)
+  // Example: http://localhost:5000/api/public/view-terms?gcNo=1050&role=consignor
+  const directApiUrl = `${API_URL}/public/view-terms?gcNo=${gc.gcNo}&role=${roleSlug}`;
+  
+  // 3. Generate QR Code Image URL
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&margin=0&data=${encodeURIComponent(directApiUrl)}`;
+
   const quantityNum = parseFloat(gc.quantity) || 0;
   const fromNoNum = parseFloat(gc.fromNo) || 0;
   const billValueNum = parseFloat(gc.billValue) || 0;
   
-  // --- LOGIC CHANGE: Balance To Pay Priority ---
-  // 1. If 'tripSheetAmount' is present (injected via backend lookup or form patching), use it.
-  // 2. Otherwise, fall back to the stored 'balanceToPay'.
   const balanceToPayNum = (gc as any).tripSheetAmount !== undefined 
     ? (gc as any).tripSheetAmount 
     : (parseFloat(gc.balanceToPay) || 0);
@@ -59,7 +69,6 @@ export const GcPrintCopy: React.FC<Props> = ({
 
   const description = `${numberToWords(quantityNum)} ${gc.packing} of ${gc.contents}`;
 
-  // --- LOGIC FOR CONSIGNEE PROOF DISPLAY ---
   let proofLabel = "GSTIN";
   let proofValue = "---";
 
@@ -289,7 +298,7 @@ export const GcPrintCopy: React.FC<Props> = ({
          <div className="flex items-end gap-3 w-1/3">
             <div className="flex flex-col items-center flex-shrink-0">
               <img 
-                src={generateQrUrl(TERMS_PDF_URL)} 
+                src={qrCodeUrl} // <--- USING THE DYNAMIC QR URL TO BACKEND
                 alt="T&C QR" 
                 className="w-20 h-20"
                 style={{ imageRendering: "pixelated" }} 

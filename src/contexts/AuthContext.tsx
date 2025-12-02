@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { AppUser } from '../types';
 import api from '../utils/api';
+import { useToast } from './ToastContext'; // 🟢 Import
 
 interface AuthContextType {
   user: AppUser | null;
@@ -26,8 +27,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const toast = useToast(); // 🟢 Init Toast
 
-  // 1. Fetch Users (Admin Only)
   const fetchUsers = useCallback(async () => {
     try {
       const { data } = await api.get('/users');
@@ -37,7 +38,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, []);
 
-  // 2. Initialize Session
   useEffect(() => {
     const initAuth = async () => {
       const storedSession = localStorage.getItem('authUser');
@@ -47,7 +47,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const parsedUser = JSON.parse(storedSession);
         setUser(parsedUser);
         
-        // If admin, fetch user list immediately
         if (parsedUser.role === 'admin') {
           try {
             const { data } = await api.get('/users');
@@ -64,14 +63,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     initAuth();
   }, []);
 
-  // 3. Login Logic
   const login = async (email: string, password: string, year: string) => {
     setLoading(true);
     setError(null);
     try {
       const { data } = await api.post('/auth/login', { email, password });
       
-      setUser(data); // Data includes token and role
+      setUser(data); 
       setFinancialYear(year);
       
       localStorage.setItem('authUser', JSON.stringify(data));
@@ -81,62 +79,71 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         await fetchUsers();
       }
       
+      toast.success(`Welcome back, ${data.name}!`); // 🟢 Success Toast
       navigate('/');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Invalid email or password');
+      const msg = err.response?.data?.message || 'Invalid email or password';
+      setError(msg);
+      toast.error(msg); // 🟢 Error Toast
       throw err;
     } finally {
       setLoading(false);
     }
   };
 
-  // 4. Logout Logic
-  const logout = () => {
-    setUser(null);
-    setFinancialYear(null);
-    setUsers([]);
-    localStorage.removeItem('authUser');
-    localStorage.removeItem('authYear');
-    navigate('/login'); // <--- This is crucial
+  const logout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch (error) {
+      console.error("Logout error", error);
+    } finally {
+      setUser(null);
+      setFinancialYear(null);
+      setUsers([]);
+      localStorage.removeItem('authUser');
+      localStorage.removeItem('authYear');
+      toast.success("Logged out successfully"); // 🟢 Success Toast
+      navigate('/login');
+    }
   };
 
-  // 5. User Management (API Calls)
   const addUser = async (userData: AppUser) => {
     try {
       const { data } = await api.post('/users', userData);
       setUsers(prev => [...prev, data]);
+      toast.success("User added successfully"); // 🟢
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to add user");
+      toast.error(err.response?.data?.message || "Failed to add user"); // 🟢
     }
   };
 
   const updateUser = async (userData: AppUser) => {
     try {
-      // Password is optional in update, backend handles hashing
       const { data } = await api.put(`/users/${userData.id}`, userData);
       setUsers(prev => prev.map(u => u.id === data.id ? data : u));
       
-      // Update current session if modifying self
       if (user && user.id === data.id) {
         const updatedSession = { ...user, ...data, token: user['token' as keyof AppUser] }; 
         setUser(updatedSession);
         localStorage.setItem('authUser', JSON.stringify(updatedSession));
       }
+      toast.success("User updated successfully"); // 🟢
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to update user");
+      toast.error(err.response?.data?.message || "Failed to update user"); // 🟢
     }
   };
 
   const deleteUser = async (id: string) => {
     if (user && user.id === id) {
-      alert("You cannot delete your own account.");
+      toast.error("You cannot delete your own account."); // 🟢
       return;
     }
     try {
       await api.delete(`/users/${id}`);
       setUsers(prev => prev.filter(u => u.id !== id));
+      toast.success("User deleted successfully"); // 🟢
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to delete user");
+      toast.error(err.response?.data?.message || "Failed to delete user"); // 🟢
     }
   };
 

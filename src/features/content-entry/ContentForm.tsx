@@ -11,6 +11,21 @@ interface ContentEntryFormProps {
   onSave: (entry: ContentEntry) => void;
 }
 
+// Helper function to check for non-empty or non-zero value
+const isValueValid = (value: any): boolean => {
+    if (typeof value === 'string') {
+        return value.trim().length > 0;
+    }
+    // Check if it's a number and non-zero, or any other truthy value
+    return !!value; 
+};
+
+// Utility function to generate the prop used to hide the required marker
+const getValidationProp = (value: any) => ({
+    // This prop tells the Input component to hide the visual marker
+    hideRequiredIndicator: isValueValid(value)
+});
+
 export const ContentForm = ({
   initialData,
   onClose,
@@ -155,6 +170,7 @@ export const ContentForm = ({
                 value={entry.contentName}
                 onChange={handleChange}
                 required
+                { ...getValidationProp(entry.contentName)}
                 className={errors.contentName ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}
               />
               {errors.contentName && (
@@ -173,6 +189,7 @@ export const ContentForm = ({
                 value={entry.shortName}
                 onChange={handleChange}
                 required
+                { ...getValidationProp(entry.shortName)}
                 className={errors.shortName ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}
               />
               {errors.shortName && (

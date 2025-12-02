@@ -11,6 +11,21 @@ interface DriverFormProps {
   onSave: (entry: DriverEntry) => void;
 }
 
+// Helper function to check for non-empty or non-zero value
+const isValueValid = (value: any): boolean => {
+    if (typeof value === 'string') {
+        return value.trim().length > 0;
+    }
+    // Check if it's a number and non-zero, or any other truthy value
+    return !!value; 
+};
+
+// Utility function to generate the prop used to hide the required marker
+const getValidationProp = (value: any) => ({
+    // This prop tells the Input component to hide the visual marker
+    hideRequiredIndicator: isValueValid(value)
+});
+
 export const DriverForm = ({
   initialData,
   onClose,
@@ -188,6 +203,7 @@ export const DriverForm = ({
                 value={entry.driverName}
                 onChange={handleChange}
                 className={errors.driverName ? "border-red-500" : ""}
+                required { ...getValidationProp(entry.driverName)}
               />
               {errors.driverName && (
                 <p className="text-sm text-red-600 mt-1">{errors.driverName}</p>
@@ -203,6 +219,7 @@ export const DriverForm = ({
                 value={entry.dlNo}
                 onChange={handleChange}
                 className={errors.dlNo ? "border-red-500" : ""}
+                required { ...getValidationProp(entry.dlNo)}
               />
               {errors.dlNo && (
                 <p className="text-sm text-red-600 mt-1">{errors.dlNo}</p>
@@ -218,6 +235,7 @@ export const DriverForm = ({
                 value={entry.mobile}
                 onChange={handleChange}
                 className={errors.mobile ? "border-red-500" : ""}
+                required { ...getValidationProp(entry.mobile)}
               />
               {errors.mobile && (
                 <p className="text-sm text-red-600 mt-1">{errors.mobile}</p>
@@ -244,3 +262,4 @@ export const DriverForm = ({
     </div>
   );
 };
+

@@ -11,11 +11,11 @@ import { MultiSelect } from '../../components/shared/MultiSelect';
 import { GcPrintManager, type GcPrintJob } from './GcPrintManager';
 import { Pagination } from '../../components/shared/Pagination';
 import type { GcEntry, Consignor, Consignee } from '../../types';
-
+import { useToast } from '../../contexts/ToastContext';
 export const GcEntryList = () => {
   const navigate = useNavigate();
   const { deleteGcEntry, consignors, consignees, getUniqueDests, fetchGcPrintData } = useData();
-  
+  const toast = useToast();
   // Use Server Pagination Hook
   const {
     data: paginatedData,
@@ -138,11 +138,11 @@ export const GcEntryList = () => {
               consignee: consignee as Consignee 
           }]);
       } else {
-          alert("Failed to fetch GC details for printing.");
+          toast.error("Failed to fetch GC details for printing.");
       }
     } catch (error) {
       console.error("Print error:", error);
-      alert("An error occurred while fetching print data.");
+      toast.error("An error occurred while fetching print data.");
     }
   };
   
@@ -164,7 +164,7 @@ export const GcEntryList = () => {
         }
         
         if (!printData || printData.length === 0) {
-            alert("Could not fetch data for selected GCs.");
+            toast.error("Could not fetch data for selected GCs.");
             return;
         }
 
@@ -192,11 +192,11 @@ export const GcEntryList = () => {
           if (!selectAllMode) setSelectedGcIds([]); 
           setSelectAllMode(false); // Reset mode
         } else {
-          alert("Could not prepare print jobs. Check data integrity.");
+          toast.error("Could not prepare print jobs. Check data integrity.");
         }
     } catch (error) {
         console.error("Bulk print error:", error);
-        alert("An error occurred while preparing print jobs.");
+        toast.error("An error occurred while preparing print jobs.");
     }
   };
 

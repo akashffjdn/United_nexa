@@ -6,10 +6,10 @@ import { ConfirmationDialog } from '../../components/shared/ConfirmationDialog';
 import type { AppUser } from '../../types';
 import { Button } from '../../components/shared/Button';
 import { CsvImporter } from '../../components/shared/CsvImporter';
-
+import { useToast } from '../../contexts/ToastContext';
 export const UserList = () => {
   const { users, addUser, updateUser, deleteUser, user: currentUser } = useAuth();
-  
+  const toast = useToast();
   const [search, setSearch] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | undefined>(undefined);
@@ -27,7 +27,7 @@ export const UserList = () => {
   const handleEdit = (user: AppUser) => { setEditingUser(user); setIsFormOpen(true); };
   
   const handleDelete = (user: AppUser) => {
-    if (currentUser?.id === user.id) { alert("You cannot delete yourself."); return; }
+    if (currentUser?.id === user.id) { toast.error("You cannot delete yourself."); return; }
     setDeletingId(user.id);
     setDeleteMessage(`Are you sure you want to delete user "${user.name}"?`);
     setIsConfirmOpen(true);
@@ -51,7 +51,7 @@ export const UserList = () => {
   // --- CSV EXPORT HANDLER (Updated with Password) ---
   const handleExport = () => {
     if (filteredUsers.length === 0) {
-      alert("No data to export");
+      toast.error("No data to export");
       return;
     }
     // Added 'Password' to headers

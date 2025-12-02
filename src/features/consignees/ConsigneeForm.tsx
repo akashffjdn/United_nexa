@@ -4,6 +4,8 @@ import { Input } from '../../components/shared/Input';
 import { Button } from '../../components/shared/Button';
 import { X, Info } from 'lucide-react';
 import { useData } from '../../hooks/useData';
+import { AutocompleteInput } from '../../components/shared/AutocompleteInput';
+import { useToast } from '../../contexts/ToastContext';
 
 // Get today's date in YYYY-MM-DD format
 const getTodayDate = () => new Date().toISOString().split('T')[0];
@@ -14,10 +16,26 @@ interface ConsigneeFormProps {
   onSave: (consignee: Consignee) => void;
 }
 
-export const ConsigneeForm = ({ initialData, onClose, onSave }: ConsigneeFormProps) => {
-  const { consignees } = useData();
-  const [duplicateMessage, setDuplicateMessage] = useState<string | null>(null);
+// Helper function to check for non-empty or non-zero value
+const isValueValid = (value: any): boolean => {
+    if (typeof value === 'string') {
+        return value.trim().length > 0;
+    }
+    // Check if it's a number and non-zero, or any other truthy value
+    return !!value; 
+};
 
+// Utility function to generate the prop used to hide the required marker
+const getValidationProp = (value: any) => ({
+    // This prop tells the Input component to hide the visual marker
+    hideRequiredIndicator: isValueValid(value)
+});
+
+export const ConsigneeForm = ({ initialData, onClose, onSave }: ConsigneeFormProps) => {
+  // 🟢 2. ACCESS PLACE DATA (using toPlaces as destination options)
+  const { consignees, toPlaces } = useData();  
+  const [duplicateMessage, setDuplicateMessage] = useState<string | null>(null);
+const toast = useToast();
   const [consignee, setConsignee] = useState({
     id: initialData?.id || '',
     name: initialData?.name || '',
@@ -37,6 +55,12 @@ export const ConsigneeForm = ({ initialData, onClose, onSave }: ConsigneeFormPro
     const { name, value } = e.target;
     setConsignee(prev => ({ ...prev, [name]: value }));
     if (duplicateMessage) setDuplicateMessage(null);
+  };
+
+  // 🟢 4. DEDICATED HANDLER for AutocompleteInput (for Destination)
+  const handleDestinationChange = (value: string) => {
+      setConsignee(prev => ({ ...prev, destination: value }));
+      if (duplicateMessage) setDuplicateMessage(null);
   };
 
   const handleProofBlur = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -72,7 +96,7 @@ export const ConsigneeForm = ({ initialData, onClose, onSave }: ConsigneeFormPro
     e.preventDefault();
     
     if (!consignee.gst && !consignee.pan && !consignee.aadhar) {
-      alert('Please provide at least one proof (GST, PAN, or Aadhar).');
+      toast.error('Please provide at least one proof (GST, PAN, or Aadhar).');
       return;
     }
     
@@ -92,6 +116,9 @@ export const ConsigneeForm = ({ initialData, onClose, onSave }: ConsigneeFormPro
     
     onSave(savedConsignee);
   };
+
+  // 🟢 OPTIONS MAPPING
+  const destinationOptions = toPlaces.map(p => ({ value: p.placeName, label: p.placeName }));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -146,10 +173,19 @@ export const ConsigneeForm = ({ initialData, onClose, onSave }: ConsigneeFormPro
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input label="Consignee Name" id="name" name="name" value={consignee.name} onChange={handleChange} required />
-            <Input label="Destination" id="destination" name="destination" value={consignee.destination} onChange={handleChange} required />
-            <Input label="Phone Number" id="phone" name="phone" value={consignee.phone} onChange={handleChange} required />
-            <Input label="Filing Date" id="filingDate" name="filingDate" type="date" value={consignee.filingDate} onChange={handleChange} required />
+            <Input label="Consignee Name" id="name" name="name" value={consignee.name} onChange={handleChange} required { ...getValidationProp(consignee.name)} />
+            {/* 🟢 3. REPLACE Input WITH AutocompleteInput */}
+            <AutocompleteInput 
+                label="Destination" 
+                placeholder="Select or type Destination"
+                options={destinationOptions} // Use the mapped options
+                value={consignee.destination} 
+                onSelect={handleDestinationChange} // Use dedicated handler
+                required 
+                { ...getValidationProp(consignee.destination)} 
+            />
+            <Input label="Phone Number" id="phone" name="phone" value={consignee.phone} onChange={handleChange} required { ...getValidationProp(consignee.phone)} />
+            <Input label="Filing Date" id="filingDate" name="filingDate" type="date" value={consignee.filingDate} onChange={handleChange} required { ...getValidationProp(consignee.filingDate)} />
 
             <div className="md:col-span-2">
               <label htmlFor="address" className="block text-sm font-medium text-muted-foreground">

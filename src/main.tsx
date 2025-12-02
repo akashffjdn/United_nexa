@@ -1,19 +1,19 @@
-import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 import { BrowserRouter } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext.tsx'
-import { DataProvider } from './contexts/DataContext.tsx'
+import { NetworkProvider } from './contexts/NetworkContext.tsx'
+import { ToastProvider } from './contexts/ToastContext.tsx' // 🟢 Import here
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <BrowserRouter>
+  <BrowserRouter>
+    <ToastProvider> {/* 🟢 Moved to Top Level */}
       <AuthProvider>
-        <DataProvider>
+        <NetworkProvider>
           <App />
-        </DataProvider>
+        </NetworkProvider>
       </AuthProvider>
-    </BrowserRouter>
-  </React.StrictMode>,
+    </ToastProvider>
+  </BrowserRouter>
 )

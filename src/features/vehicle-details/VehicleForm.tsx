@@ -11,6 +11,21 @@ interface VehicleFormProps {
   onSave: (entry: VehicleEntry) => void;
 }
 
+// Helper function to check for non-empty or non-zero value
+const isValueValid = (value: any): boolean => {
+    if (typeof value === 'string') {
+        return value.trim().length > 0;
+    }
+    // Check if it's a number and non-zero, or any other truthy value
+    return !!value; 
+};
+
+// Utility function to generate the prop used to hide the required marker
+const getValidationProp = (value: any) => ({
+    // This prop tells the Input component to hide the visual marker
+    hideRequiredIndicator: isValueValid(value)
+});
+
 export const VehicleForm = ({
   initialData,
   onClose,
@@ -198,6 +213,7 @@ export const VehicleForm = ({
                 value={entry.vehicleNo}
                 onChange={handleChange}
                 className={errors.vehicleNo ? "border-red-500" : ""}
+                required { ...getValidationProp(entry.vehicleNo)}
               />
               {errors.vehicleNo && (
                 <p className="text-sm text-red-600 mt-1">{errors.vehicleNo}</p>
@@ -213,6 +229,7 @@ export const VehicleForm = ({
                 value={entry.vehicleName}
                 onChange={handleChange}
                 className={errors.vehicleName ? "border-red-500" : ""}
+                required { ...getValidationProp(entry.vehicleName)}
               />
               {errors.vehicleName && (
                 <p className="text-sm text-red-600 mt-1">{errors.vehicleName}</p>
@@ -228,6 +245,7 @@ export const VehicleForm = ({
                 value={entry.ownerName}
                 onChange={handleChange}
                 className={errors.ownerName ? "border-red-500" : ""}
+                required { ...getValidationProp(entry.ownerName)}
               />
               {errors.ownerName && (
                 <p className="text-sm text-red-600 mt-1">{errors.ownerName}</p>
@@ -243,6 +261,7 @@ export const VehicleForm = ({
                 value={entry.ownerMobile}
                 onChange={handleChange}
                 className={errors.ownerMobile ? "border-red-500" : ""}
+                required { ...getValidationProp(entry.ownerMobile)}
               />
               {errors.ownerMobile && (
                 <p className="text-sm text-red-600 mt-1">{errors.ownerMobile}</p>
@@ -276,3 +295,4 @@ export const VehicleForm = ({
     </div>
   );
 };
+

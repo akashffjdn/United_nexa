@@ -11,6 +11,22 @@ interface PackingEntryFormProps {
   onSave: (entry: PackingEntry) => void;
 }
 
+// Helper function to check for non-empty or non-zero value
+const isValueValid = (value: any): boolean => {
+    if (typeof value === 'string') {
+        return value.trim().length > 0;
+    }
+    // Check if it's a number and non-zero, or any other truthy value
+    return !!value; 
+};
+
+// Utility function to generate the prop used to hide the required marker
+const getValidationProp = (value: any) => ({
+    // This prop tells the Input component to hide the visual marker
+    hideRequiredIndicator: isValueValid(value)
+});
+
+
 export const PackingUnitForm = ({
   initialData,
   onClose,
@@ -139,6 +155,7 @@ export const PackingUnitForm = ({
                 value={entry.packingName}
                 onChange={handleChange}
                 required
+                { ...getValidationProp(entry.packingName)}
                 className={errors.packingName ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}
               />
               {errors.packingName && (
@@ -157,6 +174,7 @@ export const PackingUnitForm = ({
                 value={entry.shortName}
                 onChange={handleChange}
                 required
+                { ...getValidationProp(entry.shortName)}
                 className={errors.shortName ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}
               />
               {errors.shortName && (

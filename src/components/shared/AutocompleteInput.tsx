@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Input } from './Input';
 import { X } from 'lucide-react';
@@ -11,6 +12,8 @@ interface AutocompleteInputProps {
   required?: boolean;
   readOnly?: boolean; // Added
   disabled?: boolean; // Added
+  // 🟢 NEW PROP: Used to conditionally hide the visual 'required' marker (e.g., asterisk)
+  hideRequiredIndicator?: boolean;
 }
 
 export const AutocompleteInput = ({
@@ -22,6 +25,8 @@ export const AutocompleteInput = ({
   required,
   readOnly,
   disabled,
+  // 🟢 Destructure the new prop
+  hideRequiredIndicator,
 }: AutocompleteInputProps) => {
   // Find the label matching the current value, or start with empty or the value itself if not found (for free text)
   const initialLabel = options.find(opt => opt.value === value)?.label || value || '';
@@ -86,6 +91,10 @@ export const AutocompleteInput = ({
 
   const canInteract = !readOnly && !disabled;
 
+  // 🟢 Determine if the HTML 'required' attribute should be present.
+  // We only want the *browser* to enforce 'required' if the actual underlying 'value' is empty.
+  const isHtmlRequired = required && !value;
+
   return (
     <div className="relative w-full" ref={wrapperRef}>
       <Input
@@ -96,10 +105,13 @@ export const AutocompleteInput = ({
         value={inputValue}
         onChange={handleInputChange}
         onFocus={() => canInteract && setShowSuggestions(true)}
-        required={required && !value}
+        // 🟢 Pass the HTML required attribute conditionally based on the final 'value'
+        required={isHtmlRequired}       
         autoComplete="off"
         readOnly={readOnly}
         disabled={disabled}
+        // 🟢 PROPAGATE NEW PROP: Allows the underlying Input component to hide the *visual* indicator
+        hideRequiredIndicator={hideRequiredIndicator}
       />
       {inputValue && canInteract && (
         <button
@@ -133,3 +145,14 @@ export const AutocompleteInput = ({
     </div>
   );
 };
+
+
+
+
+
+
+
+
+
+
+
