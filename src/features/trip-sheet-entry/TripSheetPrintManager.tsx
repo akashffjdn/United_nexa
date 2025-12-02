@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useCallback } from "react";
+import { useEffect, useMemo, useRef, useCallback, useState } from "react";
 import { createPortal } from "react-dom";
-import type { TripSheetEntry } from "../../types"; // Ensure this type is correct
-import { TripSheetPrintCopy } from "./TripSheetPrintCopy"; // Ensure this component is correct
-import { useData } from "../../hooks/useData"; // Ensure useData returns getTripSheet
-import { X, Printer } from 'lucide-react'; // Import icons
+import type { TripSheetEntry } from "../../types"; 
+import { TripSheetPrintCopy } from "./TripSheetPrintCopy"; 
+import { useData } from "../../hooks/useData"; 
+import { X, Printer } from 'lucide-react'; 
 
 export interface TripSheetPrintJob {
   mfNos: string[];
@@ -15,21 +15,27 @@ export const TripSheetPrintManager = ({
   onClose,
 }: TripSheetPrintJob) => {
   const { getTripSheet } = useData();
-  // We no longer need printRef for display logic, but keeping it isn't harmful.
   const printTriggered = useRef(false);
+  // NEW: State flag to ensure the DOM is painted and data is available before printing
+  const [isDataReady, setIsDataReady] = useState(false); 
 
   // Filter out any missing trip sheets
   const sheets: TripSheetEntry[] = useMemo(() => {
-    // We assume getTripSheet returns TripSheetEntry | undefined
-    return mfNos
+    const fetchedSheets = mfNos
       .map((id) => getTripSheet(id))
       .filter(Boolean) as TripSheetEntry[];
-  }, [mfNos, getTripSheet]);
+    
+    // Set the ready flag once sheets are available
+    if (fetchedSheets.length > 0 && !isDataReady) {
+      setIsDataReady(true);
+    }
+
+    return fetchedSheets;
+  }, [mfNos, getTripSheet, isDataReady]);
 
 
   const printPages = useMemo(() => {
     return sheets.map((sheet) => (
-      // The print-page class is crucial for CSS page breaking/preview scaling
       <div className="print-page" key={sheet.mfNo}>
         <TripSheetPrintCopy sheet={sheet} />
       </div>
@@ -43,19 +49,18 @@ export const TripSheetPrintManager = ({
 
   // --- AUTO PRINT & CLEANUP LOGIC ---
   useEffect(() => {
-    if (sheets.length === 0) return;
+    // 🛑 CRITICAL CHANGE: Wait for both sheets.length > 0 AND isDataReady state to be true
+    if (sheets.length === 0 || !isDataReady) return;
     if (printTriggered.current) return;
     
     const handleAfterPrint = () => {
-      // Remove the listener before calling onClose
       window.removeEventListener("afterprint", handleAfterPrint);
       onClose();
     };
 
     window.addEventListener("afterprint", handleAfterPrint);
 
-    // Auto-trigger print after a short delay to ensure the DOM is mounted and styles are loaded
-    // Using a simple delay (e.g., 500ms) for all devices is often sufficient with modern CSS
+    // Auto-trigger print is now guaranteed to run AFTER the first meaningful paint
     const timer = setTimeout(() => {
       printTriggered.current = true;
       window.print();
@@ -67,9 +72,13 @@ export const TripSheetPrintManager = ({
       window.removeEventListener("afterprint", handleAfterPrint);
     };
 
-  }, [sheets.length, onClose]); // Dependency array includes sheets.length and onClose
+  }, [sheets.length, isDataReady, onClose]); // Dependency array includes the new isDataReady flag
 
-  if (sheets.length === 0) return null;
+  // CRITICAL: Prevent rendering the portal until sheets are loaded (optional, but good practice)
+  if (sheets.length === 0) {
+      // You could optionally return a loading spinner here
+      return null;
+  }
 
   const printContent = (
     // The ts-print-wrapper MUST be rendered as the portal root
