@@ -11,7 +11,8 @@ import { CsvImporter } from '../../components/shared/CsvImporter';
 import { useToast } from '../../contexts/ToastContext';
 
 export const PackingEntryList = () => {
-  const { packingEntries, addPackingEntry, updatePackingEntry, deletePackingEntry, fetchPackingEntries } = useData();
+  // 🟢 Get importPackings from useData
+  const { packingEntries, addPackingEntry, updatePackingEntry, deletePackingEntry, fetchPackingEntries, importPackings } = useData();
   const toast = useToast();
   const [search, setSearch] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -55,8 +56,9 @@ export const PackingEntryList = () => {
   const handleFormClose = () => { setIsFormOpen(false); setEditingEntry(undefined); };
   const handleFormSave = (entry: PackingEntry) => { if (editingEntry) updatePackingEntry(entry); else addPackingEntry(entry); handleFormClose(); };
 
-  const handleImport = (data: PackingEntry[]) => {
-    data.forEach(p => addPackingEntry(p));
+  // 🟢 UPDATED: Use Single Bulk API Call
+  const handleImport = async (data: PackingEntry[]) => {
+    await importPackings(data);
   };
 
   const handleExport = () => {
@@ -120,8 +122,8 @@ export const PackingEntryList = () => {
           <CsvImporter<PackingEntry>
             onImport={handleImport}
             existingData={packingEntries}
-            label="Import" // Added label for mobile fit
-            className={responsiveBtnClass} // Responsive Class
+            label="Import" 
+            className={responsiveBtnClass} 
             checkDuplicate={(newItem, existing) => 
                 newItem.packingName.toLowerCase() === existing.packingName.toLowerCase() ||
                 newItem.shortName.toLowerCase() === existing.shortName.toLowerCase()

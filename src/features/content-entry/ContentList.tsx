@@ -11,7 +11,8 @@ import { CsvImporter } from '../../components/shared/CsvImporter';
 import { useToast } from '../../contexts/ToastContext';
 
 export const ContentList = () => {
-  const { contentEntries, addContentEntry, updateContentEntry, deleteContentEntry, fetchContentEntries } = useData();
+  // 🟢 Get importContents from useData
+  const { contentEntries, addContentEntry, updateContentEntry, deleteContentEntry, fetchContentEntries, importContents } = useData();
   const toast = useToast();
   const [search, setSearch] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -21,7 +22,7 @@ export const ContentList = () => {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteMessage, setDeleteMessage] = useState("");
 
-  // --- Fetch on Mount (Screen-Wise API Call) ---
+  // --- Fetch on Mount ---
   useEffect(() => {
     fetchContentEntries();
   }, [fetchContentEntries]);
@@ -55,8 +56,9 @@ export const ContentList = () => {
   const handleFormClose = () => { setIsFormOpen(false); setEditingEntry(undefined); };
   const handleFormSave = (savedEntry: ContentEntry) => { if (editingEntry) updateContentEntry(savedEntry); else addContentEntry(savedEntry); handleFormClose(); };
 
-  const handleImport = (data: ContentEntry[]) => {
-    data.forEach(c => addContentEntry(c));
+  // 🟢 UPDATED: Use Single Bulk API Call
+  const handleImport = async (data: ContentEntry[]) => {
+    await importContents(data);
   };
 
   const handleExport = () => {
@@ -120,8 +122,8 @@ export const ContentList = () => {
           <CsvImporter<ContentEntry>
             onImport={handleImport}
             existingData={contentEntries}
-            label="Import" // Added label for mobile fit
-            className={responsiveBtnClass} // Responsive Class
+            label="Import" 
+            className={responsiveBtnClass} 
             checkDuplicate={(newItem, existing) => 
                 newItem.contentName.toLowerCase() === existing.contentName.toLowerCase() ||
                 newItem.shortName.toLowerCase() === existing.shortName.toLowerCase()

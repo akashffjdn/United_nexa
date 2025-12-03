@@ -11,12 +11,14 @@ import { CsvImporter } from "../../components/shared/CsvImporter";
 import { useToast } from "../../contexts/ToastContext";
 
 export const VehicleList = () => {
+  // 🟢 Get importVehicles from useData
   const {
     vehicleEntries,
     addVehicleEntry,
     updateVehicleEntry,
     deleteVehicleEntry,
-    fetchVehicleEntries
+    fetchVehicleEntries,
+    importVehicles
   } = useData();
   const toast = useToast();
   const [search, setSearch] = useState("");
@@ -89,8 +91,9 @@ export const VehicleList = () => {
     handleFormClose();
   };
 
-  const handleImport = (data: VehicleEntry[]) => {
-    data.forEach(v => addVehicleEntry(v));
+  // 🟢 UPDATED: Use Single Bulk API Call
+  const handleImport = async (data: VehicleEntry[]) => {
+    await importVehicles(data);
   };
 
   const handleExport = () => {

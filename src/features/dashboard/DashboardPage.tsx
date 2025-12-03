@@ -67,7 +67,8 @@ export const DashboardPage = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const { data } = await api.get('/operations/dashboard/stats');
+        // 🟢 FIX APPLIED: Added { skipLoader: true } to prevent global loading flash
+        const { data } = await api.get('/operations/dashboard/stats', { skipLoader: true } as any);
         setStats(data);
       } catch (e) {
         console.error("Failed to fetch dashboard stats", e);

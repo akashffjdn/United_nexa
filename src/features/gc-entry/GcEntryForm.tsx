@@ -1,29 +1,25 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useData } from '../../hooks/useData';
-import type { GcEntry, Consignee } from '../../types';
+import type { GcEntry, Consignee, Consignor } from '../../types';
 import { getTodayDate } from '../../utils/dateHelpers';
 import { Input } from '../../components/shared/Input';
 import { Button } from '../../components/shared/Button';
-import { AsyncAutocomplete } from '../../components/shared/AsyncAutocomplete'; // 🟢 Fixed Import
+import { AsyncAutocomplete } from '../../components/shared/AsyncAutocomplete'; 
 import { Printer, Save, X } from 'lucide-react';
 import { GcPrintManager, type GcPrintJob } from './GcPrintManager';
 import { useToast } from '../../contexts/ToastContext';
 
 type ProofType = 'gst' | 'pan' | 'aadhar';
 
-// Helper function to check for non-empty or non-zero value
 const isValueValid = (value: any): boolean => {
     if (typeof value === 'string') {
         return value.trim().length > 0;
     }
-    // Check if it's a number and non-zero, or any other truthy value
     return !!value; 
 };
 
-// Utility function to generate the prop used to hide the required marker
 const getValidationProp = (value: any) => ({
-    // This prop tells the Input component to hide the visual marker
     hideRequiredIndicator: isValueValid(value)
 });
 
@@ -32,23 +28,21 @@ export const GcEntryForm = () => {
   const { gcNo } = useParams<{ gcNo: string }>(); 
   const navigate = useNavigate();
   const { 
-    consignors, 
-    consignees, 
     addGcEntry, 
     updateGcEntry, 
     fetchGcById, 
-    // 🟢 New Search Functions
-    searchConsignors,
+    searchConsignors, 
     searchConsignees,
     searchToPlaces,
     searchPackings,
-    searchContents
+    searchContents,
+    fetchGcPrintData
   } = useData();
   
   const isEditMode = !!gcNo;
   const [loading, setLoading] = useState(isEditMode);
   
-  // Initial State
+  // Form State
   const [form, setForm] = useState<Omit<GcEntry, 'id'>>({
     gcNo: '',
     gcDate: getTodayDate(),
@@ -67,7 +61,7 @@ export const GcEntryForm = () => {
     tollFee: "0",
     freight: "0",
     godownCharge: "0",
-    statisticCharge: "0",
+    statisticCharge: "0", // 🟢 Ensure this matches backend field
     advanceNone: "0",
     balanceToPay: "0",
     quantity: "",
@@ -80,40 +74,65 @@ export const GcEntryForm = () => {
   });
   
   const [printingJobs, setPrintingJobs] = useState<GcPrintJob[] | null>(null);
+  
+  // UI State for Autocompletes & Display Fields
+  const [consignorOption, setConsignorOption] = useState<any>(null);
+  const [consigneeOption, setConsigneeOption] = useState<any>(null);
+  const [destinationOption, setDestinationOption] = useState<any>(null);
+  const [packingOption, setPackingOption] = useState<any>(null);
+  const [contentOption, setContentOption] = useState<any>(null);
+  const [deliveryOption, setDeliveryOption] = useState<any>(null);
+  const [freightOption, setFreightOption] = useState<any>(null);
+
   const [consignorGst, setConsignorGst] = useState('');
   const [consigneeDestDisplay, setConsigneeDestDisplay] = useState('');
-  const [selectedConsignee, setSelectedConsignee] = useState<Consignee | null>(null);
 
-  // --- Load Data Effect ---
+  // --- Load Data Effect (Enriched for Edit) ---
   useEffect(() => {
     if (isEditMode && gcNo) {
       const loadData = async () => {
-        // Fetch GC data (backend now includes tripSheetAmount via lookup if linked)
         const gc = await fetchGcById(gcNo);
         
         if (gc) {
-          // 'tripSheetAmount' is a virtual field from aggregation
           const tripAmount = (gc as any).tripSheetAmount;
-          
           const displayBalance = (tripAmount !== undefined && tripAmount !== null)
             ? tripAmount.toString() 
             : gc.balanceToPay;
 
+          // 🟢 FIX: Robustly handle Statistic Charge (New vs Old Key)
+          const backendStatistic = gc.statisticCharge ?? (gc as any).statisticalCharge ?? 0;
+
           setForm({
             ...gc,
-            balanceToPay: displayBalance,
+            // Ensure all numeric fields are converted to strings for the Input components
+            billValue: (gc.billValue || 0).toString(),
+            tollFee: (gc.tollFee || 0).toString(),
+            freight: (gc.freight || 0).toString(),
+            godownCharge: (gc.godownCharge || 0).toString(),
+            statisticCharge: backendStatistic.toString(), // 🟢 Set correctly
+            advanceNone: (gc.advanceNone || 0).toString(),
+            
+            balanceToPay: displayBalance.toString(),
             paymentType: gc.paymentType || 'To Pay' 
           });
 
-          // Pre-fill related UI fields
-          const consignor = consignors.find(c => c.id === gc.consignorId);
-          if (consignor) setConsignorGst(consignor.gst);
-          
-          const consignee = consignees.find(c => c.id === gc.consigneeId);
-          if (consignee) {
-            setSelectedConsignee(consignee);
-            setConsigneeDestDisplay(consignee.destination);
+          // PRE-FILL UI WITH ENRICHED DATA
+          if (gc.consignorId && (gc as any).consignorName) {
+             setConsignorOption({ value: gc.consignorId, label: (gc as any).consignorName });
+             setConsignorGst((gc as any).consignorGSTIN || '');
           }
+
+          if (gc.consigneeId && (gc as any).consigneeName) {
+             setConsigneeOption({ value: gc.consigneeId, label: (gc as any).consigneeName });
+             setConsigneeDestDisplay(gc.destination || '');
+          }
+
+          if (gc.destination) setDestinationOption({ value: gc.destination, label: gc.destination });
+          if (gc.packing) setPackingOption({ value: gc.packing, label: gc.packing });
+          if (gc.contents) setContentOption({ value: gc.contents, label: gc.contents });
+          if (gc.deliveryAt) setDeliveryOption({ value: gc.deliveryAt, label: gc.deliveryAt });
+          if (gc.freightUptoAt) setFreightOption({ value: gc.freightUptoAt, label: gc.freightUptoAt });
+
           setLoading(false);
         } else {
           toast.error('GC Entry not found.');
@@ -124,14 +143,13 @@ export const GcEntryForm = () => {
     } else {
       setLoading(false);
     }
-  }, [isEditMode, gcNo, fetchGcById, consignors, consignees, navigate]);
+  }, [isEditMode, gcNo, fetchGcById, navigate]);
 
-  // 🟢 Async Loader Functions
-  // Using `_prevOptions` to avoid unused variable warning
+  // --- Async Loaders ---
   const loadConsignorOptions = async (search: string, _prevOptions: any, { page }: any) => {
     const result = await searchConsignors(search, page);
     return {
-      options: result.data.map((c: any) => ({ value: c.id, label: c.name })),
+      options: result.data.map((c: any) => ({ value: c.id, label: c.name, gst: c.gst, from: c.from })),
       hasMore: result.hasMore,
       additional: { page: page + 1 },
     };
@@ -140,7 +158,7 @@ export const GcEntryForm = () => {
   const loadConsigneeOptions = async (search: string, _prevOptions: any, { page }: any) => {
     const result = await searchConsignees(search, page);
     return {
-      options: result.data.map((c: any) => ({ value: c.id, label: c.name })),
+      options: result.data.map((c: any) => ({ value: c.id, label: c.name, destination: c.destination, gst: c.gst, pan: c.pan, aadhar: c.aadhar })),
       hasMore: result.hasMore,
       additional: { page: page + 1 },
     };
@@ -173,25 +191,7 @@ export const GcEntryForm = () => {
     };
   };
 
-  // 🟢 Derived Values for AsyncAutocomplete
-  // These create the { label, value } objects needed by the dropdowns, using cached data if available.
-  const consignorValue = useMemo(() => {
-     const c = consignors.find(x => x.id === form.consignorId);
-     return c ? { value: c.id, label: c.name } : (form.consignorId ? { value: form.consignorId, label: 'Loading...' } : null);
-  }, [form.consignorId, consignors]);
-
-  const consigneeValue = useMemo(() => {
-    const c = consignees.find(x => x.id === form.consigneeId);
-    return c ? { value: c.id, label: c.name } : (form.consigneeId ? { value: form.consigneeId, label: 'Loading...' } : null);
-  }, [form.consigneeId, consignees]);
-
-  const destinationValue = form.destination ? { value: form.destination, label: form.destination } : null;
-  const packingValue = form.packing ? { value: form.packing, label: form.packing } : null;
-  const contentsValue = form.contents ? { value: form.contents, label: form.contents } : null;
-  const deliveryValue = form.deliveryAt ? { value: form.deliveryAt, label: form.deliveryAt } : null;
-  const freightValue = form.freightUptoAt ? { value: form.freightUptoAt, label: form.freightUptoAt } : null;
-
-
+  // --- Handlers ---
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setForm(prev => {
@@ -201,77 +201,109 @@ export const GcEntryForm = () => {
     });
   };
 
-  const handleFormValueChange = (name: keyof typeof form, value: string | number) => { setForm(prev => ({ ...prev, [name]: value as string })); };
-  
-  const handleDestinationSelect = (dest: string) => { setForm(prev => ({ ...prev, destination: dest, deliveryAt: dest, freightUptoAt: dest })); };
-  
-  const handleConsignorSelect = (id: string) => {
-    const consignor = consignors.find(c => c.id === id);
-    if (consignor) { setForm(prev => ({ ...prev, consignorId: id, from: consignor.from })); setConsignorGst(consignor.gst); } 
-    else { setForm(prev => ({ ...prev, consignorId: '', from: 'Sivakasi' })); setConsignorGst(''); }
+  const handleFormValueChange = (name: keyof typeof form, value: string | number) => { 
+      setForm(prev => ({ ...prev, [name]: value as string })); 
   };
   
-  const handleConsigneeSelect = (id: string) => {
-    const consignee = consignees.find(c => c.id === id);
-    setSelectedConsignee(consignee || null);
-    if (consignee) {
-      const dest = consignee.destination;
+  const handleDestinationSelect = (option: any) => {
+      setDestinationOption(option);
+      const val = option?.value || '';
+      setForm(prev => ({ ...prev, destination: val, deliveryAt: val, freightUptoAt: val }));
+      setDeliveryOption(option);
+      setFreightOption(option);
+  };
+  
+  const handleConsignorSelect = (option: any) => {
+    setConsignorOption(option);
+    if (option) { 
+        setForm(prev => ({ ...prev, consignorId: option.value, from: option.from || 'Sivakasi' })); 
+        setConsignorGst(option.gst || ''); 
+    } else { 
+        setForm(prev => ({ ...prev, consignorId: '', from: 'Sivakasi' })); 
+        setConsignorGst(''); 
+    }
+  };
+  
+  const handleConsigneeSelect = (option: any) => {
+    setConsigneeOption(option);
+    if (option) {
+      const dest = option.destination || '';
       setConsigneeDestDisplay(dest);
-      let proofType: ProofType = 'gst'; let proofValue = consignee.gst || '';
-      if (!proofValue) { proofType = 'pan'; proofValue = consignee.pan || ''; }
-      if (!proofValue) { proofType = 'aadhar'; proofValue = consignee.aadhar || ''; }
-      setForm(prev => ({ ...prev, consigneeId: id, destination: dest, deliveryAt: dest, freightUptoAt: dest, consigneeProofType: proofType, consigneeProofValue: proofValue }));
-    } else { setConsigneeDestDisplay(''); setForm(prev => ({ ...prev, consigneeId: '', consigneeProofType: 'gst', consigneeProofValue: '' })); }
+      
+      let proofType: ProofType = 'gst'; 
+      let proofValue = option.gst || '';
+      
+      if (!proofValue) { proofType = 'pan'; proofValue = option.pan || ''; }
+      if (!proofValue) { proofType = 'aadhar'; proofValue = option.aadhar || ''; }
+      
+      setForm(prev => ({ 
+          ...prev, 
+          consigneeId: option.value, 
+          destination: dest, 
+          deliveryAt: dest, 
+          freightUptoAt: dest, 
+          consigneeProofType: proofType, 
+          consigneeProofValue: proofValue 
+      }));
+
+      if(dest) {
+          const destOpt = { label: dest, value: dest };
+          setDestinationOption(destOpt);
+          setDeliveryOption(destOpt);
+          setFreightOption(destOpt);
+      }
+
+    } else { 
+        setConsigneeDestDisplay(''); 
+        setForm(prev => ({ ...prev, consigneeId: '', consigneeProofType: 'gst', consigneeProofValue: '' })); 
+    }
   };
   
   const handleProofTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newProofType = e.target.value as ProofType; let newProofValue = '';
-    if (selectedConsignee) newProofValue = selectedConsignee[newProofType] || '';
-    setForm(prev => ({ ...prev, consigneeProofType: newProofType, consigneeProofValue: newProofValue }));
+    const newProofType = e.target.value as ProofType; 
+    setForm(prev => ({ ...prev, consigneeProofType: newProofType, consigneeProofValue: '' }));
   };
 
   const fromNoNum = parseFloat(form.fromNo) || 0;
   const quantityNum = parseFloat(form.quantity) || 0;
   const toNo = (fromNoNum > 0 && quantityNum > 0) ? (fromNoNum + quantityNum) - 1 : 0;
 
-  // 🟢 UPDATED HANDLE SAVE
+  // --- SAVE & PRINT LOGIC ---
   const handleSave = async (andPrint = false) => {
-   
-    // --- CHANGE: Don't fetch next number here. Send empty if new. ---
     const finalGcNo = isEditMode ? form.gcNo : ""; 
-    
     const gcData: GcEntry = { ...form, id: isEditMode ? (form as any).id : undefined, gcNo: finalGcNo } as GcEntry;
 
-    // Preserve virtual field for editing if needed
     if ((form as any).tripSheetAmount) {
         (gcData as any).tripSheetAmount = (form as any).tripSheetAmount;
     }
 
     let savedData;
-    
     if (isEditMode) {
        savedData = await updateGcEntry(gcData);
-       // Fallback if update doesn't return full object (though context now does)
-       if (!savedData) savedData = gcData; 
     } else {
-       // Backend generates ID and returns full object
        savedData = await addGcEntry(gcData);
     }
 
-    if (andPrint && savedData) {
-      // Use savedData to ensure we have the generated gcNo
-      const consignor = consignors.find(c => c.id === savedData.consignorId);
-      const consignee = consignees.find(c => c.id === savedData.consigneeId);
-      
-      if (consignor && consignee) {
-        setPrintingJobs([{ gc: savedData, consignor, consignee }]);
-      } else { 
-        toast.error("Error: Cannot find consignor/consignee data."); 
-        navigate('/gc-entry'); 
-      }
-    } else {
-      navigate('/gc-entry');
-    }
+    if (savedData) {
+        if (andPrint && savedData.gcNo) {
+            const printDataArr = await fetchGcPrintData([savedData.gcNo]);
+            
+            if (printDataArr && printDataArr.length > 0) {
+                const printItem = printDataArr[0];
+                const job: GcPrintJob = {
+                    gc: printItem as GcEntry,
+                    consignor: printItem.consignor as Consignor,
+                    consignee: printItem.consignee as Consignee
+                };
+                setPrintingJobs([job]);
+            } else {
+                toast.error("Saved, but failed to load print data.");
+                navigate('/gc-entry');
+            }
+        } else {
+            navigate('/gc-entry');
+        }
+    } 
   };
 
   if (loading && isEditMode) return <div className="flex items-center justify-center h-full">Loading...</div>;
@@ -294,10 +326,11 @@ export const GcEntryForm = () => {
                 <AsyncAutocomplete 
                   label="Destination" 
                   loadOptions={loadPlaceOptions} 
-                  value={destinationValue} 
-                  onChange={(v: any) => handleDestinationSelect(v?.value || '')} 
+                  value={destinationOption} 
+                  onChange={handleDestinationSelect} 
                   placeholder="Search..." 
                   required 
+                  defaultOptions={false} 
                   {...getValidationProp(form.destination)} 
                 />
               </div>
@@ -311,10 +344,11 @@ export const GcEntryForm = () => {
                 <AsyncAutocomplete 
                   label="Consignor Name" 
                   loadOptions={loadConsignorOptions} 
-                  value={consignorValue} 
-                  onChange={(v: any) => handleConsignorSelect(v?.value || '')} 
+                  value={consignorOption} 
+                  onChange={handleConsignorSelect} 
                   placeholder="Search..." 
                   required 
+                  defaultOptions={false}
                   { ...getValidationProp(form.consignorId)} 
                 />
               </div>
@@ -326,10 +360,11 @@ export const GcEntryForm = () => {
                 <AsyncAutocomplete 
                   label="Consignee Name" 
                   loadOptions={loadConsigneeOptions} 
-                  value={consigneeValue} 
-                  onChange={(v: any) => handleConsigneeSelect(v?.value || '')} 
+                  value={consigneeOption} 
+                  onChange={handleConsigneeSelect} 
                   placeholder="Search..." 
                   required 
+                  defaultOptions={false}
                   {...getValidationProp(form.consigneeId)} 
                 />
               </div>
@@ -349,10 +384,11 @@ export const GcEntryForm = () => {
                 <AsyncAutocomplete 
                   label="Delivery At" 
                   loadOptions={loadPlaceOptions} 
-                  value={deliveryValue} 
-                  onChange={(v: any) => handleFormValueChange('deliveryAt', v?.value || '')} 
+                  value={deliveryOption} 
+                  onChange={(v: any) => { setDeliveryOption(v); handleFormValueChange('deliveryAt', v?.value || ''); }} 
                   placeholder="" 
                   required 
+                  defaultOptions={false}
                   { ...getValidationProp(form.deliveryAt)} 
                 />
               </div>
@@ -360,10 +396,11 @@ export const GcEntryForm = () => {
                 <AsyncAutocomplete 
                   label="Freight Upto" 
                   loadOptions={loadPlaceOptions} 
-                  value={freightValue} 
-                  onChange={(v: any) => handleFormValueChange('freightUptoAt', v?.value || '')} 
+                  value={freightOption} 
+                  onChange={(v: any) => { setFreightOption(v); handleFormValueChange('freightUptoAt', v?.value || ''); }} 
                   placeholder="" 
                   required 
+                  defaultOptions={false}
                   { ...getValidationProp(form.freightUptoAt)} 
                 />
               </div>
@@ -382,10 +419,11 @@ export const GcEntryForm = () => {
                 <AsyncAutocomplete 
                   label="Packing" 
                   loadOptions={loadPackingOptions} 
-                  value={packingValue} 
-                  onChange={(v: any) => handleFormValueChange('packing', v?.value || '')} 
+                  value={packingOption} 
+                  onChange={(v: any) => { setPackingOption(v); handleFormValueChange('packing', v?.value || ''); }} 
                   placeholder="" 
                   required 
+                  defaultOptions={false}
                   { ...getValidationProp(form.packing)} 
                 />
               </div>
@@ -393,10 +431,11 @@ export const GcEntryForm = () => {
                 <AsyncAutocomplete 
                   label="Contents" 
                   loadOptions={loadContentOptions} 
-                  value={contentsValue} 
-                  onChange={(v: any) => handleFormValueChange('contents', v?.value || '')} 
+                  value={contentOption} 
+                  onChange={(v: any) => { setContentOption(v); handleFormValueChange('contents', v?.value || ''); }} 
                   placeholder="" 
                   required 
+                  defaultOptions={false}
                   { ...getValidationProp(form.contents)} 
                 />
               </div>
@@ -412,7 +451,10 @@ export const GcEntryForm = () => {
               <div className="col-span-1"><Input label="Toll" name="tollFee" value={form.tollFee} onChange={handleChange} /></div>
               <div className="col-span-1"><Input label="Freight" name="freight" value={form.freight} onChange={handleChange} /></div>
               <div className="col-span-1"><Input label="Godown" name="godownCharge" value={form.godownCharge} onChange={handleChange} /></div>
+              
+              {/* 🟢 CHANGED: Name matches 'statisticCharge' in state & backend */}
               <div className="col-span-1"><Input label="Statistic" name="statisticCharge" value={form.statisticCharge} onChange={handleChange} /></div>
+              
               <div className="col-span-1"><Input label="Advance" name="advanceNone" value={form.advanceNone} onChange={handleChange} /></div>
               <div className="col-span-1"><Input label="Balance" name="balanceToPay" value={form.balanceToPay} onChange={handleChange} /></div>
             </div>
@@ -452,7 +494,16 @@ export const GcEntryForm = () => {
         <Button type="button" variant="secondary" onClick={() => handleSave(true)}><Printer size={16} className="mr-2" />Save & Print</Button>
         <Button type="button" variant="primary" onClick={() => handleSave(false)}><Save size={16} className="mr-2" />{isEditMode ? 'Update' : 'Save'}</Button>
       </div>
-      {printingJobs && <GcPrintManager jobs={printingJobs} onClose={() => { setPrintingJobs(null); navigate('/gc-entry'); }} />}
+      
+      {printingJobs && (
+        <GcPrintManager 
+          jobs={printingJobs} 
+          onClose={() => { 
+            setPrintingJobs(null); 
+            navigate('/gc-entry'); 
+          }} 
+        />
+      )}
     </div>
   );
 };

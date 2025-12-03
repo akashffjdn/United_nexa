@@ -14,7 +14,8 @@ interface FormErrorState { general: string | null; }
 export type DuplicateCheckFn = (currentPlaceName: string, currentShortName: string, editingId: string | undefined) => { place: string | null; short: string | null; };
 
 export const ToPlacesList = () => {
-    const { toPlaces, addToPlace, updateToPlace, deleteToPlace, fetchToPlaces } = useData();
+    // 🟢 Get importToPlaces from useData
+    const { toPlaces, addToPlace, updateToPlace, deleteToPlace, fetchToPlaces, importToPlaces } = useData();
     const toast = useToast();
     const [search, setSearch] = useState('');
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -25,7 +26,7 @@ export const ToPlacesList = () => {
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [deleteMessage, setDeleteMessage] = useState("");
 
-    // --- Fetch on Mount (Screen-Wise API Call) ---
+    // --- Fetch on Mount ---
     useEffect(() => {
         fetchToPlaces();
     }, [fetchToPlaces]);
@@ -88,8 +89,9 @@ export const ToPlacesList = () => {
         handleFormClose();
     };
 
-    const handleImport = (data: ToPlace[]) => {
-        data.forEach(tp => addToPlace(tp));
+    // 🟢 UPDATED: Use Single Bulk API Call
+    const handleImport = async (data: ToPlace[]) => {
+        await importToPlaces(data);
     };
 
     const handleExport = () => {
@@ -153,8 +155,8 @@ export const ToPlacesList = () => {
                     <CsvImporter<ToPlace>
                         onImport={handleImport}
                         existingData={toPlaces}
-                        label="Import" // Added label for mobile fit
-                        className={responsiveBtnClass} // Responsive Class
+                        label="Import" 
+                        className={responsiveBtnClass} 
                         checkDuplicate={(newItem, existing) => 
                             newItem.placeName.toLowerCase() === existing.placeName.toLowerCase() ||
                             newItem.shortName.toLowerCase() === existing.shortName.toLowerCase()

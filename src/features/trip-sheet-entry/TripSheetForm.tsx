@@ -5,7 +5,7 @@ import { Save, Trash2, X } from "lucide-react";
 import type { TripSheetEntry, TripSheetGCItem } from "../../types";
 import { Button } from "../../components/shared/Button";
 import { Input } from "../../components/shared/Input";
-import { AsyncAutocomplete } from "../../components/shared/AsyncAutocomplete"; // 🟢 Updated Import
+import { AsyncAutocomplete } from "../../components/shared/AsyncAutocomplete"; 
 import { useData } from "../../hooks/useData";
 import { getTodayDate } from "../../utils/dateHelpers";
 import api from "../../utils/api";
@@ -35,7 +35,7 @@ export const TripSheetForm = () => {
     updateTripSheet,
     fetchTripSheetById, 
     fetchGcDetailsForTripSheet, 
-    // 🟢 Search functions from DataContext
+    // Search functions from DataContext
     searchFromPlaces,
     searchToPlaces,
     searchDrivers,
@@ -60,7 +60,7 @@ export const TripSheetForm = () => {
   const [ownerName, setOwnerName] = useState<string>("");
   const [ownerMobile, setOwnerMobile] = useState<string>("");
 
-  // 🟢 Option States for AsyncDropdowns (to show labels correctly)
+  // Option States for AsyncDropdowns (to show labels correctly without fetching)
   const [fromPlaceOption, setFromPlaceOption] = useState<any>({ label: 'Sivakasi', value: 'Sivakasi' });
   const [toPlaceOption, setToPlaceOption] = useState<any>(null);
   const [gcOption, setGcOption] = useState<any>(null);
@@ -85,7 +85,7 @@ export const TripSheetForm = () => {
             setFromPlace(sheet.fromPlace);
             setToPlace(sheet.toPlace);
             
-            // Initialize Option States for Display
+            // 🟢 PRE-FILL OPTIONS FOR DISPLAY (Prevents initial API calls)
             setFromPlaceOption({ label: sheet.fromPlace, value: sheet.fromPlace });
             setToPlaceOption({ label: sheet.toPlace, value: sheet.toPlace });
 
@@ -104,7 +104,7 @@ export const TripSheetForm = () => {
             setOwnerName(sheet.ownerName ?? "");
             setOwnerMobile(sheet.ownerMobile ?? "");
             
-            // Set Driver/Lorry Options
+            // 🟢 PRE-FILL DRIVER/LORRY DROPDOWNS
             if(sheet.driverName) setDriverNameOption({ label: sheet.driverName, value: sheet.driverName });
             if(sheet.dlNo) setDriverDlOption({ label: sheet.dlNo, value: sheet.dlNo });
             if(sheet.driverMobile) setDriverMobileOption({ label: sheet.driverMobile, value: sheet.driverMobile });
@@ -134,8 +134,9 @@ export const TripSheetForm = () => {
                   page,
                   limit: 20,
                   availableForTripSheet: 'true' // Filter backend-side
-              }
-          });
+              },
+              skipLoader: true // 🟢 CHANGED: Prevent global loader interruption
+          } as any);
           return {
               options: data.data.map((g: any) => ({ 
                   value: g.gcNo, 
@@ -174,8 +175,8 @@ export const TripSheetForm = () => {
       const res = await searchDrivers(search, page);
       return {
           options: res.data.map((d: any) => ({ 
-              value: d.id, // Using ID as unique key
-              label: d.driverName, // Default label (overridden in render if needed)
+              value: d.id, 
+              label: d.driverName, 
               ...d // Carry all driver data
           })),
           hasMore: res.hasMore,
@@ -335,10 +336,14 @@ export const TripSheetForm = () => {
       lorryName,
     };
 
-    if (isEditMode) await updateTripSheet(payload);
-    else await addTripSheet(payload);
+    // 🟢 FIX: Capture result and only navigate on success
+    let result;
+    if (isEditMode) result = await updateTripSheet(payload);
+    else result = await addTripSheet(payload);
 
-    navigate("/trip-sheet");
+    if (result) {
+        navigate("/trip-sheet");
+    }
   };
 
   if (loading && isEditMode) {
@@ -378,7 +383,7 @@ export const TripSheetForm = () => {
                       setFromPlace(v?.value || '');
                   }}
                   required
-                  defaultOptions
+                  defaultOptions={false} // 🟢 No auto-fetch on load
                   {...getValidationProp(fromPlace)}
                 />
               </div>
@@ -396,7 +401,7 @@ export const TripSheetForm = () => {
                       if(!isEditMode) setUnloadPlace(val); 
                   }}
                   required
-                  defaultOptions
+                  defaultOptions={false} // 🟢 No auto-fetch on load
                   {...getValidationProp(toPlace)}
                 />
               </div>
@@ -428,7 +433,7 @@ export const TripSheetForm = () => {
                     value={gcOption}
                     onChange={(v: any) => handleGcSelect(v)}
                     required
-                    defaultOptions
+                    defaultOptions={false} // 🟢 No auto-fetch on load
                     {...getValidationProp(gcNo)}
                   />
                 </div>
@@ -505,7 +510,7 @@ export const TripSheetForm = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-10 gap-4">
               <div className="col-span-1 lg:col-span-2">
-                {/* DL No Filter - Adapts generic driver loader to show DL as label */}
+                {/* DL No Filter */}
                 <AsyncAutocomplete
                   label="DL No"
                   placeholder="Select DL No"
@@ -517,7 +522,7 @@ export const TripSheetForm = () => {
                   value={driverDlOption}
                   onChange={(v: any) => handleDriverSelect(v)}
                   required
-                  defaultOptions
+                  defaultOptions={false} // 🟢 No auto-fetch on load
                   {...getValidationProp(dlNo)}
                 />
               </div>
@@ -535,7 +540,7 @@ export const TripSheetForm = () => {
                   value={driverMobileOption}
                   onChange={(v: any) => handleDriverSelect(v)}
                   required
-                  defaultOptions
+                  defaultOptions={false} // 🟢 No auto-fetch on load
                   {...getValidationProp(driverMobile)}
                 />
               </div>
@@ -549,7 +554,7 @@ export const TripSheetForm = () => {
                   value={driverNameOption}
                   onChange={(v: any) => handleDriverSelect(v)}
                   required
-                  defaultOptions
+                  defaultOptions={false} // 🟢 No auto-fetch on load
                   {...getValidationProp(driverName)}
                 />
               </div>
@@ -563,7 +568,7 @@ export const TripSheetForm = () => {
                   value={lorryNoOption}
                   onChange={(v: any) => handleVehicleSelect(v)}
                   required
-                  defaultOptions
+                  defaultOptions={false} // 🟢 No auto-fetch on load
                   {...getValidationProp(lorryNo)}
                 />
               </div>
@@ -581,7 +586,7 @@ export const TripSheetForm = () => {
                   value={lorryNameOption}
                   onChange={(v: any) => handleVehicleSelect(v)}
                   required
-                  defaultOptions
+                  defaultOptions={false} // 🟢 No auto-fetch on load
                   {...getValidationProp(lorryName)}
                 />
               </div>

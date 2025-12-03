@@ -9,7 +9,7 @@ import { CsvImporter } from '../../components/shared/CsvImporter';
 import { useToast } from '../../contexts/ToastContext';
 
 export const UserList = () => {
-  const { users, addUser, updateUser, deleteUser, user: currentUser, refreshUsers } = useAuth();
+  const { users, addUser, updateUser, deleteUser, user: currentUser, refreshUsers, importUsers } = useAuth();
   const toast = useToast();
   const [search, setSearch] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -51,18 +51,17 @@ export const UserList = () => {
     setEditingUser(undefined);
   };
 
-  // --- CSV IMPORT HANDLER ---
-  const handleImport = (data: AppUser[]) => {
-    data.forEach(user => addUser(user));
+  // 🟢 Use Single Bulk API Call
+  const handleImport = async (data: AppUser[]) => {
+    await importUsers(data);
   };
 
-  // --- CSV EXPORT HANDLER (Updated with Password) ---
+  // --- CSV EXPORT HANDLER ---
   const handleExport = () => {
     if (filteredUsers.length === 0) {
       toast.error("No data to export");
       return;
     }
-    // Added 'Password' to headers
     const headers = ['Name', 'Email', 'Password', 'Mobile', 'Role'];
     
     const csvContent = [
@@ -70,7 +69,7 @@ export const UserList = () => {
       ...filteredUsers.map(u => [
         `"${u.name.replace(/"/g, '""')}"`,
         `"${u.email.replace(/"/g, '""')}"`,
-        `"${u.password.replace(/"/g, '""')}"`, // Added Password field here
+        `"${u.password ? u.password.replace(/"/g, '""') : ''}"`,
         `"${u.mobile.replace(/"/g, '""')}"`,
         `"${u.role}"`
       ].join(','))
@@ -89,7 +88,6 @@ export const UserList = () => {
     }
   };
 
-  // --- RESPONSIVE BUTTON STYLE HELPER ---
   const responsiveBtnClass = "flex-1 md:flex-none text-[10px] xs:text-xs sm:text-sm h-8 sm:h-10 px-1 sm:px-4 whitespace-nowrap";
 
   return (
@@ -123,17 +121,18 @@ export const UserList = () => {
           <CsvImporter<AppUser>
             onImport={handleImport}
             existingData={users}
-            label="Import" // Shortened label for mobile fit
-            className={responsiveBtnClass} // Responsive Class
-            // Duplicate Check: Prevent same Email
+            label="Import" 
+            className={responsiveBtnClass} 
             checkDuplicate={(newItem, existing) => 
               newItem.email.trim().toLowerCase() === existing.email.trim().toLowerCase()
             }
             mapRow={(row) => {
-              // VALIDATION: Require Name, Email, Password
-              if (!row.name || !row.email || !row.password) return null;
+              // 🟢 FIX: Check for multiple header variations for Mobile
+              const mobileValue = row.mobile || row.mobileno || row.phone || row.contact || '';
+
+              // VALIDATION: Require Name, Email, Password AND Mobile
+              if (!row.name || !row.email || !row.password || !mobileValue) return null;
               
-              // Normalize Role (Default to 'user' if invalid or missing)
               let role: 'admin' | 'user' = 'user';
               if (row.role && row.role.toLowerCase().includes('admin')) {
                 role = 'admin';
@@ -144,7 +143,7 @@ export const UserList = () => {
                 name: row.name,
                 email: row.email,
                 password: row.password, 
-                mobile: row.mobile || '',
+                mobile: mobileValue, // 🟢 Use the resolved mobile value
                 role: role,
               };
             }}
@@ -164,7 +163,7 @@ export const UserList = () => {
 
       <div className="bg-background rounded-lg shadow border border-muted overflow-hidden">
         
-        {/* A) Desktop Table View (Hidden on Mobile) */}
+        {/* Desktop Table View */}
         <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-muted">
             <thead className="bg-muted/50">
@@ -172,7 +171,6 @@ export const UserList = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">User</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Role</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Mobile</th>
-               
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
@@ -217,13 +215,12 @@ export const UserList = () => {
           </table>
         </div>
 
-        {/* B) Mobile Card View (Visible on Mobile) */}
+        {/* Mobile Card View */}
         <div className="block md:hidden divide-y divide-muted">
            {filteredUsers.length > 0 ? (
              filteredUsers.map((u) => (
                <div key={u.id} className="p-4 hover:bg-muted/10 transition-colors">
                   <div className="flex justify-between items-start">
-                     {/* Left: User Info */}
                      <div className="flex gap-3">
                         <div className="flex-shrink-0 h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center text-primary mt-1">
                           {u.role === 'admin' ? <Shield size={20} /> : <UserIcon size={20} />}
@@ -238,7 +235,6 @@ export const UserList = () => {
                         </div>
                      </div>
 
-                     {/* Right: Actions */}
                      <div className="flex flex-col gap-2">
                         <button onClick={() => handleEdit(u)} className="p-2 text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100"><FilePenLine size={18}/></button>
                         {currentUser?.id !== u.id && (
@@ -247,7 +243,6 @@ export const UserList = () => {
                      </div>
                   </div>
 
-                  {/* Details Section */}
                   <div className="mt-2 space-y-1 pl-[3.25rem]">
                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Mail size={14} />

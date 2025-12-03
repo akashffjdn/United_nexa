@@ -9,11 +9,13 @@ import { usePagination } from '../../utils/usePagination';
 import { Pagination } from '../../components/shared/Pagination';
 import { CsvImporter } from '../../components/shared/CsvImporter';
 import { useToast } from '../../contexts/ToastContext';
+
 interface FormErrorState { general: string | null; }
 export type DuplicateCheckFn = (currentPlaceName: string, currentShortName: string, editingId: string | undefined) => { place: string | null; short: string | null; };
 
 export const FromPlaceList = () => {
-    const { fromPlaces, addFromPlace, updateFromPlace, deleteFromPlace, fetchFromPlaces } = useData();
+    // 🟢 Get importFromPlaces from useData
+    const { fromPlaces, addFromPlace, updateFromPlace, deleteFromPlace, fetchFromPlaces, importFromPlaces } = useData();
     const toast = useToast();
     const [search, setSearch] = useState('');
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -24,7 +26,7 @@ export const FromPlaceList = () => {
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [deleteMessage, setDeleteMessage] = useState("");
 
-    // --- Fetch on Mount (Screen-Wise API Call) ---
+    // --- Fetch on Mount ---
     useEffect(() => {
         fetchFromPlaces();
     }, [fetchFromPlaces]);
@@ -88,8 +90,9 @@ export const FromPlaceList = () => {
         handleFormClose();
     };
 
-    const handleImport = (data: FromPlace[]) => {
-        data.forEach(fp => addFromPlace(fp));
+    // 🟢 UPDATED: Use Single Bulk API Call
+    const handleImport = async (data: FromPlace[]) => {
+        await importFromPlaces(data);
     };
 
     const handleExport = () => {
@@ -153,14 +156,14 @@ export const FromPlaceList = () => {
                     <CsvImporter<FromPlace>
                         onImport={handleImport}
                         existingData={fromPlaces}
-                        label="Import" // Added label for mobile fit
-                        className={responsiveBtnClass} // Responsive Class
+                        label="Import" 
+                        className={responsiveBtnClass} 
                         checkDuplicate={(newItem, existing) => 
                             newItem.placeName.toLowerCase() === existing.placeName.toLowerCase() ||
                             newItem.shortName.toLowerCase() === existing.shortName.toLowerCase()
                         }
                         mapRow={(row) => {
-                            if (!row.placename || !row.shortname) return null; // Require both
+                            if (!row.placename || !row.shortname) return null;
                             return {
                                 id: `fp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                                 placeName: row.placename,

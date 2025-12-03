@@ -11,12 +11,14 @@ import { CsvImporter } from "../../components/shared/CsvImporter";
 import { useToast } from "../../contexts/ToastContext";
 
 export const DriverList = () => {
+  // 🟢 Get importDrivers from useData
   const {
     driverEntries,
     addDriverEntry,
     updateDriverEntry,
     deleteDriverEntry,
-    fetchDriverEntries
+    fetchDriverEntries,
+    importDrivers
   } = useData();
   
   const toast = useToast();
@@ -91,8 +93,9 @@ export const DriverList = () => {
     handleFormClose();
   };
 
-  const handleImport = (data: DriverEntry[]) => {
-    data.forEach(d => addDriverEntry(d));
+  // 🟢 UPDATED: Use Single Bulk API Call
+  const handleImport = async (data: DriverEntry[]) => {
+    await importDrivers(data);
   };
 
   const handleExport = () => {

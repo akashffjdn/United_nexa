@@ -15,6 +15,8 @@ interface AuthContextType {
   addUser: (user: AppUser) => Promise<void>;
   updateUser: (user: AppUser) => Promise<void>;
   deleteUser: (id: string) => Promise<void>;
+  // 🟢 NEW: Import Users Action
+  importUsers: (data: AppUser[]) => Promise<void>;
   refreshUsers: () => Promise<void>;
 }
 
@@ -29,7 +31,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
   const toast = useToast();
 
-  // --- Fetch Users (Only called when requested by UserList) ---
   const fetchUsers = useCallback(async () => {
     try {
       const { data } = await api.get('/users');
@@ -47,9 +48,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (storedSession) {
         const parsedUser = JSON.parse(storedSession);
         setUser(parsedUser);
-        
-        // 🔴 REMOVED: Auto-fetch users on init
-        // if (parsedUser.role === 'admin') { ... }
       }
       
       if (storedYear) setFinancialYear(storedYear);
@@ -63,16 +61,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setError(null);
     try {
       const { data } = await api.post('/auth/login', { email, password });
-      
       setUser(data); 
       setFinancialYear(year);
-      
       localStorage.setItem('authUser', JSON.stringify(data));
       localStorage.setItem('authYear', year);
-      
-      // 🔴 REMOVED: Auto-fetch users on login
-      // if (data.role === 'admin') { await fetchUsers(); }
-      
       toast.success(`Welcome back, ${data.name}!`);
       navigate('/');
     } catch (err: any) {
@@ -111,11 +103,35 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  // 🟢 NEW: Import Users implementation
+  const importUsers = async (data: AppUser[]) => {
+    try {
+      // Calls the bulk API
+      const { data: response } = await api.post('/users/bulk', data);
+      
+      if (response.importedUsers && response.importedUsers.length > 0) {
+          setUsers(prev => [...prev, ...response.importedUsers]);
+          toast.success(`${response.importedUsers.length} users imported successfully`);
+      }
+      
+      if (response.errors && response.errors.length > 0) {
+          // Show alert or toast for errors
+          console.warn("Import errors:", response.errors);
+          if (response.importedUsers.length > 0) {
+             toast.error(`Some records failed. check console.`);
+          } else {
+             toast.error("Import failed for all records.");
+          }
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to import users");
+    }
+  };
+
   const updateUser = async (userData: AppUser) => {
     try {
       const { data } = await api.put(`/users/${userData.id}`, userData);
       setUsers(prev => prev.map(u => u.id === data.id ? data : u));
-      
       if (user && user.id === data.id) {
         const updatedSession = { ...user, ...data, token: user['token' as keyof AppUser] }; 
         setUser(updatedSession);
@@ -152,6 +168,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     addUser,
     updateUser,
     deleteUser,
+    importUsers, // 🟢 Exported
     refreshUsers: fetchUsers
   };
 

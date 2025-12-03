@@ -40,8 +40,9 @@ const getLoadingMessage = (method: string = 'GET', url: string = '') => {
 // 1. Request Interceptor
 api.interceptors.request.use(
   (config) => {
-    // Only show loader if not a silent refresh
-    if (!config.url?.includes('/refresh')) {
+    // 🟢 CHANGED: Check for 'skipLoader' flag in the config object.
+    // If skipLoader is true, we DO NOT show the global loading screen.
+    if (!config.url?.includes('/refresh') && !(config as any).skipLoader) {
         const msg = getLoadingMessage(config.method, config.url);
         loadingManager.show(msg);
     }
@@ -62,12 +63,21 @@ api.interceptors.request.use(
 // 🟢 2. Response Interceptor (With Loop Fix)
 api.interceptors.response.use(
   (response) => {
-    loadingManager.hide();
+    // 🟢 CHANGED: Only hide the loader if we didn't skip showing it.
+    // This ensures the active request counter in loadingManager stays accurate.
+    if (!(response.config as any).skipLoader) {
+        loadingManager.hide();
+    }
+
     if (response.data) response.data = transformId(response.data);
     return response;
   },
   async (error) => {
-    loadingManager.hide();
+    // 🟢 CHANGED: Only hide loader on error if it wasn't skipped
+    if (!error.config?.skipLoader) {
+        loadingManager.hide();
+    }
+    
     const originalRequest = error.config;
 
     // 🛑 STOP LOOP: If the error comes from Login or Refresh endpoint, REJECT immediately.

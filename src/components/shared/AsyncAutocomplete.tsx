@@ -1,42 +1,41 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState } from 'react';
 import { AsyncPaginate } from 'react-select-async-paginate';
-import { components, type DropdownIndicatorProps, type StylesConfig, type MultiValue, type SingleValue, type GroupBase } from 'react-select';
-import { ChevronDown, X } from 'lucide-react';
+import { 
+  components, 
+  type DropdownIndicatorProps, 
+  type StylesConfig, 
+  type MultiValue, 
+  type SingleValue, 
+  type GroupBase, 
+  type ValueContainerProps 
+} from 'react-select';
+import { ChevronDown, X, Loader2 } from 'lucide-react'; 
+import React from 'react';
 
 // Define the shape of an Option
 export interface OptionType {
   value: string;
   label: string;
-  [key: string]: any; // Allows carrying extra data like 'gst', 'address', etc.
+  [key: string]: any; 
 }
 
 interface AsyncAutocompleteProps {
   label?: string;
   placeholder?: string;
-  
-  // 🟢 FIX: Allow value to be a single object OR an array (for isMulti)
   value: OptionType | null | MultiValue<OptionType>; 
-  
-  // 🟢 FIX: Update onChange to accept Single or Multi value types
   onChange: (value: SingleValue<OptionType> | MultiValue<OptionType>) => void;
-  
-  // The async function to fetch data. 
   loadOptions: (search: string, loadedOptions: any, { page }: any) => Promise<any>;
-  
   isDisabled?: boolean;
   required?: boolean;
   isMulti?: boolean;
-  
-  // If true, loads the first page of options immediately on mount
   defaultOptions?: boolean; 
-  
-  // Prop to hide the visual red asterisk if the field is valid
   hideRequiredIndicator?: boolean;
   className?: string;
 }
 
-// Custom Dropdown Arrow using Lucide Icon
-// 🟢 FIX: Updated generic to 'boolean' to match the component's flexible state
+// --- CUSTOM COMPONENTS ---
+
 const DropdownIndicator = (props: DropdownIndicatorProps<OptionType, boolean>) => {
   return (
     <components.DropdownIndicator {...props}>
@@ -45,7 +44,6 @@ const DropdownIndicator = (props: DropdownIndicatorProps<OptionType, boolean>) =
   );
 };
 
-// Custom Clear Button using Lucide Icon
 const ClearIndicator = (props: any) => {
   return (
     <components.ClearIndicator {...props}>
@@ -53,6 +51,50 @@ const ClearIndicator = (props: any) => {
     </components.ClearIndicator>
   );
 };
+
+const LoadingIndicator = (props: any) => {
+  return (
+    <div {...props} className="p-2 mr-1">
+      <Loader2 size={16} className="animate-spin text-primary" />
+    </div>
+  );
+};
+
+// 🟢 NEW: Custom Value Container to handle "+ N more" logic
+const CustomValueContainer = ({ children, ...props }: ValueContainerProps<OptionType, boolean>) => {
+  const { isMulti, getValue } = props;
+  const selected = getValue();
+  const MAX_VISIBLE_TAGS = 2; // How many tags to show before truncating
+
+  // If not multi-select or selection is small, render normally
+  if (!isMulti || selected.length <= MAX_VISIBLE_TAGS) {
+    return (
+      <components.ValueContainer {...props}>
+        {children}
+      </components.ValueContainer>
+    );
+  }
+
+  // Extract the Input component (it's always the last child in react-select)
+  const childrenArray = React.Children.toArray(children);
+  const inputComponent = childrenArray[childrenArray.length - 1];
+  
+  // Get the visible chips
+  const visibleChips = childrenArray.slice(0, MAX_VISIBLE_TAGS);
+  const hiddenCount = selected.length - MAX_VISIBLE_TAGS;
+
+  return (
+    <components.ValueContainer {...props}>
+      {visibleChips}
+      <div className="flex items-center justify-center px-2 py-0.5 ml-1 text-[10px] font-medium bg-muted text-muted-foreground rounded-md whitespace-nowrap h-[24px]">
+        +{hiddenCount} more
+      </div>
+      {inputComponent}
+    </components.ValueContainer>
+  );
+};
+
+// --- MAIN COMPONENT ---
 
 export const AsyncAutocomplete = ({
   label,
@@ -65,35 +107,73 @@ export const AsyncAutocomplete = ({
   defaultOptions = true,
   hideRequiredIndicator,
   className,
-  isMulti = false, // Default to false
+  isMulti = false,
 }: AsyncAutocompleteProps) => {
 
   const showAsterisk = required && !hideRequiredIndicator;
+  const [shouldLoad, setShouldLoad] = useState(defaultOptions);
 
-  // --- Custom Styles to Match Your Tailwind Theme ---
-  // 🟢 FIX: Changed second generic from 'false' to 'boolean' to allow isMulti
+  const handleMenuOpen = () => {
+    if (!shouldLoad) {
+      setShouldLoad(true);
+    }
+  };
+
+  const loadOptionsWrapper = async (search: string, prevOptions: any, { page }: any) => {
+    if (search && prevOptions && prevOptions.length > 0) {
+      const normalizedSearch = search.toLowerCase();
+      const localMatches = prevOptions.filter((opt: OptionType) => 
+        opt.label.toLowerCase().includes(normalizedSearch)
+      );
+
+      if (localMatches.length > 0) {
+        return {
+          options: localMatches,
+          hasMore: false, 
+        };
+      }
+    }
+    return loadOptions(search, prevOptions, { page });
+  };
+
+  // 🎨 STYLES
   const customStyles: StylesConfig<OptionType, boolean, GroupBase<OptionType>> = {
     control: (provided, state) => ({
       ...provided,
       backgroundColor: 'hsl(var(--background))',
-      // Matches your Input component border style
-      borderColor: state.isFocused ? 'hsl(var(--primary))' : 'hsl(var(--border) / 0.3)', 
+      borderColor: state.isFocused 
+        ? 'hsl(var(--primary))' 
+        : 'hsl(var(--muted-foreground) / 0.3)', 
       color: 'hsl(var(--foreground))',
-      borderRadius: 'calc(var(--radius) - 2px)', 
-      padding: '1px', 
-      boxShadow: state.isFocused ? '0 0 0 2px hsl(var(--primary) / 0.2)' : 'none',
+      borderRadius: '0.375rem', 
+      padding: '0 2px', 
+      minHeight: '38px', // 🟢 CHANGED: Reduced from 42px to 38px to match Input field
+      // Prevent massive expansion
+      maxHeight: isMulti ? '80px' : undefined,
+      overflowY: isMulti ? 'auto' : undefined,
+      boxShadow: state.isFocused 
+        ? '0 0 0 1px hsl(var(--primary))' 
+        : '0 1px 2px 0 rgb(0 0 0 / 0.05)', 
       '&:hover': {
-        borderColor: state.isFocused ? 'hsl(var(--primary))' : 'hsl(var(--border) / 0.5)',
+        borderColor: state.isFocused 
+          ? 'hsl(var(--primary))' 
+          : 'hsl(var(--muted-foreground) / 0.5)',
       },
-      minHeight: '38px', 
+      transition: 'all 0.2s',
+    }),
+    valueContainer: (provided) => ({
+      ...provided,
+      padding: '0 8px', // 🟢 CHANGED: Adjusted padding for better vertical centering in 38px height
+      gap: '4px',
     }),
     menu: (provided) => ({
       ...provided,
       backgroundColor: 'hsl(var(--background))',
-      border: '1px solid hsl(var(--border) / 0.3)',
+      border: '1px solid hsl(var(--border))',
       borderRadius: 'var(--radius)',
       boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-      zIndex: 9999, // Ensure it floats above other UI elements
+      zIndex: 9999,
+      marginTop: '4px',
     }),
     option: (provided, state) => ({
       ...provided,
@@ -104,15 +184,22 @@ export const AsyncAutocomplete = ({
           : 'transparent',
       color: state.isSelected ? 'hsl(var(--primary))' : 'hsl(var(--foreground))',
       cursor: 'pointer',
-      fontSize: '0.875rem', // text-sm
+      fontSize: '0.875rem',
+      padding: '8px 12px',
       '&:active': {
         backgroundColor: 'hsl(var(--primary) / 0.2)',
       }
     }),
+    // 🟢 Focus Ring Fix
     input: (provided) => ({
       ...provided,
       color: 'hsl(var(--foreground))',
       fontSize: '0.875rem',
+      margin: 0,
+      padding: 0,
+      "input:focus": {
+        boxShadow: "none !important", 
+      },
     }),
     singleValue: (provided) => ({
       ...provided,
@@ -123,10 +210,13 @@ export const AsyncAutocomplete = ({
       ...provided,
       backgroundColor: 'hsl(var(--muted))',
       borderRadius: '4px',
+      margin: '0', 
     }),
     multiValueLabel: (provided) => ({
       ...provided,
       color: 'hsl(var(--foreground))',
+      fontSize: '0.80rem',
+      padding: '2px 6px',
     }),
     multiValueRemove: (provided) => ({
       ...provided,
@@ -153,17 +243,24 @@ export const AsyncAutocomplete = ({
       )}
       <AsyncPaginate
         value={value}
-        loadOptions={loadOptions}
+        loadOptions={loadOptionsWrapper} 
         onChange={onChange}
+        onMenuOpen={handleMenuOpen}
         isDisabled={isDisabled}
-        isClearable={!isDisabled} // Allow clearing the value
-        isMulti={isMulti} // 🟢 Pass isMulti prop
+        isClearable={!isDisabled}
+        isMulti={isMulti}
         placeholder={placeholder}
-        defaultOptions={defaultOptions}
-        additional={{ page: 1 }} // Start pagination at page 1
+        defaultOptions={shouldLoad}
+        additional={{ page: 1 }}
         styles={customStyles}
-        components={{ DropdownIndicator, ClearIndicator }}
-        debounceTimeout={400} // Wait 400ms after typing before searching (Performance)
+        // 🟢 Inject Custom Components
+        components={{ 
+          DropdownIndicator, 
+          ClearIndicator, 
+          LoadingIndicator,
+          ValueContainer: CustomValueContainer // 👈 The logic to truncate tags
+        }}
+        debounceTimeout={400} 
         classNamePrefix="react-select"
       />
     </div>

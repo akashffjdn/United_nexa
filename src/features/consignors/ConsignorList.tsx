@@ -12,7 +12,8 @@ import { CsvImporter } from '../../components/shared/CsvImporter';
 import { useToast } from '../../contexts/ToastContext';
 
 export const ConsignorList = () => {
-  const { consignors, addConsignor, updateConsignor, deleteConsignor, addConsignee, fetchConsignors } = useData();
+  // 🟢 Get importConsignors from useData
+  const { consignors, addConsignor, updateConsignor, deleteConsignor, addConsignee, fetchConsignors, importConsignors } = useData();
   const toast = useToast();
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -101,8 +102,9 @@ export const ConsignorList = () => {
     handleFormClose();
   };
 
-  const handleImport = (data: Consignor[]) => {
-    data.forEach(c => addConsignor(c));
+  // 🟢 UPDATED: Use Single Bulk API Call
+  const handleImport = async (data: Consignor[]) => {
+    await importConsignors(data);
   };
 
   const handleExport = () => {
@@ -186,7 +188,7 @@ export const ConsignorList = () => {
           <CsvImporter<Consignor>
             onImport={handleImport}
             existingData={consignors}
-            label="Import" // Added short label for better fit
+            label="Import" 
             className={responsiveBtnClass} 
             checkDuplicate={(newItem, existing) => 
               newItem.gst.trim().toLowerCase() === existing.gst.trim().toLowerCase()
@@ -210,7 +212,7 @@ export const ConsignorList = () => {
           <Button 
             variant="primary" 
             onClick={handleCreateNew}
-            size="sm" // CHANGED: Set to 'sm' to match Export/Import buttons
+            size="sm" 
             className={responsiveBtnClass}
           >
             + Add Consignor

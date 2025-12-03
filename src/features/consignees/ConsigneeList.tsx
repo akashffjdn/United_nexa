@@ -12,7 +12,8 @@ import { CsvImporter } from '../../components/shared/CsvImporter';
 import { useToast } from '../../contexts/ToastContext';
 
 export const ConsigneeList = () => {
-  const { consignees, addConsignee, updateConsignee, deleteConsignee, fetchConsignees } = useData();
+  // 🟢 Get importConsignees from useData
+  const { consignees, addConsignee, updateConsignee, deleteConsignee, fetchConsignees, importConsignees } = useData();
   const toast = useToast();
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -87,8 +88,9 @@ export const ConsigneeList = () => {
     handleFormClose();
   };
 
-  const handleImport = (data: Consignee[]) => {
-    data.forEach(c => addConsignee(c));
+  // 🟢 UPDATED: Use Single Bulk API Call
+  const handleImport = async (data: Consignee[]) => {
+    await importConsignees(data);
   };
 
   const handleExport = () => {
