@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import type { FromPlace } from '../../types';
 import { FilePenLine, Trash2, Search, Download } from 'lucide-react';
 import { FromPlacesForm } from './FromPlacesForm';
@@ -13,7 +13,7 @@ interface FormErrorState { general: string | null; }
 export type DuplicateCheckFn = (currentPlaceName: string, currentShortName: string, editingId: string | undefined) => { place: string | null; short: string | null; };
 
 export const FromPlaceList = () => {
-    const { fromPlaces, addFromPlace, updateFromPlace, deleteFromPlace } = useData();
+    const { fromPlaces, addFromPlace, updateFromPlace, deleteFromPlace, fetchFromPlaces } = useData();
     const toast = useToast();
     const [search, setSearch] = useState('');
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -23,6 +23,11 @@ export const FromPlaceList = () => {
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [deleteMessage, setDeleteMessage] = useState("");
+
+    // --- Fetch on Mount (Screen-Wise API Call) ---
+    useEffect(() => {
+        fetchFromPlaces();
+    }, [fetchFromPlaces]);
 
     const filteredFromPlaces = useMemo(() => {
         return fromPlaces.filter(
@@ -148,6 +153,7 @@ export const FromPlaceList = () => {
                     <CsvImporter<FromPlace>
                         onImport={handleImport}
                         existingData={fromPlaces}
+                        label="Import" // Added label for mobile fit
                         className={responsiveBtnClass} // Responsive Class
                         checkDuplicate={(newItem, existing) => 
                             newItem.placeName.toLowerCase() === existing.placeName.toLowerCase() ||

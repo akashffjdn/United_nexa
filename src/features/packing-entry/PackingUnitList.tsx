@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { PackingEntry } from '../../types';
 import { FilePenLine, Trash2, Search, Download } from 'lucide-react';
 import { PackingUnitForm } from './PackingUnitForm';
@@ -9,9 +9,10 @@ import { usePagination } from '../../utils/usePagination';
 import { Pagination } from '../../components/shared/Pagination';
 import { CsvImporter } from '../../components/shared/CsvImporter';
 import { useToast } from '../../contexts/ToastContext';
+
 export const PackingEntryList = () => {
-  const { packingEntries, addPackingEntry, updatePackingEntry, deletePackingEntry } = useData();
- const toast = useToast();
+  const { packingEntries, addPackingEntry, updatePackingEntry, deletePackingEntry, fetchPackingEntries } = useData();
+  const toast = useToast();
   const [search, setSearch] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<PackingEntry | undefined>(undefined);
@@ -19,6 +20,11 @@ export const PackingEntryList = () => {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteMessage, setDeleteMessage] = useState("");
+
+  // --- Fetch on Mount ---
+  useEffect(() => {
+    fetchPackingEntries();
+  }, [fetchPackingEntries]);
 
   const filteredEntries = packingEntries.filter(
     (entry: PackingEntry) =>
@@ -114,6 +120,7 @@ export const PackingEntryList = () => {
           <CsvImporter<PackingEntry>
             onImport={handleImport}
             existingData={packingEntries}
+            label="Import" // Added label for mobile fit
             className={responsiveBtnClass} // Responsive Class
             checkDuplicate={(newItem, existing) => 
                 newItem.packingName.toLowerCase() === existing.packingName.toLowerCase() ||
@@ -135,7 +142,7 @@ export const PackingEntryList = () => {
             size="sm" 
             className={responsiveBtnClass}
           >
-            + Add Packing Unit
+            + Add Packing
           </Button>
         </div>
       </div>
@@ -178,14 +185,14 @@ export const PackingEntryList = () => {
         <div className="block md:hidden divide-y divide-muted">
           {paginatedData.length > 0 ? (
             paginatedData.map((entry, index) => (
-              <div key={entry.id} className="p-4">
-                <div className="flex justify-between">
+              <div key={entry.id} className="p-4 hover:bg-muted/30">
+                <div className="flex justify-between items-start">
                   <div>
                     <div className="text-sm text-muted-foreground">#{(currentPage - 1) * itemsPerPage + index + 1}</div>
                     <div className="text-lg font-semibold">{entry.packingName}</div>
                     <div className="text-sm text-muted-foreground">Short: {entry.shortName}</div>
                   </div>
-                  <div className="flex flex-col space-y-3">
+                  <div className="flex flex-col space-y-3 pt-1">
                     <button onClick={() => handleEdit(entry)} className="text-blue-600"><FilePenLine size={18} /></button>
                     <button onClick={() => handleDelete(entry)} className="text-destructive"><Trash2 size={18} /></button>
                   </div>

@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FilePenLine, Trash2, Search, Printer, Filter, XCircle, RotateCcw } from 'lucide-react';
 import { DateFilterButtons, getTodayDate, getYesterdayDate } from '../../components/shared/DateFilterButtons';
@@ -6,16 +6,25 @@ import { ConfirmationDialog } from '../../components/shared/ConfirmationDialog';
 import { useData } from '../../hooks/useData';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import { Button } from '../../components/shared/Button';
-import { AutocompleteInput } from '../../components/shared/AutocompleteInput';
-import { MultiSelect } from '../../components/shared/MultiSelect';
+import { AsyncAutocomplete } from '../../components/shared/AsyncAutocomplete'; // 🟢 Updated Import
 import { GcPrintManager, type GcPrintJob } from './GcPrintManager';
 import { Pagination } from '../../components/shared/Pagination';
 import type { GcEntry, Consignor, Consignee } from '../../types';
 import { useToast } from '../../contexts/ToastContext';
+
 export const GcEntryList = () => {
   const navigate = useNavigate();
-  const { deleteGcEntry, consignors, consignees, getUniqueDests, fetchGcPrintData } = useData();
+  const { 
+    deleteGcEntry, 
+    fetchGcPrintData,
+    // 🟢 NEW: Destructure search functions from context
+    searchConsignors,
+    searchConsignees,
+    searchToPlaces 
+  } = useData();
+  
   const toast = useToast();
+
   // Use Server Pagination Hook
   const {
     data: paginatedData,
@@ -32,15 +41,18 @@ export const GcEntryList = () => {
   } = useServerPagination<GcEntry>({ 
     endpoint: '/operations/gc',
     initialFilters: { search: '', filterType: 'all' },
-    
   });
 
   const [showFilters, setShowFilters] = useState(false);
   
+  // 🟢 NEW: Local state for dropdown option objects (needed for UI display)
+  // We keep these separate from 'filters' because 'filters' only stores IDs for the API
+  const [destinationOption, setDestinationOption] = useState<any>(null);
+  const [consignorOption, setConsignorOption] = useState<any>(null);
+  const [consigneeOptions, setConsigneeOptions] = useState<any[]>([]);
+
   // Local state for UI controls
   const [selectedGcIds, setSelectedGcIds] = useState<string[]>([]);
-  
-  // NEW: State to track if "Select All" is active
   const [selectAllMode, setSelectAllMode] = useState(false);
 
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -90,6 +102,12 @@ export const GcEntryList = () => {
   };
 
   const clearAllFilters = () => {
+    // Reset local dropdown states
+    setDestinationOption(null);
+    setConsignorOption(null);
+    setConsigneeOptions([]);
+
+    // Reset API filters
     setFilters({ 
         search: '', 
         filterType: 'all', 
@@ -101,9 +119,35 @@ export const GcEntryList = () => {
     });
   };
 
-  const allConsignorOptions = useMemo(() => consignors.map(c => ({ value: c.id, label: c.name })), [consignors]);
-  const allConsigneeOptions = useMemo(() => consignees.map(c => ({ value: c.id, label: c.name })), [consignees]);
-  const allDestinationOptions = useMemo(getUniqueDests, [getUniqueDests]);
+  // 🟢 NEW: Async Options Loaders
+  // These connect the AsyncAutocomplete component to the DataContext search functions
+
+  const loadDestinationOptions = async (search: string, _prevOptions: any, { page }: any) => {
+    const result = await searchToPlaces(search, page);
+    return {
+      options: result.data.map((p: any) => ({ value: p.placeName, label: p.placeName })),
+      hasMore: result.hasMore,
+      additional: { page: page + 1 },
+    };
+  };
+
+  const loadConsignorOptions = async (search: string, _prevOptions: any, { page }: any) => {
+    const result = await searchConsignors(search, page);
+    return {
+      options: result.data.map((c: any) => ({ value: c.id, label: c.name })),
+      hasMore: result.hasMore,
+      additional: { page: page + 1 },
+    };
+  };
+
+  const loadConsigneeOptions = async (search: string, _prevOptions: any, { page }: any) => {
+    const result = await searchConsignees(search, page);
+    return {
+      options: result.data.map((c: any) => ({ value: c.id, label: c.name })),
+      hasMore: result.hasMore,
+      additional: { page: page + 1 },
+    };
+  };
 
   const handleEdit = (gcNo: string) => navigate(`/gc-entry/edit/${gcNo}`);
   
@@ -146,20 +190,15 @@ export const GcEntryList = () => {
     }
   };
   
-  // --- UPDATED BULK PRINT HANDLER ---
   const handlePrintSelected = async () => {
-    // Check if anything is selected OR if we are in selectAllMode
     if (selectedGcIds.length === 0 && !selectAllMode) return;
     
     try {
         let printData = [];
         
         if (selectAllMode) {
-            // If "Select All" is active, fetch ALL matching data using filters
-            // Pass empty array for IDs, true for selectAll, and the current filters object
             printData = await fetchGcPrintData([], true, filters);
         } else {
-            // Otherwise, use the specifically selected IDs
             printData = await fetchGcPrintData(selectedGcIds);
         }
         
@@ -168,7 +207,6 @@ export const GcEntryList = () => {
             return;
         }
 
-        // Map response to GcPrintJob structure
         const jobs = printData.map((item: any): GcPrintJob | null => {
             const { consignor, consignee, ...gcData } = item;
             
@@ -186,11 +224,8 @@ export const GcEntryList = () => {
 
         if (jobs.length > 0) { 
           setPrintingJobs(jobs); 
-          // Only clear selection if it was a specific selection. 
-          // If "Select All" mode was active, we might want to keep it active, 
-          // or clear it. Usually clearing is safer to avoid accidental re-prints.
           if (!selectAllMode) setSelectedGcIds([]); 
-          setSelectAllMode(false); // Reset mode
+          setSelectAllMode(false); 
         } else {
           toast.error("Could not prepare print jobs. Check data integrity.");
         }
@@ -200,12 +235,11 @@ export const GcEntryList = () => {
     }
   };
 
-  // --- UPDATED SELECTION HANDLERS ---
+  // --- SELECTION HANDLERS ---
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
         setSelectAllMode(true);
-        // Visually select current page items
         setSelectedGcIds(paginatedData.map(gc => gc.gcNo));
     } else {
         setSelectAllMode(false);
@@ -213,7 +247,6 @@ export const GcEntryList = () => {
     }
   };
 
-  // Ensure visual state persists across pages if selectAllMode is active
   useEffect(() => {
       if (selectAllMode) {
           setSelectedGcIds(paginatedData.map(gc => gc.gcNo));
@@ -221,11 +254,8 @@ export const GcEntryList = () => {
   }, [paginatedData, selectAllMode]);
 
   const handleSelectRow = (e: React.ChangeEvent<HTMLInputElement>, id: string) => {
-    // If user manually interacts with a row while "Select All" is active,
-    // we must disable "Select All" mode to avoid ambiguity.
     if (selectAllMode) {
         setSelectAllMode(false);
-        // If unchecking, remove from list. If checking (unlikely since all are checked), add.
         if (!e.target.checked) {
             setSelectedGcIds(prev => prev.filter(x => x !== id));
         }
@@ -238,9 +268,8 @@ export const GcEntryList = () => {
   const hasActiveFilters = !!filters.destination || !!filters.consignor || (filters.consignee && filters.consignee.length > 0) || filters.filterType !== 'all' || !!filters.search;
   const responsiveBtnClass = "flex-1 md:flex-none text-[10px] xs:text-xs sm:text-sm h-8 sm:h-10 px-1 sm:px-4 whitespace-nowrap";
 
-  // Calculate display count for button
   const printButtonText = selectAllMode 
-    ? `Print All (${totalItems})` // Show total server count if Select All is active
+    ? `Print All (${totalItems})` 
     : `Print (${selectedGcIds.length})`;
 
   return (
@@ -302,35 +331,57 @@ export const GcEntryList = () => {
               <button onClick={() => setShowFilters(false)} className="text-muted-foreground hover:text-foreground ml-2"><XCircle size={18} /></button>
             </div>
           </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <AutocompleteInput 
-                label="Filter by Destination" 
-                options={allDestinationOptions} 
-                value={filters.destination || ''} 
-                onSelect={(val) => setFilters({ destination: val })} 
-                placeholder="Search destination..." 
+            
+            {/* 🟢 Destination Filter (Async) */}
+            <AsyncAutocomplete
+              label="Filter by Destination"
+              placeholder="Search destination..."
+              value={destinationOption}
+              onChange={(val) => {
+                // Cast 'val' to 'any' safely access .value if it exists
+                setDestinationOption(val);
+                setFilters({ destination: (val as any)?.value || '' });
+              }}
+              loadOptions={loadDestinationOptions}
+              defaultOptions
             />
             
-            <AutocompleteInput 
-                label="Filter by Consignor" 
-                options={allConsignorOptions} 
-                value={filters.consignor || ''} 
-                onSelect={(val) => setFilters({ consignor: val })} 
-                placeholder="Search consignor..." 
+            {/* 🟢 Consignor Filter (Async) */}
+            <AsyncAutocomplete
+              label="Filter by Consignor"
+              placeholder="Search consignor..."
+              value={consignorOption}
+              onChange={(val) => {
+                setConsignorOption(val);
+                setFilters({ consignor: (val as any)?.value || '' });
+              }}
+              loadOptions={loadConsignorOptions}
+              defaultOptions
             />
 
+            {/* 🟢 Consignee Filter (Async Multi-Select) */}
             <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1">Filter by Consignee</label>
-                <MultiSelect 
-                    options={allConsigneeOptions} 
-                    selected={filters.consignee || []} 
-                    onChange={(val) => setFilters({ consignee: val })} 
-                    placeholder="Select consignees..."
-                    searchPlaceholder="Search..."
-                    emptyPlaceholder="None found."
-                />
+               <AsyncAutocomplete
+                  label="Filter by Consignee"
+                  placeholder="Select consignees..."
+                  value={consigneeOptions} 
+                  onChange={(val) => {
+                    // 'val' is MultiValue<OptionType> (Array) or SingleValue.
+                    // Ensure we treat it as an array.
+                    const selectedItems = Array.isArray(val) ? val : (val ? [val] : []);
+                    setConsigneeOptions(selectedItems);
+                    const ids = selectedItems.map((v: any) => v.value);
+                    setFilters({ consignee: ids });
+                  }}
+                  loadOptions={loadConsigneeOptions}
+                  defaultOptions
+                  isMulti={true} // Enable multi-select
+               />
             </div>
           </div>
+          
           <DateFilterButtons 
             filterType={filters.filterType || 'all'} 
             setFilterType={handleFilterTypeChange} 
@@ -364,8 +415,10 @@ export const GcEntryList = () => {
                   <tr><td colSpan={9} className="px-6 py-12 text-center">Loading data...</td></tr>
               ) : paginatedData.length > 0 ? (
                   paginatedData.map((gc) => {
-                    const consignor = consignors.find(c => c.id === gc.consignorId);
-                    const consignee = consignees.find(c => c.id === gc.consigneeId);
+                    // 🟢 FIX: Use the new fields returned by backend instead of lookups
+                    // Type casting as 'any' because our frontend interface might strictly expect only base fields
+                    const consignorName = (gc as any).consignorName || 'N/A';
+                    const consigneeName = (gc as any).consigneeName || 'N/A';
                     
                     const tripSheetId = gc.tripSheetId;
                     const isAssigned = tripSheetId && tripSheetId !== "";
@@ -374,8 +427,8 @@ export const GcEntryList = () => {
                       <tr key={gc.id} className="hover:bg-muted/30 transition-colors">
                         <td className="px-4 py-4"><input type="checkbox" className="h-4 w-4 accent-primary" checked={selectedGcIds.includes(gc.gcNo)} onChange={(e) => handleSelectRow(e, gc.gcNo)} /></td>
                         <td className="px-6 py-4 text-sm font-semibold text-primary">{gc.gcNo}</td>
-                        <td className="px-6 py-4 text-sm">{consignor?.name || 'N/A'}</td>
-                        <td className="px-6 py-4 text-sm">{consignee?.name || 'N/A'}</td>
+                        <td className="px-6 py-4 text-sm">{consignorName}</td>
+                        <td className="px-6 py-4 text-sm">{consigneeName}</td>
                         <td className="px-6 py-4 text-sm">{gc.destination}</td>
 
                         <td className="px-6 py-4 text-sm">{gc.quantity}</td>
@@ -403,8 +456,9 @@ export const GcEntryList = () => {
         
         <div className="block md:hidden divide-y divide-muted">
            {paginatedData.map((gc) => {
-             const consignor = consignors.find(c => c.id === gc.consignorId);
-             const consignee = consignees.find(c => c.id === gc.consigneeId);
+             // 🟢 FIX: Mobile view usage of new fields
+             const consignorName = (gc as any).consignorName || 'N/A';
+             const consigneeName = (gc as any).consigneeName || 'N/A';
              const tripSheetId = gc.tripSheetId;
              const isAssigned = tripSheetId && tripSheetId !== "";
 
@@ -422,9 +476,9 @@ export const GcEntryList = () => {
                     </div>
                     <div className="space-y-1 w-full">
                       <div className="font-bold text-blue-600 text-lg">GC #{gc.gcNo}</div>
-                      <div className="font-semibold text-foreground">{consignor?.name}</div>
-                      <div className="text-sm text-muted-foreground">To: {consignee?.name}</div>
-                     
+                      <div className="font-semibold text-foreground">{consignorName}</div>
+                      <div className="text-sm text-muted-foreground">To: {consigneeName}</div>
+                      {/* <div className="text-sm text-muted-foreground">From: {gc.from}</div> */}
                       <div className="text-sm text-muted-foreground">At: {gc.destination}</div>
                     </div>
                   </div>

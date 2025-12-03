@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import type { ToPlace } from '../../types';
 import { FilePenLine, Trash2, Search, Download } from 'lucide-react';
 import { ToPlacesForm } from './ToPlacesForm';
@@ -9,11 +9,12 @@ import { usePagination } from '../../utils/usePagination';
 import { Pagination } from '../../components/shared/Pagination';
 import { CsvImporter } from '../../components/shared/CsvImporter';
 import { useToast } from '../../contexts/ToastContext';
+
 interface FormErrorState { general: string | null; }
 export type DuplicateCheckFn = (currentPlaceName: string, currentShortName: string, editingId: string | undefined) => { place: string | null; short: string | null; };
 
 export const ToPlacesList = () => {
-    const { toPlaces, addToPlace, updateToPlace, deleteToPlace } = useData();
+    const { toPlaces, addToPlace, updateToPlace, deleteToPlace, fetchToPlaces } = useData();
     const toast = useToast();
     const [search, setSearch] = useState('');
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -23,6 +24,11 @@ export const ToPlacesList = () => {
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [deleteMessage, setDeleteMessage] = useState("");
+
+    // --- Fetch on Mount (Screen-Wise API Call) ---
+    useEffect(() => {
+        fetchToPlaces();
+    }, [fetchToPlaces]);
 
     const filteredToPlaces = useMemo(() => {
         return toPlaces.filter(
@@ -147,6 +153,7 @@ export const ToPlacesList = () => {
                     <CsvImporter<ToPlace>
                         onImport={handleImport}
                         existingData={toPlaces}
+                        label="Import" // Added label for mobile fit
                         className={responsiveBtnClass} // Responsive Class
                         checkDuplicate={(newItem, existing) => 
                             newItem.placeName.toLowerCase() === existing.placeName.toLowerCase() ||

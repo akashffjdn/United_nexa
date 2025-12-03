@@ -1,13 +1,14 @@
-import React, { createContext, useState, useMemo, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useMemo, useCallback } from 'react';
 import type { 
   Consignor, Consignee, GcEntry, FromPlace, ToPlace, PackingEntry, 
   ContentEntry, TripSheetEntry, VehicleEntry, DriverEntry 
 } from '../types';
 import api from '../utils/api';
 import { useAuth } from '../hooks/useAuth';
-import { useToast } from './ToastContext'; // 🟢 Import
+import { useToast } from './ToastContext';
 
 interface DataContextType {
+  // --- Existing State Arrays ---
   consignors: Consignor[];
   consignees: Consignee[];
   gcEntries: GcEntry[]; 
@@ -19,6 +20,7 @@ interface DataContextType {
   vehicleEntries: VehicleEntry[];
   driverEntries: DriverEntry[];
   
+  // --- Existing CRUD Actions ---
   addConsignor: (consignor: Consignor) => Promise<void>;
   updateConsignor: (consignor: Consignor) => Promise<void>;
   deleteConsignor: (id: string) => Promise<void>;
@@ -62,14 +64,34 @@ interface DataContextType {
   getUniqueDests: () => { value: string, label: string }[];
   getPackingTypes: () => { value: string, label: string }[];
   getContentsTypes: () => { value: string, label: string }[];
-  refreshData: () => Promise<void>;
+  
+  // --- Individual Fetchers for Screen-Wise Loading ---
+  fetchConsignors: () => Promise<void>;
+  fetchConsignees: () => Promise<void>;
+  fetchFromPlaces: () => Promise<void>;
+  fetchToPlaces: () => Promise<void>;
+  fetchPackingEntries: () => Promise<void>;
+  fetchContentEntries: () => Promise<void>;
+  fetchVehicleEntries: () => Promise<void>;
+  fetchDriverEntries: () => Promise<void>;
+  refreshData: () => Promise<void>; // Keeps legacy compatibility
+
+  // --- Server-Side Search Functions (Async Dropdowns) ---
+  searchConsignors: (search: string, page: number) => Promise<any>;
+  searchConsignees: (search: string, page: number) => Promise<any>;
+  searchVehicles: (search: string, page: number) => Promise<any>;
+  searchDrivers: (search: string, page: number) => Promise<any>;
+  searchFromPlaces: (search: string, page: number) => Promise<any>;
+  searchToPlaces: (search: string, page: number) => Promise<any>;
+  searchPackings: (search: string, page: number) => Promise<any>;
+  searchContents: (search: string, page: number) => Promise<any>;
 }
 
 export const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
-  const toast = useToast(); // 🟢 Init Toast
+  const toast = useToast();
 
   const [consignors, setConsignors] = useState<Consignor[]>([]);
   const [consignees, setConsignees] = useState<Consignee[]>([]);
@@ -80,44 +102,121 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   const [vehicleEntries, setVehicleEntries] = useState<VehicleEntry[]>([]);
   const [driverEntries, setDriverEntries] = useState<DriverEntry[]>([]);
 
-  const fetchAllData = useCallback(async () => {
-    if (!user) return;
-    try {
-      const [
-        consignorsRes, consigneesRes, fromRes, toRes, 
-        packRes, contentRes, vehRes, drvRes
-      ] = await Promise.all([
-        api.get('/master/consignors'),
-        api.get('/master/consignees'),
-        api.get('/master/from-places'),
-        api.get('/master/to-places'),
-        api.get('/master/packings'),
-        api.get('/master/contents'),
-        api.get('/master/vehicles'),
-        api.get('/master/drivers')
-      ]);
-
-      setConsignors(consignorsRes.data);
-      setConsignees(consigneesRes.data);
-      setFromPlaces(fromRes.data);
-      setToPlaces(toRes.data);
-      setPackingEntries(packRes.data);
-      setContentEntries(contentRes.data);
-      setVehicleEntries(vehRes.data);
-      setDriverEntries(drvRes.data);
-    } catch (error) {
-      console.error("Error fetching initial data:", error);
-      // Optional: toast.error("Failed to load initial data");
-    }
-  }, [user]);
-
-  useEffect(() => { fetchAllData(); }, [fetchAllData]);
-
   // --- Helper to handle API errors globally within DataContext ---
   const handleError = (error: any, defaultMsg: string) => {
     const msg = error.response?.data?.message || defaultMsg;
     toast.error(msg);
-    throw error;
+    // console.error(error); // Optional logging
+  };
+
+  // --- INDIVIDUAL FETCH FUNCTIONS (Screen-Wise) ---
+
+  const fetchConsignors = useCallback(async () => {
+    try {
+      const { data } = await api.get('/master/consignors');
+      setConsignors(data);
+    } catch (e) { console.error("Error fetching consignors", e); }
+  }, []);
+
+  const fetchConsignees = useCallback(async () => {
+    try {
+      const { data } = await api.get('/master/consignees');
+      setConsignees(data);
+    } catch (e) { console.error("Error fetching consignees", e); }
+  }, []);
+
+  const fetchFromPlaces = useCallback(async () => {
+    try {
+      const { data } = await api.get('/master/from-places');
+      setFromPlaces(data);
+    } catch (e) { console.error("Error fetching from places", e); }
+  }, []);
+
+  const fetchToPlaces = useCallback(async () => {
+    try {
+      const { data } = await api.get('/master/to-places');
+      setToPlaces(data);
+    } catch (e) { console.error("Error fetching to places", e); }
+  }, []);
+
+  const fetchPackingEntries = useCallback(async () => {
+    try {
+      const { data } = await api.get('/master/packings');
+      setPackingEntries(data);
+    } catch (e) { console.error("Error fetching packings", e); }
+  }, []);
+
+  const fetchContentEntries = useCallback(async () => {
+    try {
+      const { data } = await api.get('/master/contents');
+      setContentEntries(data);
+    } catch (e) { console.error("Error fetching contents", e); }
+  }, []);
+
+  const fetchVehicleEntries = useCallback(async () => {
+    try {
+      const { data } = await api.get('/master/vehicles');
+      setVehicleEntries(data);
+    } catch (e) { console.error("Error fetching vehicles", e); }
+  }, []);
+
+  const fetchDriverEntries = useCallback(async () => {
+    try {
+      const { data } = await api.get('/master/drivers');
+      setDriverEntries(data);
+    } catch (e) { console.error("Error fetching drivers", e); }
+  }, []);
+
+  // --- Combined Fetch (Optional / Legacy Refresh) ---
+  const fetchAllData = useCallback(async () => {
+    if (!user) return;
+    await Promise.all([
+      fetchConsignors(),
+      fetchConsignees(),
+      fetchFromPlaces(),
+      fetchToPlaces(),
+      fetchPackingEntries(),
+      fetchContentEntries(),
+      fetchVehicleEntries(),
+      fetchDriverEntries()
+    ]);
+  }, [user, fetchConsignors, fetchConsignees, fetchFromPlaces, fetchToPlaces, fetchPackingEntries, fetchContentEntries, fetchVehicleEntries, fetchDriverEntries]);
+
+  // =================================================================
+  // Server-Side Search Implementations
+  // =================================================================
+
+  const searchConsignors = async (search: string, page: number) => {
+    try { const { data } = await api.get('/master/consignors', { params: { search, page } }); return data; } 
+    catch (e) { console.error(e); return { data: [], hasMore: false }; }
+  };
+  const searchConsignees = async (search: string, page: number) => {
+    try { const { data } = await api.get('/master/consignees', { params: { search, page } }); return data; } 
+    catch (e) { console.error(e); return { data: [], hasMore: false }; }
+  };
+  const searchVehicles = async (search: string, page: number) => {
+    try { const { data } = await api.get('/master/vehicles', { params: { search, page } }); return data; } 
+    catch (e) { console.error(e); return { data: [], hasMore: false }; }
+  };
+  const searchDrivers = async (search: string, page: number) => {
+    try { const { data } = await api.get('/master/drivers', { params: { search, page } }); return data; } 
+    catch (e) { console.error(e); return { data: [], hasMore: false }; }
+  };
+  const searchFromPlaces = async (search: string, page: number) => {
+    try { const { data } = await api.get('/master/from-places', { params: { search, page } }); return data; } 
+    catch (e) { console.error(e); return { data: [], hasMore: false }; }
+  };
+  const searchToPlaces = async (search: string, page: number) => {
+    try { const { data } = await api.get('/master/to-places', { params: { search, page } }); return data; } 
+    catch (e) { console.error(e); return { data: [], hasMore: false }; }
+  };
+  const searchPackings = async (search: string, page: number) => {
+    try { const { data } = await api.get('/master/packings', { params: { search, page } }); return data; } 
+    catch (e) { console.error(e); return { data: [], hasMore: false }; }
+  };
+  const searchContents = async (search: string, page: number) => {
+    try { const { data } = await api.get('/master/contents', { params: { search, page } }); return data; } 
+    catch (e) { console.error(e); return { data: [], hasMore: false }; }
   };
 
   // --- GC ACTIONS ---
@@ -233,7 +332,6 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   // --- MASTERS (Consignors, Consignees, etc.) ---
-  // Using Try/Catch blocks for notifications
 
   const addConsignor = async (data: Consignor) => {
     try {
@@ -451,8 +549,20 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     addVehicleEntry, updateVehicleEntry, deleteVehicleEntry,
     addDriverEntry, updateDriverEntry, deleteDriverEntry,
     getUniqueDests, getPackingTypes, getContentsTypes,
-    refreshData: fetchAllData
-  }), [consignors, consignees, fromPlaces, toPlaces, packingEntries, contentEntries, vehicleEntries, driverEntries, fetchAllData]);
+    refreshData: fetchAllData,
+    
+    // --- EXPORTED FETCH FUNCTIONS ---
+    fetchConsignors, fetchConsignees, fetchFromPlaces, fetchToPlaces,
+    fetchPackingEntries, fetchContentEntries, fetchVehicleEntries, fetchDriverEntries,
+
+    // --- Search Functions ---
+    searchConsignors, searchConsignees, searchVehicles, searchDrivers,
+    searchFromPlaces, searchToPlaces, searchPackings, searchContents
+  }), [
+    consignors, consignees, fromPlaces, toPlaces, packingEntries, contentEntries, vehicleEntries, driverEntries, 
+    fetchAllData,
+    fetchConsignors, fetchConsignees, fetchFromPlaces, fetchToPlaces, fetchPackingEntries, fetchContentEntries, fetchVehicleEntries, fetchDriverEntries
+  ]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 };

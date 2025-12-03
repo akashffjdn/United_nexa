@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { AppUser } from '../types';
 import api from '../utils/api';
-import { useToast } from './ToastContext'; // 🟢 Import
+import { useToast } from './ToastContext';
 
 interface AuthContextType {
   user: AppUser | null;
@@ -27,8 +27,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
-  const toast = useToast(); // 🟢 Init Toast
+  const toast = useToast();
 
+  // --- Fetch Users (Only called when requested by UserList) ---
   const fetchUsers = useCallback(async () => {
     try {
       const { data } = await api.get('/users');
@@ -47,14 +48,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const parsedUser = JSON.parse(storedSession);
         setUser(parsedUser);
         
-        if (parsedUser.role === 'admin') {
-          try {
-            const { data } = await api.get('/users');
-            setUsers(data);
-          } catch (e) {
-            console.error("Could not load users on init", e);
-          }
-        }
+        // 🔴 REMOVED: Auto-fetch users on init
+        // if (parsedUser.role === 'admin') { ... }
       }
       
       if (storedYear) setFinancialYear(storedYear);
@@ -75,16 +70,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       localStorage.setItem('authUser', JSON.stringify(data));
       localStorage.setItem('authYear', year);
       
-      if (data.role === 'admin') {
-        await fetchUsers();
-      }
+      // 🔴 REMOVED: Auto-fetch users on login
+      // if (data.role === 'admin') { await fetchUsers(); }
       
-      toast.success(`Welcome back, ${data.name}!`); // 🟢 Success Toast
+      toast.success(`Welcome back, ${data.name}!`);
       navigate('/');
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Invalid email or password';
       setError(msg);
-      toast.error(msg); // 🟢 Error Toast
+      toast.error(msg);
       throw err;
     } finally {
       setLoading(false);
@@ -102,7 +96,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUsers([]);
       localStorage.removeItem('authUser');
       localStorage.removeItem('authYear');
-      toast.success("Logged out successfully"); // 🟢 Success Toast
+      toast.success("Logged out successfully");
       navigate('/login');
     }
   };
@@ -111,9 +105,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const { data } = await api.post('/users', userData);
       setUsers(prev => [...prev, data]);
-      toast.success("User added successfully"); // 🟢
+      toast.success("User added successfully");
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to add user"); // 🟢
+      toast.error(err.response?.data?.message || "Failed to add user");
     }
   };
 
@@ -127,23 +121,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(updatedSession);
         localStorage.setItem('authUser', JSON.stringify(updatedSession));
       }
-      toast.success("User updated successfully"); // 🟢
+      toast.success("User updated successfully");
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to update user"); // 🟢
+      toast.error(err.response?.data?.message || "Failed to update user");
     }
   };
 
   const deleteUser = async (id: string) => {
     if (user && user.id === id) {
-      toast.error("You cannot delete your own account."); // 🟢
+      toast.error("You cannot delete your own account.");
       return;
     }
     try {
       await api.delete(`/users/${id}`);
       setUsers(prev => prev.filter(u => u.id !== id));
-      toast.success("User deleted successfully"); // 🟢
+      toast.success("User deleted successfully");
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to delete user"); // 🟢
+      toast.error(err.response?.data?.message || "Failed to delete user");
     }
   };
 

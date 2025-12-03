@@ -4,7 +4,7 @@ import { Input } from '../../components/shared/Input';
 import { Button } from '../../components/shared/Button';
 import { X, Info } from 'lucide-react';
 import { useData } from '../../hooks/useData';
-import { AutocompleteInput } from '../../components/shared/AutocompleteInput';
+import { AsyncAutocomplete } from '../../components/shared/AsyncAutocomplete'; // 🟢 Fixed Import
 import { useToast } from '../../contexts/ToastContext';
 
 // Get today's date in YYYY-MM-DD format
@@ -32,10 +32,10 @@ const getValidationProp = (value: any) => ({
 });
 
 export const ConsigneeForm = ({ initialData, onClose, onSave }: ConsigneeFormProps) => {
-  // 🟢 2. ACCESS PLACE DATA (using toPlaces as destination options)
-  const { consignees, toPlaces } = useData();  
+  const { consignees, searchToPlaces } = useData();  
   const [duplicateMessage, setDuplicateMessage] = useState<string | null>(null);
-const toast = useToast();
+  const toast = useToast();
+
   const [consignee, setConsignee] = useState({
     id: initialData?.id || '',
     name: initialData?.name || '',
@@ -48,6 +48,14 @@ const toast = useToast();
     aadhar: initialData?.aadhar || '',
   });
 
+  // 🟢 Local state for Destination dropdown (Async)
+  // Initialize with current value if editing
+  const [destinationOption, setDestinationOption] = useState<any>(
+    initialData?.destination 
+      ? { label: initialData.destination, value: initialData.destination } 
+      : null
+  );
+
   // If ID exists, we are in Update Mode
   const isUpdateMode = !!consignee.id;
 
@@ -57,9 +65,21 @@ const toast = useToast();
     if (duplicateMessage) setDuplicateMessage(null);
   };
 
-  // 🟢 4. DEDICATED HANDLER for AutocompleteInput (for Destination)
-  const handleDestinationChange = (value: string) => {
-      setConsignee(prev => ({ ...prev, destination: value }));
+  // 🟢 Async Loader for Destination
+  // Using `_prevOptions` to avoid unused variable warning in TS
+  const loadDestinationOptions = async (search: string, _prevOptions: any, { page }: any) => {
+    const result = await searchToPlaces(search, page);
+    return {
+      options: result.data.map((p: any) => ({ value: p.placeName, label: p.placeName })),
+      hasMore: result.hasMore,
+      additional: { page: page + 1 },
+    };
+  };
+
+  // 🟢 Updated Handler for AsyncAutocomplete
+  const handleDestinationChange = (option: any) => {
+      setDestinationOption(option);
+      setConsignee(prev => ({ ...prev, destination: option?.value || '' }));
       if (duplicateMessage) setDuplicateMessage(null);
   };
 
@@ -88,6 +108,10 @@ const toast = useToast();
         pan: existing.pan || '',
         aadhar: existing.aadhar || '',
       });
+      
+      // Sync the dropdown state when auto-filling
+      setDestinationOption({ label: existing.destination, value: existing.destination });
+
       setDuplicateMessage(`Consignee "${existing.name}" found! Switched to Update mode.`);
     }
   };
@@ -117,11 +141,8 @@ const toast = useToast();
     onSave(savedConsignee);
   };
 
-  // 🟢 OPTIONS MAPPING
-  const destinationOptions = toPlaces.map(p => ({ value: p.placeName, label: p.placeName }));
-
   return (
-    <div className="fixed -inset-6 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="relative w-full max-w-2xl bg-background rounded-lg shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-4 border-b border-muted">
           <h2 className="text-xl font-semibold text-foreground">
@@ -174,16 +195,19 @@ const toast = useToast();
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input label="Consignee Name" id="name" name="name" value={consignee.name} onChange={handleChange} required { ...getValidationProp(consignee.name)} />
-            {/* 🟢 3. REPLACE Input WITH AutocompleteInput */}
-            <AutocompleteInput 
+            
+            {/* 🟢 3. REPLACE Input WITH AsyncAutocomplete */}
+            <AsyncAutocomplete 
                 label="Destination" 
                 placeholder="Select or type Destination"
-                options={destinationOptions} // Use the mapped options
-                value={consignee.destination} 
-                onSelect={handleDestinationChange} // Use dedicated handler
+                loadOptions={loadDestinationOptions}
+                value={destinationOption} 
+                onChange={handleDestinationChange} 
                 required 
+                defaultOptions
                 { ...getValidationProp(consignee.destination)} 
             />
+            
             <Input label="Phone Number" id="phone" name="phone" value={consignee.phone} onChange={handleChange} required { ...getValidationProp(consignee.phone)} />
             <Input label="Filing Date" id="filingDate" name="filingDate" type="date" value={consignee.filingDate} onChange={handleChange} required { ...getValidationProp(consignee.filingDate)} />
 

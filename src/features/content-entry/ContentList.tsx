@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { ContentEntry } from '../../types';
 import { FilePenLine, Trash2, Search, Download } from 'lucide-react';
 import { ContentForm } from './ContentForm';
@@ -9,8 +9,9 @@ import { usePagination } from '../../utils/usePagination';
 import { Pagination } from '../../components/shared/Pagination';
 import { CsvImporter } from '../../components/shared/CsvImporter';
 import { useToast } from '../../contexts/ToastContext';
+
 export const ContentList = () => {
-  const { contentEntries, addContentEntry, updateContentEntry, deleteContentEntry } = useData();
+  const { contentEntries, addContentEntry, updateContentEntry, deleteContentEntry, fetchContentEntries } = useData();
   const toast = useToast();
   const [search, setSearch] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -19,6 +20,11 @@ export const ContentList = () => {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteMessage, setDeleteMessage] = useState("");
+
+  // --- Fetch on Mount (Screen-Wise API Call) ---
+  useEffect(() => {
+    fetchContentEntries();
+  }, [fetchContentEntries]);
 
   const filteredEntries = contentEntries.filter(
     (entry: ContentEntry) =>
@@ -114,6 +120,7 @@ export const ContentList = () => {
           <CsvImporter<ContentEntry>
             onImport={handleImport}
             existingData={contentEntries}
+            label="Import" // Added label for mobile fit
             className={responsiveBtnClass} // Responsive Class
             checkDuplicate={(newItem, existing) => 
                 newItem.contentName.toLowerCase() === existing.contentName.toLowerCase() ||
@@ -154,7 +161,7 @@ export const ContentList = () => {
             <tbody className="divide-y divide-muted">
               {paginatedData.length > 0 ? (
                 paginatedData.map((entry, index) => (
-                  <tr key={entry.id}>
+                  <tr key={entry.id} className="hover:bg-muted/30">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">{entry.contentName}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{entry.shortName}</td>
@@ -178,7 +185,7 @@ export const ContentList = () => {
         <div className="block md:hidden divide-y divide-muted">
           {paginatedData.length > 0 ? (
             paginatedData.map((entry, index) => (
-              <div key={entry.id} className="p-4">
+              <div key={entry.id} className="p-4 hover:bg-muted/30">
                 <div className="flex justify-between items-start">
                   <div>
                     <div className="text-sm text-muted-foreground">#{(currentPage - 1) * itemsPerPage + index + 1}</div>

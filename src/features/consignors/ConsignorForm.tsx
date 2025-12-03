@@ -4,8 +4,8 @@ import { Input } from '../../components/shared/Input';
 import { Button } from '../../components/shared/Button';
 import { X, Info } from 'lucide-react';
 import { useData } from '../../hooks/useData';
-import { AutocompleteInput } from '../../components/shared/AutocompleteInput';
-
+import { AsyncAutocomplete } from '../../components/shared/AsyncAutocomplete'; // 🟢 Fixed Import
+import { useToast } from '../../contexts/ToastContext';
 
 // Get today's date in YYYY-MM-DD format
 const getTodayDate = () => new Date().toISOString().split('T')[0];
@@ -32,8 +32,9 @@ const getValidationProp = (value: any) => ({
 });
 
 export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormProps) => {
-  const { consignors, toPlaces } = useData();
+  const { consignors, searchToPlaces } = useData();
   const [duplicateMessage, setDuplicateMessage] = useState<string | null>(null);
+  const toast = useToast();
 
   const [consignor, setConsignor] = useState({
     id: initialData?.id || '', 
@@ -57,6 +58,9 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
     destination: '',
   });
 
+  // 🟢 Local state for Destination dropdown (Async)
+  const [destinationOption, setDestinationOption] = useState<any>(null);
+
   // Check if we are in Update Mode (either editing existing or auto-filled a match)
   const isUpdateMode = !!consignor.id;
 
@@ -66,9 +70,20 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
     if (duplicateMessage) setDuplicateMessage(null);
   };
 
-  // 🟢 4. DEDICATED HANDLER for AutocompleteInput (for Destination)
-  const handleDestinationChange = (value: string) => {
-      setConsignee(prev => ({ ...prev, destination: value }));
+  // 🟢 Async Loader for Destination
+  const loadDestinationOptions = async (search: string, _prevOptions: any, { page }: any) => {
+    const result = await searchToPlaces(search, page);
+    return {
+      options: result.data.map((p: any) => ({ value: p.placeName, label: p.placeName })),
+      hasMore: result.hasMore,
+      additional: { page: page + 1 },
+    };
+  };
+
+  // 🟢 Updated Handler for AsyncAutocomplete
+  const handleDestinationChange = (option: any) => {
+      setDestinationOption(option);
+      setConsignee(prev => ({ ...prev, destination: option?.value || '' }));
       if (duplicateMessage) setDuplicateMessage(null);
   };
   
@@ -79,6 +94,8 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
     const { value } = e.target;
     if (!value.trim()) return;
 
+    // Client-side lookup is still fine here for instant feedback if 'consignors' array is available
+    // (DataContext preserves this for compatibility)
     const existing = consignors.find(c => 
       (c.gst && c.gst.toLowerCase() === value.toLowerCase()) ||
       (c.pan && c.pan.toLowerCase() === value.toLowerCase()) ||
@@ -118,7 +135,7 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
     let savedConsignee: Consignee | undefined = undefined;
     if (addFirstConsignee) {
       if (!consignee.name || !consignee.phone || !consignee.destination || !consignee.address || !consignee.proofValue) {
-        alert("Please fill all required fields for the first consignee.");
+        toast.error("Please fill all required fields for the first consignee.");
         return;
       }
 
@@ -138,10 +155,6 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
     
     onSave(savedConsignor, savedConsignee);
   };
-
-  // 🟢 OPTIONS MAPPING
-  const destinationOptions = toPlaces.map(p => ({ value: p.placeName, label: p.placeName }));
-
 
   return (
     <div className="fixed -inset-6 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
@@ -257,16 +270,19 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
 
                   <Input label="Consignee Name" id="c-name" name="name" value={consignee.name} onChange={handleConsigneeChange} required={addFirstConsignee} { ...getValidationProp(consignee.name)} />
                   <Input label="Phone Number" id="c-phone" name="phone" value={consignee.phone} onChange={handleConsigneeChange} required={addFirstConsignee} {...getValidationProp(consignee.phone)} />
-                  {/* 🟢 3. REPLACE Input WITH AutocompleteInput */}
-                  <AutocompleteInput 
+                  
+                  {/* 🟢 3. Replaced with AsyncAutocomplete */}
+                  <AsyncAutocomplete 
                       label="Destination" 
-                      placeholder="Select or type Destination"
-                      options={destinationOptions} // Use the mapped options
-                      value={consignee.destination} 
-                      onSelect={handleDestinationChange} // Use dedicated handler
+                      placeholder="Search Destination..."
+                      loadOptions={loadDestinationOptions}
+                      value={destinationOption} 
+                      onChange={handleDestinationChange}
                       required 
+                      defaultOptions
                       { ...getValidationProp(consignee.destination)} 
                   />
+                  
                   <div>
                     <label htmlFor="c-address" className="block text-sm font-medium text-muted-foreground">
                       Address {addFirstConsignee && <span className="text-destructive">*</span>} 

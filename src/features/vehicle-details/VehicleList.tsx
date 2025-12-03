@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import type { VehicleEntry } from "../../types";
 import { FilePenLine, Trash2, Search, Download } from "lucide-react";
 import { VehicleForm } from "./VehicleForm";
@@ -16,6 +16,7 @@ export const VehicleList = () => {
     addVehicleEntry,
     updateVehicleEntry,
     deleteVehicleEntry,
+    fetchVehicleEntries
   } = useData();
   const toast = useToast();
   const [search, setSearch] = useState("");
@@ -25,6 +26,11 @@ export const VehicleList = () => {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteMessage, setDeleteMessage] = useState("");
+
+  // --- Fetch on Mount ---
+  useEffect(() => {
+    fetchVehicleEntries();
+  }, [fetchVehicleEntries]);
 
   // Filtered Data
   const filteredEntries = useMemo(() => {
@@ -283,7 +289,6 @@ export const VehicleList = () => {
           )}
         </div>
 
-        {/* Pagination */}
         {filteredEntries.length > 0 && (
           <div className="border-t border-muted p-4">
             <Pagination

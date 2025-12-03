@@ -5,7 +5,7 @@ import type { GcEntry, Consignee } from '../../types';
 import { getTodayDate } from '../../utils/dateHelpers';
 import { Input } from '../../components/shared/Input';
 import { Button } from '../../components/shared/Button';
-import { AutocompleteInput } from '../../components/shared/AutocompleteInput';
+import { AsyncAutocomplete } from '../../components/shared/AsyncAutocomplete'; // 🟢 Fixed Import
 import { Printer, Save, X } from 'lucide-react';
 import { GcPrintManager, type GcPrintJob } from './GcPrintManager';
 import { useToast } from '../../contexts/ToastContext';
@@ -37,10 +37,12 @@ export const GcEntryForm = () => {
     addGcEntry, 
     updateGcEntry, 
     fetchGcById, 
-    getUniqueDests,
-    getPackingTypes,
-    getContentsTypes,
-    // getNextGcNo - Removed usage here
+    // 🟢 New Search Functions
+    searchConsignors,
+    searchConsignees,
+    searchToPlaces,
+    searchPackings,
+    searchContents
   } = useData();
   
   const isEditMode = !!gcNo;
@@ -124,11 +126,71 @@ export const GcEntryForm = () => {
     }
   }, [isEditMode, gcNo, fetchGcById, consignors, consignees, navigate]);
 
-  const consignorOptions = useMemo(() => consignors.map(c => ({ value: c.id, label: c.name })), [consignors]);
-  const consigneeOptions = useMemo(() => consignees.map(c => ({ value: c.id, label: c.name })), [consignees]);
-  const destinationOptions = useMemo(getUniqueDests, [getUniqueDests]);
-  const packingOptions = useMemo(getPackingTypes, [getPackingTypes]);
-  const contentsOptions = useMemo(getContentsTypes, [getContentsTypes]);
+  // 🟢 Async Loader Functions
+  // Using `_prevOptions` to avoid unused variable warning
+  const loadConsignorOptions = async (search: string, _prevOptions: any, { page }: any) => {
+    const result = await searchConsignors(search, page);
+    return {
+      options: result.data.map((c: any) => ({ value: c.id, label: c.name })),
+      hasMore: result.hasMore,
+      additional: { page: page + 1 },
+    };
+  };
+
+  const loadConsigneeOptions = async (search: string, _prevOptions: any, { page }: any) => {
+    const result = await searchConsignees(search, page);
+    return {
+      options: result.data.map((c: any) => ({ value: c.id, label: c.name })),
+      hasMore: result.hasMore,
+      additional: { page: page + 1 },
+    };
+  };
+
+  const loadPlaceOptions = async (search: string, _prevOptions: any, { page }: any) => {
+    const result = await searchToPlaces(search, page);
+    return {
+      options: result.data.map((p: any) => ({ value: p.placeName, label: p.placeName })),
+      hasMore: result.hasMore,
+      additional: { page: page + 1 },
+    };
+  };
+
+  const loadPackingOptions = async (search: string, _prevOptions: any, { page }: any) => {
+    const result = await searchPackings(search, page);
+    return {
+      options: result.data.map((p: any) => ({ value: p.packingName, label: p.packingName })),
+      hasMore: result.hasMore,
+      additional: { page: page + 1 },
+    };
+  };
+
+  const loadContentOptions = async (search: string, _prevOptions: any, { page }: any) => {
+    const result = await searchContents(search, page);
+    return {
+      options: result.data.map((c: any) => ({ value: c.contentName, label: c.contentName })),
+      hasMore: result.hasMore,
+      additional: { page: page + 1 },
+    };
+  };
+
+  // 🟢 Derived Values for AsyncAutocomplete
+  // These create the { label, value } objects needed by the dropdowns, using cached data if available.
+  const consignorValue = useMemo(() => {
+     const c = consignors.find(x => x.id === form.consignorId);
+     return c ? { value: c.id, label: c.name } : (form.consignorId ? { value: form.consignorId, label: 'Loading...' } : null);
+  }, [form.consignorId, consignors]);
+
+  const consigneeValue = useMemo(() => {
+    const c = consignees.find(x => x.id === form.consigneeId);
+    return c ? { value: c.id, label: c.name } : (form.consigneeId ? { value: form.consigneeId, label: 'Loading...' } : null);
+  }, [form.consigneeId, consignees]);
+
+  const destinationValue = form.destination ? { value: form.destination, label: form.destination } : null;
+  const packingValue = form.packing ? { value: form.packing, label: form.packing } : null;
+  const contentsValue = form.contents ? { value: form.contents, label: form.contents } : null;
+  const deliveryValue = form.deliveryAt ? { value: form.deliveryAt, label: form.deliveryAt } : null;
+  const freightValue = form.freightUptoAt ? { value: form.freightUptoAt, label: form.freightUptoAt } : null;
+
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -140,6 +202,7 @@ export const GcEntryForm = () => {
   };
 
   const handleFormValueChange = (name: keyof typeof form, value: string | number) => { setForm(prev => ({ ...prev, [name]: value as string })); };
+  
   const handleDestinationSelect = (dest: string) => { setForm(prev => ({ ...prev, destination: dest, deliveryAt: dest, freightUptoAt: dest })); };
   
   const handleConsignorSelect = (id: string) => {
@@ -174,7 +237,6 @@ export const GcEntryForm = () => {
   // 🟢 UPDATED HANDLE SAVE
   const handleSave = async (andPrint = false) => {
    
-    
     // --- CHANGE: Don't fetch next number here. Send empty if new. ---
     const finalGcNo = isEditMode ? form.gcNo : ""; 
     
@@ -229,7 +291,15 @@ export const GcEntryForm = () => {
                 <Input label="From (GC)" name="from" value={form.from} onChange={handleChange} required {...getValidationProp(form.from)} disabled />
               </div>
               <div className="col-span-1">
-                <AutocompleteInput label="Destination" options={destinationOptions} value={form.destination} onSelect={handleDestinationSelect} placeholder="" required {...getValidationProp(form.destination)} />
+                <AsyncAutocomplete 
+                  label="Destination" 
+                  loadOptions={loadPlaceOptions} 
+                  value={destinationValue} 
+                  onChange={(v: any) => handleDestinationSelect(v?.value || '')} 
+                  placeholder="Search..." 
+                  required 
+                  {...getValidationProp(form.destination)} 
+                />
               </div>
             </div>
           </div>
@@ -237,12 +307,32 @@ export const GcEntryForm = () => {
           <div>
             <h3 className="text-base font-bold text-primary border-b border-border pb-2 mb-4">Parties</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 mb-4">
-              <div className="col-span-1 sm:col-span-2 lg:col-span-5"><AutocompleteInput label="Consignor Name" options={consignorOptions} value={form.consignorId} onSelect={handleConsignorSelect} placeholder="" required { ...getValidationProp(form.consignorId)} /></div>
+              <div className="col-span-1 sm:col-span-2 lg:col-span-5">
+                <AsyncAutocomplete 
+                  label="Consignor Name" 
+                  loadOptions={loadConsignorOptions} 
+                  value={consignorValue} 
+                  onChange={(v: any) => handleConsignorSelect(v?.value || '')} 
+                  placeholder="Search..." 
+                  required 
+                  { ...getValidationProp(form.consignorId)} 
+                />
+              </div>
               <div className="col-span-1 lg:col-span-4"><Input label="Consignor GSTIN" value={consignorGst} disabled required { ...getValidationProp(consignorGst)} /></div>
               <div className="col-span-1 lg:col-span-3"><Input label="Consignor From" value={form.from} disabled required { ...getValidationProp(form.from)} /></div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4">
-              <div className="col-span-1 sm:col-span-2 lg:col-span-5"><AutocompleteInput label="Consignee Name" options={consigneeOptions} value={form.consigneeId} onSelect={handleConsigneeSelect} placeholder="" required {...getValidationProp(form.consigneeId)} /></div>
+              <div className="col-span-1 sm:col-span-2 lg:col-span-5">
+                <AsyncAutocomplete 
+                  label="Consignee Name" 
+                  loadOptions={loadConsigneeOptions} 
+                  value={consigneeValue} 
+                  onChange={(v: any) => handleConsigneeSelect(v?.value || '')} 
+                  placeholder="Search..." 
+                  required 
+                  {...getValidationProp(form.consigneeId)} 
+                />
+              </div>
               <div className="col-span-1 lg:col-span-3"><Input label="Consignee Dest" value={consigneeDestDisplay} disabled required { ...getValidationProp(consigneeDestDisplay)} /></div>
               <div className="col-span-1 lg:col-span-2">
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Proof Type *</label>
@@ -255,8 +345,28 @@ export const GcEntryForm = () => {
           <div>
              <h3 className="text-base font-bold text-primary border-b border-border pb-2 mb-4">Routing</h3>
              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="col-span-1"><AutocompleteInput label="Delivery At" options={destinationOptions} value={form.deliveryAt} onSelect={(v) => handleFormValueChange('deliveryAt', v)} placeholder="" required { ...getValidationProp(form.deliveryAt)} /></div>
-              <div className="col-span-1"><AutocompleteInput label="Freight Upto" options={destinationOptions} value={form.freightUptoAt} onSelect={(v) => handleFormValueChange('freightUptoAt', v)} placeholder="" required { ...getValidationProp(form.freightUptoAt)} /></div>
+              <div className="col-span-1">
+                <AsyncAutocomplete 
+                  label="Delivery At" 
+                  loadOptions={loadPlaceOptions} 
+                  value={deliveryValue} 
+                  onChange={(v: any) => handleFormValueChange('deliveryAt', v?.value || '')} 
+                  placeholder="" 
+                  required 
+                  { ...getValidationProp(form.deliveryAt)} 
+                />
+              </div>
+              <div className="col-span-1">
+                <AsyncAutocomplete 
+                  label="Freight Upto" 
+                  loadOptions={loadPlaceOptions} 
+                  value={freightValue} 
+                  onChange={(v: any) => handleFormValueChange('freightUptoAt', v?.value || '')} 
+                  placeholder="" 
+                  required 
+                  { ...getValidationProp(form.freightUptoAt)} 
+                />
+              </div>
               <div className="col-span-1"><Input label="Godown" name="godown" value={form.godown} onChange={handleChange} /></div>
             </div>
           </div>
@@ -268,8 +378,28 @@ export const GcEntryForm = () => {
               <div className="col-span-1"><Input label="From No" name="fromNo" value={form.fromNo} onChange={handleChange} required { ...getValidationProp(form.fromNo)} /></div>
               <div className="col-span-1"><Input label="To No" value={toNo > 0 ? toNo : ''} disabled /></div>
               <div className="col-span-1"><Input label="Net Qty" name="netQty" value={form.netQty} onChange={handleChange} required { ...getValidationProp(form.netQty)} /></div>
-              <div className="col-span-1"><AutocompleteInput label="Packing" options={packingOptions} value={form.packing} onSelect={(v) => handleFormValueChange('packing', v)} placeholder="" required { ...getValidationProp(form.packing)} /></div>
-              <div className="col-span-1"><AutocompleteInput label="Contents" options={contentsOptions} value={form.contents} onSelect={(v) => handleFormValueChange('contents', v)} placeholder="" required { ...getValidationProp(form.contents)} /></div>
+              <div className="col-span-1">
+                <AsyncAutocomplete 
+                  label="Packing" 
+                  loadOptions={loadPackingOptions} 
+                  value={packingValue} 
+                  onChange={(v: any) => handleFormValueChange('packing', v?.value || '')} 
+                  placeholder="" 
+                  required 
+                  { ...getValidationProp(form.packing)} 
+                />
+              </div>
+              <div className="col-span-1">
+                <AsyncAutocomplete 
+                  label="Contents" 
+                  loadOptions={loadContentOptions} 
+                  value={contentsValue} 
+                  onChange={(v: any) => handleFormValueChange('contents', v?.value || '')} 
+                  placeholder="" 
+                  required 
+                  { ...getValidationProp(form.contents)} 
+                />
+              </div>
               <div className="col-span-1"><Input label="Prefix" name="prefix" value={form.prefix} onChange={handleChange} /></div>
             </div>
           </div>

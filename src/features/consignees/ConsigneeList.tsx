@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { Consignee } from '../../types';
 import { FilePenLine, Trash2, Search, Filter, XCircle, RotateCcw, Download } from 'lucide-react';
 import { ConsigneeForm } from './ConsigneeForm';
@@ -10,8 +10,9 @@ import { usePagination } from '../../utils/usePagination';
 import { Pagination } from '../../components/shared/Pagination';
 import { CsvImporter } from '../../components/shared/CsvImporter';
 import { useToast } from '../../contexts/ToastContext';
+
 export const ConsigneeList = () => {
-  const { consignees, addConsignee, updateConsignee, deleteConsignee } = useData();
+  const { consignees, addConsignee, updateConsignee, deleteConsignee, fetchConsignees } = useData();
   const toast = useToast();
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -25,6 +26,11 @@ export const ConsigneeList = () => {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteMessage, setDeleteMessage] = useState("");
+
+  // --- Fetch on Mount (Screen-Wise API Call) ---
+  useEffect(() => {
+    fetchConsignees();
+  }, [fetchConsignees]);
 
   const clearAllFilters = () => {
     setSearch('');
@@ -165,6 +171,7 @@ export const ConsigneeList = () => {
           <CsvImporter<Consignee>
             onImport={handleImport}
             existingData={consignees}
+            label="Import" // Added label for mobile fit
             className={responsiveBtnClass} // Responsive Class
             checkDuplicate={(newItem, existing) => 
               newItem.name.trim().toLowerCase() === existing.name.trim().toLowerCase() && 

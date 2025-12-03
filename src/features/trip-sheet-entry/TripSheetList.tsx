@@ -1,30 +1,33 @@
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FilePenLine, Trash2, Search, Printer, FileText, Filter, XCircle, RotateCcw } from "lucide-react";
 import { DateFilterButtons, getTodayDate, getYesterdayDate } from "../../components/shared/DateFilterButtons";
 import { ConfirmationDialog } from "../../components/shared/ConfirmationDialog";
 import { Button } from "../../components/shared/Button";
-import { AutocompleteInput } from "../../components/shared/AutocompleteInput";
-import { MultiSelect } from "../../components/shared/MultiSelect";
+import { AsyncAutocomplete } from "../../components/shared/AsyncAutocomplete"; // 🟢 Updated Import
 import { useData } from "../../hooks/useData";
 import { useServerPagination } from "../../hooks/useServerPagination";
 import type { TripSheetEntry } from "../../types"; 
 import { Pagination } from "../../components/shared/Pagination";
 import { TripSheetPrintManager } from "./TripSheetPrintManager";
 import { TripSheetReportPrint } from "./TripSheetReportView";
-import { useToast } from "../../contexts/ToastContext"; // 🟢 IMPORTED
+import { useToast } from "../../contexts/ToastContext";
 
 export const TripSheetList = () => {
   const navigate = useNavigate();
-  // 🟢 UPDATED: Imported fetchTripSheetReport
-  const { deleteTripSheet, consignees, consignors, getUniqueDests, fetchTripSheetPrintData, fetchTripSheetReport } = useData(); 
+  const { 
+    deleteTripSheet, 
+    fetchTripSheetPrintData, 
+    fetchTripSheetReport,
+    // 🟢 NEW: Destructure search functions
+    searchConsignors,
+    searchConsignees,
+    searchToPlaces 
+  } = useData(); 
+  
   const toast = useToast();
-  // --- 1. FILTER OPTIONS ---
-  const placeOptions = useMemo(getUniqueDests, [getUniqueDests]);
-  const consignorOptions = useMemo(() => consignors.map(c => ({ value: c.id, label: c.name })), [consignors]);
-  const consigneeOptions = useMemo(() => consignees.map(c => ({ value: c.id, label: c.name })), [consignees]);
 
-  // --- 2. SERVER PAGINATION (Optimized Payload) ---
+  // --- SERVER PAGINATION ---
   const {
     data: paginatedData,
     loading,
@@ -45,18 +48,50 @@ export const TripSheetList = () => {
 
   const [showFilters, setShowFilters] = useState(false);
   
+  // 🟢 NEW: Local state for dropdown option objects
+  const [destinationOption, setDestinationOption] = useState<any>(null);
+  const [consignorOption, setConsignorOption] = useState<any>(null);
+  const [consigneeOptions, setConsigneeOptions] = useState<any[]>([]);
+
   // Changed state to hold actual data instead of just IDs
   const [printingSheets, setPrintingSheets] = useState<TripSheetEntry[] | null>(null);
-  
   const [reportPrintingJobs, setReportPrintingJobs] = useState<TripSheetEntry[] | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   
-  // NEW: Select All Mode
+  // Select All Mode
   const [selectAllMode, setSelectAllMode] = useState(false);
 
   const [delId, setDelId] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteMessage, setDeleteMessage] = useState("");
+
+  // 🟢 NEW: Async Options Loaders
+  const loadDestinationOptions = async (search: string, _prevOptions: any, { page }: any) => {
+    const result = await searchToPlaces(search, page);
+    return {
+      options: result.data.map((p: any) => ({ value: p.placeName, label: p.placeName })),
+      hasMore: result.hasMore,
+      additional: { page: page + 1 },
+    };
+  };
+
+  const loadConsignorOptions = async (search: string, _prevOptions: any, { page }: any) => {
+    const result = await searchConsignors(search, page);
+    return {
+      options: result.data.map((c: any) => ({ value: c.id, label: c.name })),
+      hasMore: result.hasMore,
+      additional: { page: page + 1 },
+    };
+  };
+
+  const loadConsigneeOptions = async (search: string, _prevOptions: any, { page }: any) => {
+    const result = await searchConsignees(search, page);
+    return {
+      options: result.data.map((c: any) => ({ value: c.id, label: c.name })),
+      hasMore: result.hasMore,
+      additional: { page: page + 1 },
+    };
+  };
 
   // --- Filter Handlers ---
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -100,6 +135,12 @@ export const TripSheetList = () => {
   };
 
   const clearAllFilters = () => {
+    // Reset local dropdown states
+    setDestinationOption(null);
+    setConsignorOption(null);
+    setConsigneeOptions([]);
+
+    // Reset API filters
     setFilters({ 
         search: '', 
         filterType: 'all', 
@@ -192,15 +233,12 @@ export const TripSheetList = () => {
     }
   };
   
-  // 🟢 UPDATED: New Report Logic
   const handleShowReport = async () => { 
     try {
         // Call new API with current filters
         const reportData = await fetchTripSheetReport(filters);
         
         if (reportData && reportData.length > 0) {
-            // Cast to TripSheetEntry[] as the report view only needs specific fields
-            // which are present in the lightweight API response
             setReportPrintingJobs(reportData as TripSheetEntry[]); 
         } else {
             toast.error("No data found for report."); 
@@ -291,31 +329,48 @@ export const TripSheetList = () => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-             <AutocompleteInput 
+             
+             {/* 🟢 Destination Filter */}
+             <AsyncAutocomplete 
                 label="Filter by Destination" 
-                options={placeOptions} 
-                value={filters.toPlace || ''} 
-                onSelect={(val) => setFilters({ toPlace: val })} 
+                loadOptions={loadDestinationOptions}
+                value={destinationOption} 
+                onChange={(val: any) => {
+                    setDestinationOption(val);
+                    setFilters({ toPlace: val?.value || '' });
+                }} 
                 placeholder="Select destination..." 
+                defaultOptions
              />
              
-             <AutocompleteInput 
+             {/* 🟢 Consignor Filter */}
+             <AsyncAutocomplete 
                 label="Filter by Consignor" 
-                options={consignorOptions} 
-                value={filters.consignor || ''} 
-                onSelect={(val) => setFilters({ consignor: val })} 
+                loadOptions={loadConsignorOptions}
+                value={consignorOption} 
+                onChange={(val: any) => {
+                    setConsignorOption(val);
+                    setFilters({ consignor: val?.value || '' });
+                }} 
                 placeholder="Select consignor..." 
+                defaultOptions
              />
              
+             {/* 🟢 Consignee Filter (Multi-select) */}
              <div>
-               <label className="text-sm text-muted-foreground mb-0.5">Filter by Consignee</label>
-               <MultiSelect 
-                  options={consigneeOptions} 
-                  selected={filters.consignee || []} 
-                  onChange={(val) => setFilters({ consignee: val })} 
+               <AsyncAutocomplete 
+                  label="Filter by Consignee (Multi-select)" 
+                  loadOptions={loadConsigneeOptions}
+                  value={consigneeOptions} 
+                  onChange={(val: any) => {
+                    const arr = Array.isArray(val) ? val : (val ? [val] : []);
+                    setConsigneeOptions(arr);
+                    const ids = arr.map((v: any) => v.value);
+                    setFilters({ consignee: ids });
+                  }} 
                   placeholder="Select consignees..." 
-                  searchPlaceholder="Search..." 
-                  emptyPlaceholder="None found" 
+                  isMulti={true}
+                  defaultOptions
                />
              </div>
           </div>

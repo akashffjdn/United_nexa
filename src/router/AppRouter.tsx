@@ -61,7 +61,8 @@ const ProtectedRoute = ({ requireAdmin = false }: { requireAdmin?: boolean }) =>
     <DataProvider>
       <Layout>
         {/* 🟢 SUSPENSE: Shows loading screen while the specific page chunk is being fetched */}
-        <Suspense fallback={<LoadingScreen message="Loading Page..." variant="minimal" />}>
+        {/* CHANGED: Set fallback to null to prevent double loading screens (Global Loader + This) */}
+        <Suspense fallback={null}>
           <Outlet />
         </Suspense>
       </Layout>

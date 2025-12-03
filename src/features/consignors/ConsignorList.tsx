@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { Consignor, Consignee } from '../../types';
 import { FilePenLine, Trash2, Search, Filter, XCircle, RotateCcw, Download } from 'lucide-react';
 import { ConsignorForm } from './ConsignorForm';
@@ -12,7 +12,7 @@ import { CsvImporter } from '../../components/shared/CsvImporter';
 import { useToast } from '../../contexts/ToastContext';
 
 export const ConsignorList = () => {
-  const { consignors, addConsignor, updateConsignor, deleteConsignor, addConsignee } = useData();
+  const { consignors, addConsignor, updateConsignor, deleteConsignor, addConsignee, fetchConsignors } = useData();
   const toast = useToast();
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -26,6 +26,11 @@ export const ConsignorList = () => {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteMessage, setDeleteMessage] = useState(""); 
+
+  // --- Fetch on Mount ---
+  useEffect(() => {
+    fetchConsignors();
+  }, [fetchConsignors]);
 
   const clearAllFilters = () => {
     setSearch('');

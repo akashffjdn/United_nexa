@@ -1,18 +1,17 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FilePenLine, Trash2, Search, Printer, FileText, Filter, XCircle, RotateCcw } from 'lucide-react';
 import { DateFilterButtons, getTodayDate, getYesterdayDate } from '../../components/shared/DateFilterButtons';
 import { ConfirmationDialog } from '../../components/shared/ConfirmationDialog';
 import { useData } from '../../hooks/useData';
 import { Button } from '../../components/shared/Button';
-import { AutocompleteInput } from '../../components/shared/AutocompleteInput';
-import { MultiSelect } from '../../components/shared/MultiSelect';
+import { AsyncAutocomplete } from '../../components/shared/AsyncAutocomplete'; // 🟢 Updated Import
 import { StockReportPrint } from './StockReportView';
 import { GcPrintManager, type GcPrintJob } from '../gc-entry/GcPrintManager';
 import type { GcEntry, Consignor, Consignee } from '../../types';
 import { useServerPagination } from '../../hooks/useServerPagination'; 
 import { Pagination } from '../../components/shared/Pagination';
-import { useToast } from '../../contexts/ToastContext'; // 🟢 IMPORTED
+import { useToast } from '../../contexts/ToastContext';
 
 type ReportJob = {
   gc: GcEntry;
@@ -22,10 +21,18 @@ type ReportJob = {
 
 export const PendingStockHistory = () => {
   const navigate = useNavigate();
-  // 🟢 IMPORTED fetchPendingStockReport
-  const { deleteGcEntry, consignors, consignees, getUniqueDests, fetchGcPrintData, fetchPendingStockReport } = useData();
+  const { 
+    deleteGcEntry, 
+    fetchGcPrintData, 
+    fetchPendingStockReport,
+    // 🟢 NEW: Destructure search functions
+    searchConsignors,
+    searchConsignees,
+    searchToPlaces
+  } = useData();
+  
   const toast = useToast();
-  // ... [Server Pagination Hook - Unchanged] ...
+  
   const {
     data: paginatedData,
     loading,
@@ -44,6 +51,12 @@ export const PendingStockHistory = () => {
   });
 
   const [showFilters, setShowFilters] = useState(false);
+  
+  // 🟢 NEW: Local state for dropdown option objects
+  const [destinationOption, setDestinationOption] = useState<any>(null);
+  const [consignorOption, setConsignorOption] = useState<any>(null);
+  const [consigneeOptions, setConsigneeOptions] = useState<any[]>([]);
+
   const [selectedGcIds, setSelectedGcIds] = useState<string[]>([]);
   const [selectAllMode, setSelectAllMode] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -52,9 +65,33 @@ export const PendingStockHistory = () => {
   const [reportPrintingJobs, setReportPrintingJobs] = useState<ReportJob[] | null>(null);
   const [gcPrintingJobs, setGcPrintingJobs] = useState<GcPrintJob[] | null>(null);
   
-  const allConsignorOptions = useMemo(() => consignors.map(c => ({ value: c.id, label: c.name })), [consignors]);
-  const allConsigneeOptions = useMemo(() => consignees.map(c => ({ value: c.id, label: c.name })), [consignees]);
-  const allDestinationOptions = useMemo(getUniqueDests, [getUniqueDests]);
+  // 🟢 NEW: Async Options Loaders
+  const loadDestinationOptions = async (search: string, _prevOptions: any, { page }: any) => {
+    const result = await searchToPlaces(search, page);
+    return {
+      options: result.data.map((p: any) => ({ value: p.placeName, label: p.placeName })),
+      hasMore: result.hasMore,
+      additional: { page: page + 1 },
+    };
+  };
+
+  const loadConsignorOptions = async (search: string, _prevOptions: any, { page }: any) => {
+    const result = await searchConsignors(search, page);
+    return {
+      options: result.data.map((c: any) => ({ value: c.id, label: c.name })),
+      hasMore: result.hasMore,
+      additional: { page: page + 1 },
+    };
+  };
+
+  const loadConsigneeOptions = async (search: string, _prevOptions: any, { page }: any) => {
+    const result = await searchConsignees(search, page);
+    return {
+      options: result.data.map((c: any) => ({ value: c.id, label: c.name })),
+      hasMore: result.hasMore,
+      additional: { page: page + 1 },
+    };
+  };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFilters({ search: e.target.value });
@@ -97,6 +134,12 @@ export const PendingStockHistory = () => {
   };
 
   const clearAllFilters = () => {
+    // Reset local dropdown states
+    setDestinationOption(null);
+    setConsignorOption(null);
+    setConsigneeOptions([]);
+
+    // Reset API filters
     setFilters({ 
         search: '', 
         filterType: 'all', 
@@ -194,9 +237,7 @@ export const PendingStockHistory = () => {
     }
   };
 
-  // 🟢 UPDATED: Use New API Call for Report
   const handleShowReport = async () => {
-    // Note: We use 'filters' (state) which contains current search criteria
     try {
         const reportData = await fetchPendingStockReport(filters);
         
@@ -205,17 +246,14 @@ export const PendingStockHistory = () => {
             return;
         }
 
-        // Map the lightweight API response to the format expected by StockReportView
         const jobs: ReportJob[] = reportData.map((item: any) => ({
             gc: {
-                // Pass basic fields needed for the report table
                 id: item.id,
                 gcNo: item.gcNo,
                 gcDate: item.gcDate,
                 quantity: item.quantity,
                 packing: item.packing,
                 contents: item.contents,
-                // These mandatory fields are not in the response, passing defaults is fine for report view
                 from: '', 
                 destination: '',
                 consignorId: '',
@@ -240,7 +278,6 @@ export const PendingStockHistory = () => {
                 paymentType: 'To Pay'
             } as GcEntry,
             
-            // Map the nested name objects to Satisfy Consignor/Consignee interfaces
             consignor: { 
                 id: 'report-only', 
                 name: item.consignor.name, 
@@ -291,6 +328,8 @@ export const PendingStockHistory = () => {
   
   const isAllSelected = selectAllMode || (paginatedData.length > 0 && selectedGcIds.length === paginatedData.length);
   const hasActiveFilters = !!filters.destination || !!filters.consignor || (filters.consignee && filters.consignee.length > 0) || filters.filterType !== 'all' || !!filters.search;
+  
+  // --- RESPONSIVE BUTTON STYLE HELPER ---
   const responsiveBtnClass = "flex-1 md:flex-none text-[10px] xs:text-xs sm:text-sm h-8 sm:h-10 px-1 sm:px-4 whitespace-nowrap";
   
   const printButtonText = selectAllMode 
@@ -327,7 +366,6 @@ export const PendingStockHistory = () => {
           <Button 
             variant="secondary" 
             onClick={handleShowReport} 
-            // Removed disabled check based on pagination length, as we fetch from server now
             className={responsiveBtnClass}
           >
             <FileText size={14} className="mr-1 sm:mr-2" /> Report
@@ -369,29 +407,48 @@ export const PendingStockHistory = () => {
            </div>
            
            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-             <AutocompleteInput 
+             
+             {/* 🟢 Async Destination Filter */}
+             <AsyncAutocomplete 
                label="Destination" 
-               options={allDestinationOptions} 
-               value={filters.destination || ''} 
-               onSelect={(val) => setFilters({ destination: val })} 
+               loadOptions={loadDestinationOptions}
+               value={destinationOption} 
+               onChange={(val) => {
+                 setDestinationOption(val);
+                 setFilters({ destination: (val as any)?.value || '' });
+               }} 
                placeholder="Search..." 
+               defaultOptions
              />
-             <AutocompleteInput 
+
+             {/* 🟢 Async Consignor Filter */}
+             <AsyncAutocomplete 
                label="Consignor" 
-               options={allConsignorOptions} 
-               value={filters.consignor || ''} 
-               onSelect={(val) => setFilters({ consignor: val })} 
+               loadOptions={loadConsignorOptions}
+               value={consignorOption} 
+               onChange={(val) => {
+                 setConsignorOption(val);
+                 setFilters({ consignor: (val as any)?.value || '' });
+               }} 
                placeholder="Search..." 
+               defaultOptions
              />
+             
+             {/* 🟢 Async Consignee Filter (Multi-Select) */}
              <div>
-               <label className="block text-sm font-medium text-muted-foreground mb-1">Consignee</label>
-               <MultiSelect 
-                 options={allConsigneeOptions} 
-                 selected={filters.consignee || []} 
-                 onChange={(val) => setFilters({ consignee: val })} 
-                 placeholder="Select..." 
-                 searchPlaceholder="" 
-                 emptyPlaceholder="" 
+               <AsyncAutocomplete 
+                  label="Consignee (Multi-select)" 
+                  loadOptions={loadConsigneeOptions}
+                  value={consigneeOptions} 
+                  onChange={(val) => {
+                    const arr = Array.isArray(val) ? val : (val ? [val] : []);
+                    setConsigneeOptions(arr);
+                    const ids = arr.map((v: any) => v.value);
+                    setFilters({ consignee: ids });
+                  }} 
+                  placeholder="Select..." 
+                  defaultOptions
+                  isMulti={true}
                />
              </div>
            </div>
@@ -428,12 +485,17 @@ export const PendingStockHistory = () => {
               {loading ? (
                  <tr><td colSpan={8} className="px-6 py-12 text-center">Loading data...</td></tr>
               ) : paginatedData.length > 0 ? (
-                paginatedData.map((gc) => (
+                paginatedData.map((gc) => {
+                  // 🟢 FIX: Use names from backend directly
+                  const consignorName = (gc as any).consignorName || 'N/A';
+                  const consigneeName = (gc as any).consigneeName || 'N/A';
+                  
+                  return (
                   <tr key={gc.id}>
                      <td className="px-4 py-4"><input type="checkbox" className="h-4 w-4 accent-primary" checked={selectedGcIds.includes(gc.gcNo)} onChange={(e) => handleSelectRow(e, gc.gcNo)} /></td>
                      <td className="px-6 py-4 text-primary font-semibold">{gc.gcNo}</td>
-                     <td className="px-6 py-4 text-sm">{consignors.find(c=>c.id===gc.consignorId)?.name || 'N/A'}</td>
-                     <td className="px-6 py-4 text-sm">{consignees.find(c=>c.id===gc.consigneeId)?.name || 'N/A'}</td>
+                     <td className="px-6 py-4 text-sm">{consignorName}</td>
+                     <td className="px-6 py-4 text-sm">{consigneeName}</td>
                      <td className="px-6 py-4 text-sm">{gc.from}</td>
                      <td className="px-6 py-4 text-sm">{gc.destination}</td>
                      <td className="px-6 py-4 text-sm">{gc.quantity}</td>
@@ -443,7 +505,8 @@ export const PendingStockHistory = () => {
                         <button onClick={() => handleDelete(gc.gcNo)} className="text-destructive"><Trash2 size={18} /></button>
                      </td>
                   </tr>
-                ))
+                  );
+                })
               ) : (
                 <tr><td colSpan={8} className="px-6 py-12 text-center text-muted-foreground">No Pending Stock entries found.</td></tr>
               )}
@@ -455,8 +518,10 @@ export const PendingStockHistory = () => {
          <div className="block md:hidden divide-y divide-muted">
            {paginatedData.length > 0 ? (
              paginatedData.map((gc) => {
-               const consignor = consignors.find(c => c.id === gc.consignorId);
-               const consignee = consignees.find(c => c.id === gc.consigneeId);
+               // 🟢 FIX: Use names from backend directly
+               const consignorName = (gc as any).consignorName || 'N/A';
+               const consigneeName = (gc as any).consigneeName || 'N/A';
+               
                return (
                <div key={gc.id} className="p-4 hover:bg-muted/30 transition-colors">
                   <div className="flex justify-between items-start">
@@ -466,8 +531,8 @@ export const PendingStockHistory = () => {
                         </div>
                         <div className="space-y-1 w-full">
                            <div className="font-bold text-blue-600 text-lg">GC #{gc.gcNo}</div>
-                           <div className="font-semibold text-foreground">{consignor?.name || 'N/A'}</div>
-                           <div className="text-sm text-muted-foreground">To: {consignee?.name || 'N/A'}</div>
+                           <div className="font-semibold text-foreground">{consignorName}</div>
+                           <div className="text-sm text-muted-foreground">To: {consigneeName}</div>
                            <div className="text-sm text-muted-foreground">From: {gc.from}</div>
                            <div className="text-sm text-muted-foreground">At: {gc.destination}</div>
                         </div>

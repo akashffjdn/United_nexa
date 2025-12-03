@@ -1,11 +1,10 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Trash2, Search, Printer, PackageCheck, Filter, RotateCcw, XCircle } from 'lucide-react';
 import { DateFilterButtons, getTodayDate, getYesterdayDate } from '../../components/shared/DateFilterButtons';
 import { ConfirmationDialog } from '../../components/shared/ConfirmationDialog';
 import { useData } from '../../hooks/useData';
 import { Button } from '../../components/shared/Button';
-import { AutocompleteInput } from '../../components/shared/AutocompleteInput';
-import { MultiSelect } from '../../components/shared/MultiSelect';
+import { AsyncAutocomplete } from '../../components/shared/AsyncAutocomplete'; // 🟢 Updated Import
 import { GcPrintManager, type GcPrintJob } from '../gc-entry/GcPrintManager';
 import type { GcEntry, Consignor, Consignee } from '../../types';
 
@@ -23,8 +22,19 @@ type ReportJob = {
 };
 
 export const LoadingSheetEntry = () => {
-  const { deleteGcEntry, consignors, consignees, getUniqueDests, saveLoadingProgress, fetchGcById, fetchLoadingSheetPrintData } = useData();
+  const { 
+    deleteGcEntry, 
+    saveLoadingProgress, 
+    fetchGcById, 
+    fetchLoadingSheetPrintData,
+    // 🟢 NEW: Destructure search functions
+    searchConsignors,
+    searchConsignees,
+    searchToPlaces
+  } = useData();
+  
   const toast = useToast();
+  
   // --- SERVER-SIDE PAGINATION HOOK ---
   const {
     data: paginatedData,
@@ -47,9 +57,13 @@ export const LoadingSheetEntry = () => {
   // --- UI State ---
   const [showFilters, setShowFilters] = useState(false);
   
+  // 🟢 NEW: Local state for dropdown option objects
+  const [destinationOption, setDestinationOption] = useState<any>(null);
+  const [consignorOption, setConsignorOption] = useState<any>(null);
+  const [consigneeOptions, setConsigneeOptions] = useState<any[]>([]);
+
   // --- Selection and Delete State ---
   const [selectedGcIds, setSelectedGcIds] = useState<string[]>([]);
-  // NEW: Select All Mode
   const [selectAllMode, setSelectAllMode] = useState(false);
 
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -107,6 +121,11 @@ export const LoadingSheetEntry = () => {
   };
 
   const clearAllFilters = () => {
+    // Reset local dropdowns
+    setDestinationOption(null);
+    setConsignorOption(null);
+    setConsigneeOptions([]);
+
     setFilters({ 
         search: '', 
         filterType: 'all', 
@@ -118,9 +137,33 @@ export const LoadingSheetEntry = () => {
     });
   };
 
-  const destinationOptions = useMemo(getUniqueDests, [getUniqueDests]);
-  const allConsignorOptions = useMemo(() => consignors.map(c => ({ value: c.id, label: c.name })), [consignors]);
-  const allConsigneeOptions = useMemo(() => consignees.map(c => ({ value: c.id, label: c.name })), [consignees]);
+  // 🟢 NEW: Async Options Loaders
+  const loadDestinationOptions = async (search: string, _prevOptions: any, { page }: any) => {
+    const result = await searchToPlaces(search, page);
+    return {
+      options: result.data.map((p: any) => ({ value: p.placeName, label: p.placeName })),
+      hasMore: result.hasMore,
+      additional: { page: page + 1 },
+    };
+  };
+
+  const loadConsignorOptions = async (search: string, _prevOptions: any, { page }: any) => {
+    const result = await searchConsignors(search, page);
+    return {
+      options: result.data.map((c: any) => ({ value: c.id, label: c.name })),
+      hasMore: result.hasMore,
+      additional: { page: page + 1 },
+    };
+  };
+
+  const loadConsigneeOptions = async (search: string, _prevOptions: any, { page }: any) => {
+    const result = await searchConsignees(search, page);
+    return {
+      options: result.data.map((c: any) => ({ value: c.id, label: c.name })),
+      hasMore: result.hasMore,
+      additional: { page: page + 1 },
+    };
+  };
 
   // --- ACTIONS ---
 
@@ -189,7 +232,7 @@ export const LoadingSheetEntry = () => {
                 gc: gcData as GcEntry,
                 consignor: { 
                     ...consignor, 
-                    id: consignor.id || consignor._id // Map _id if id is missing
+                    id: consignor.id || consignor._id 
                 } as Consignor,
                 consignee: { 
                     ...consignee, 
@@ -344,29 +387,48 @@ export const LoadingSheetEntry = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <AutocompleteInput
+            
+            {/* 🟢 Destination Filter */}
+            <AsyncAutocomplete
               label="Filter by Destination"
-              options={destinationOptions}
-              value={filters.destination || ''}
-              onSelect={(val) => setFilters({ destination: val })}
+              loadOptions={loadDestinationOptions}
+              value={destinationOption}
+              onChange={(val: any) => {
+                setDestinationOption(val);
+                setFilters({ destination: val?.value || '' });
+              }}
               placeholder="Type to search destination..."
+              defaultOptions
             />
-            <AutocompleteInput
+
+            {/* 🟢 Consignor Filter */}
+            <AsyncAutocomplete
               label="Filter by Consignor"
-              options={allConsignorOptions}
-              value={filters.consignor || ''}
-              onSelect={(val) => setFilters({ consignor: val })}
+              loadOptions={loadConsignorOptions}
+              value={consignorOption}
+              onChange={(val: any) => {
+                setConsignorOption(val);
+                setFilters({ consignor: val?.value || '' });
+              }}
               placeholder="Type to search consignor..."
+              defaultOptions
             />
+            
+            {/* 🟢 Consignee Filter (Multi-select) */}
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-1">Filter by Consignee (Multi-select)</label>
-              <MultiSelect
-                options={allConsigneeOptions}
-                selected={filters.consignee || []}
-                onChange={(val) => setFilters({ consignee: val })}
+              <AsyncAutocomplete
+                label="Filter by Consignee (Multi-select)"
+                loadOptions={loadConsigneeOptions}
+                value={consigneeOptions}
+                onChange={(val: any) => {
+                  const arr = Array.isArray(val) ? val : (val ? [val] : []);
+                  setConsigneeOptions(arr);
+                  const ids = arr.map((v: any) => v.value);
+                  setFilters({ consignee: ids });
+                }}
                 placeholder="Select consignees..."
-                searchPlaceholder="Search..."
-                emptyPlaceholder="None found."
+                isMulti={true}
+                defaultOptions
               />
             </div>
           </div>
@@ -412,8 +474,9 @@ export const LoadingSheetEntry = () => {
                  <tr><td colSpan={9} className="px-6 py-12 text-center">Loading data...</td></tr>
               ) : paginatedData.length > 0 ? (
                 paginatedData.map((gc) => {
-                  const consignor = consignors.find(c => c.id === gc.consignorId);
-                  const consignee = consignees.find(c => c.id === gc.consigneeId);
+                  // 🟢 FIX: Use names returned directly from the backend
+                  const consignorName = (gc as any).consignorName || 'N/A';
+                  const consigneeName = (gc as any).consigneeName || 'N/A';
                   
                   const loadedCount = gc.loadedCount || 0;
                   const totalCount = parseInt(gc.quantity.toString()) || 0;
@@ -433,8 +496,8 @@ export const LoadingSheetEntry = () => {
                         />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-primary">{gc.gcNo}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">{consignor?.name || 'N/A'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{consignee?.name || 'N/A'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">{consignorName}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{consigneeName}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{gc.packing || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{gc.contents || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{totalCount}</td>
@@ -470,8 +533,9 @@ export const LoadingSheetEntry = () => {
         <div className="block md:hidden divide-y divide-muted">
           {paginatedData.length > 0 ? (
             paginatedData.map((gc) => {
-              const consignor = consignors.find(c => c.id === gc.consignorId);
-              const consignee = consignees.find(c => c.id === gc.consigneeId);
+               // 🟢 FIX: Mobile view using backend names
+              const consignorName = (gc as any).consignorName || 'N/A';
+              const consigneeName = (gc as any).consigneeName || 'N/A';
               
               const loadedCount = gc.loadedCount || 0;
               const totalCount = parseInt(gc.quantity.toString()) || 0;
@@ -491,8 +555,8 @@ export const LoadingSheetEntry = () => {
                       />
                       <div>
                         <div className="text-lg font-semibold text-primary">GC #{gc.gcNo}</div>
-                        <div className="text-md font-medium text-foreground">From: {consignor?.name || 'N/A'}</div>
-                        <div className="text-sm text-muted-foreground">To: {consignee?.name || 'N/A'}</div>
+                        <div className="text-md font-medium text-foreground">From: {consignorName}</div>
+                        <div className="text-sm text-muted-foreground">To: {consigneeName}</div>
                         <div className="text-sm text-muted-foreground">Packing: {gc.packing || '-'}</div>
                         <div className="text-sm text-muted-foreground">Content: {gc.contents || '-'}</div>
                       </div>

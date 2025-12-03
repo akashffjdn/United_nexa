@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { FilePenLine, Trash2, UserPlus, Shield, User as UserIcon, Search, Mail, Phone, Download } from 'lucide-react';
 import { UserForm } from './UserForm';
@@ -7,8 +7,9 @@ import type { AppUser } from '../../types';
 import { Button } from '../../components/shared/Button';
 import { CsvImporter } from '../../components/shared/CsvImporter';
 import { useToast } from '../../contexts/ToastContext';
+
 export const UserList = () => {
-  const { users, addUser, updateUser, deleteUser, user: currentUser } = useAuth();
+  const { users, addUser, updateUser, deleteUser, user: currentUser, refreshUsers } = useAuth();
   const toast = useToast();
   const [search, setSearch] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -17,6 +18,13 @@ export const UserList = () => {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteMessage, setDeleteMessage] = useState("");
+
+  // --- Fetch Users on Mount (Screen-Wise) ---
+  useEffect(() => {
+    if (refreshUsers) {
+      refreshUsers();
+    }
+  }, [refreshUsers]);
 
   const filteredUsers = users.filter(u => 
     u.name.toLowerCase().includes(search.toLowerCase()) ||

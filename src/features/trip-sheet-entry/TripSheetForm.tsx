@@ -1,12 +1,11 @@
-
 import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Save, Trash2, X } from "lucide-react";
 
-import type { TripSheetEntry, TripSheetGCItem, GcEntry } from "../../types";
+import type { TripSheetEntry, TripSheetGCItem } from "../../types";
 import { Button } from "../../components/shared/Button";
 import { Input } from "../../components/shared/Input";
-import { AutocompleteInput } from "../../components/shared/AutocompleteInput";
+import { AsyncAutocomplete } from "../../components/shared/AsyncAutocomplete"; // 🟢 Updated Import
 import { useData } from "../../hooks/useData";
 import { getTodayDate } from "../../utils/dateHelpers";
 import api from "../../utils/api";
@@ -19,35 +18,30 @@ const isValueValid = (value: any): boolean => {
     if (typeof value === 'string') {
         return value.trim().length > 0;
     }
-    // Check if it's a number and non-zero, or any other truthy value
     return !!value; 
 };
 
-// Utility function to generate the prop used to hide the required marker
 const getValidationProp = (value: any) => ({
-    // This prop tells the Input component to hide the visual marker
     hideRequiredIndicator: isValueValid(value)
 });
 
 export const TripSheetForm = () => {
   const toast = useToast();
   const navigate = useNavigate();
-  const { id } = useParams<{ id?: string }>(); // id can be DB ID or MF No
+  const { id } = useParams<{ id?: string }>(); 
 
   const {
     addTripSheet,
     updateTripSheet,
     fetchTripSheetById, 
-    // consignors, // Not needed in handleGcChange anymore with new API
-    // consignees, // Not needed in handleGcChange anymore with new API
-    fromPlaces,
-    toPlaces,
-    driverEntries,
-    vehicleEntries,
-    fetchGcDetailsForTripSheet, // 🟢 IMPORTED NEW FUNCTION
+    fetchGcDetailsForTripSheet, 
+    // 🟢 Search functions from DataContext
+    searchFromPlaces,
+    searchToPlaces,
+    searchDrivers,
+    searchVehicles
   } = useData();
 
-  const [availableGcs, setAvailableGcs] = useState<GcEntry[]>([]);
   const isEditMode = !!id;
   
   // --- STATE INITIALIZATION ---
@@ -66,28 +60,19 @@ export const TripSheetForm = () => {
   const [ownerName, setOwnerName] = useState<string>("");
   const [ownerMobile, setOwnerMobile] = useState<string>("");
 
+  // 🟢 Option States for AsyncDropdowns (to show labels correctly)
+  const [fromPlaceOption, setFromPlaceOption] = useState<any>({ label: 'Sivakasi', value: 'Sivakasi' });
+  const [toPlaceOption, setToPlaceOption] = useState<any>(null);
+  const [gcOption, setGcOption] = useState<any>(null);
+  const [driverDlOption, setDriverDlOption] = useState<any>(null);
+  const [driverNameOption, setDriverNameOption] = useState<any>(null);
+  const [driverMobileOption, setDriverMobileOption] = useState<any>(null);
+  const [lorryNoOption, setLorryNoOption] = useState<any>(null);
+  const [lorryNameOption, setLorryNameOption] = useState<any>(null);
+
   const [loading, setLoading] = useState(isEditMode);
 
-  // --- 1. FETCH AVAILABLE GCs (Optimized) ---
-  useEffect(() => {
-    const fetchAvailableGcs = async () => {
-        try {
-            // Fetch only GCs that are NOT assigned (and only necessary fields)
-            const { data } = await api.get('/operations/gc', {
-                params: {
-                    availableForTripSheet: 'true',
-                    pagination: 'false' 
-                }
-            });
-            setAvailableGcs(data.data || []);
-        } catch (error) {
-            console.error("Failed to fetch available GCs", error);
-        }
-    };
-    fetchAvailableGcs();
-  }, []);
-
-  // --- 2. LOAD DATA (Edit Mode) ---
+  // --- LOAD DATA (Edit Mode) ---
   useEffect(() => {
     if (isEditMode && id) {
       const loadData = async () => {
@@ -100,6 +85,10 @@ export const TripSheetForm = () => {
             setFromPlace(sheet.fromPlace);
             setToPlace(sheet.toPlace);
             
+            // Initialize Option States for Display
+            setFromPlaceOption({ label: sheet.fromPlace, value: sheet.fromPlace });
+            setToPlaceOption({ label: sheet.toPlace, value: sheet.toPlace });
+
             const mappedItems = (sheet.items ?? []).map(item => ({
                 ...item,
                 rate: item.rate ?? (item as any).freight ?? 0,
@@ -115,6 +104,13 @@ export const TripSheetForm = () => {
             setOwnerName(sheet.ownerName ?? "");
             setOwnerMobile(sheet.ownerMobile ?? "");
             
+            // Set Driver/Lorry Options
+            if(sheet.driverName) setDriverNameOption({ label: sheet.driverName, value: sheet.driverName });
+            if(sheet.dlNo) setDriverDlOption({ label: sheet.dlNo, value: sheet.dlNo });
+            if(sheet.driverMobile) setDriverMobileOption({ label: sheet.driverMobile, value: sheet.driverMobile });
+            if(sheet.lorryNo) setLorryNoOption({ label: sheet.lorryNo, value: sheet.lorryNo });
+            if(sheet.lorryName) setLorryNameOption({ label: sheet.lorryName, value: sheet.lorryName });
+
             setLoading(false);
         } else {
             toast.error("Trip Sheet not found.");
@@ -127,35 +123,108 @@ export const TripSheetForm = () => {
     }
   }, [isEditMode, id, fetchTripSheetById, navigate]);
 
+  // --- ASYNC LOADERS ---
+
+  // 1. GC Search (Direct API call)
+  const loadGcOptions = async (search: string, _prev: any, { page }: any) => {
+      try {
+          const { data } = await api.get('/operations/gc', {
+              params: {
+                  search,
+                  page,
+                  limit: 20,
+                  availableForTripSheet: 'true' // Filter backend-side
+              }
+          });
+          return {
+              options: data.data.map((g: any) => ({ 
+                  value: g.gcNo, 
+                  label: g.gcNo,
+                  freight: g.freight // Carry extra data
+              })),
+              hasMore: data.page < data.pages,
+              additional: { page: page + 1 }
+          };
+      } catch (e) {
+          return { options: [], hasMore: false, additional: { page: 1 } };
+      }
+  };
+
+  // 2. Place Search
+  const loadFromPlaceOptions = async (search: string, _prev: any, { page }: any) => {
+      const res = await searchFromPlaces(search, page);
+      return {
+          options: res.data.map((p: any) => ({ value: p.placeName, label: p.placeName })),
+          hasMore: res.hasMore,
+          additional: { page: page + 1 }
+      };
+  };
+
+  const loadToPlaceOptions = async (search: string, _prev: any, { page }: any) => {
+      const res = await searchToPlaces(search, page);
+      return {
+          options: res.data.map((p: any) => ({ value: p.placeName, label: p.placeName })),
+          hasMore: res.hasMore,
+          additional: { page: page + 1 }
+      };
+  };
+
+  // 3. Driver Search (Generic)
+  const loadDriverOptions = async (search: string, _prev: any, { page }: any) => {
+      const res = await searchDrivers(search, page);
+      return {
+          options: res.data.map((d: any) => ({ 
+              value: d.id, // Using ID as unique key
+              label: d.driverName, // Default label (overridden in render if needed)
+              ...d // Carry all driver data
+          })),
+          hasMore: res.hasMore,
+          additional: { page: page + 1 }
+      };
+  };
+
+  // 4. Vehicle Search
+  const loadVehicleOptions = async (search: string, _prev: any, { page }: any) => {
+      const res = await searchVehicles(search, page);
+      return {
+          options: res.data.map((v: any) => ({ 
+              value: v.id, 
+              label: v.vehicleNo,
+              ...v
+          })),
+          hasMore: res.hasMore,
+          additional: { page: page + 1 }
+      };
+  };
+
+
   // --- FORM LOGIC ---
 
   const [gcNo, setGcNo] = useState<string>("");
   const [qty, setQty] = useState<number>(0);
   const [rate, setRate] = useState<number>(0);
   
-  // 🟢 REMOVED extra state variables (packingDts, contentDts, etc.) since we fetch them on Add
-
-  // 🟢 UPDATED: Only sets GC and local Rate (Freight) from dropdown data
-  const handleGcChange = (value: string) => {
-    setGcNo(value);
-    
-    // Auto-fill Rate/Freight from the already loaded dropdown list to show it immediately
-    const existingGc = availableGcs.find((g) => g.gcNo === value);
-    if (existingGc) {
-        setRate(parseFloat(existingGc.freight) || 0);
-        // We do NOT set packing/contents here anymore, as per requirement
+  // Handler for GC Select
+  const handleGcSelect = (option: any) => {
+    setGcOption(option);
+    if (option) {
+        setGcNo(option.value);
+        // Auto-fill Freight/Rate from option data
+        setRate(parseFloat(option.freight) || 0);
     } else {
+        setGcNo("");
         setRate(0);
     }
   };
 
   const resetGC = () => {
     setGcNo("");
+    setGcOption(null);
     setQty(0);
     setRate(0);
   };
 
-  // 🟢 UPDATED: Async function to fetch details from API on Add
+  // Async Add GC
   const handleAddGC = async () => {
     if (!gcNo) {
       toast.error("Please select a GC No before adding.");
@@ -163,9 +232,13 @@ export const TripSheetForm = () => {
     }
     if (!rate) { toast.error("Please select QTY RATE."); return; }
 
+    // Check if already added
+    if (items.some(i => i.gcNo === gcNo)) {
+        toast.error("This GC is already added to the list.");
+        return;
+    }
 
     try {
-        // 1. Fetch specific details from API
         const details = await fetchGcDetailsForTripSheet(gcNo);
         
         if (!details) {
@@ -173,20 +246,14 @@ export const TripSheetForm = () => {
             return;
         }
 
-        // 2. Construct row using API data + Form inputs
-        // Note: Use form 'qty' if entered, else fallback to API total quantity? 
-        // Usually user enters the quantity loaded for this trip.
-        // If qty is 0 (user didn't type), we might default to API quantity? 
-        // Let's assume user input takes precedence, if 0 use API (or just 0).
         const finalQty = qty > 0 ? qty : (details.quantity || 0);
 
         const row: TripSheetGCItem = {
           gcNo,
           qty: finalQty,
-          rate, // From local state (pre-filled from availableGcs)
+          rate, 
           packingDts: details.packing || "",
           contentDts: details.contents || "",
-          // API returns objects: { name: "..." }
           consignor: details.consignor?.name || "",
           consignee: details.consignee?.name || "",
           amount: finalQty * rate,
@@ -214,61 +281,40 @@ export const TripSheetForm = () => {
     if (!isEditMode) setUnloadPlace(toPlace);
   }, [toPlace, isEditMode]);
 
-  const driverNameReadonly = dlNo !== "" || driverMobile !== "";
+  // --- Driver Selection Handlers ---
+  const handleDriverSelect = (option: any) => {
+      if (!option) return;
+      setDriverName(option.driverName.toUpperCase());
+      setDlNo(option.dlNo);
+      setDriverMobile(option.mobile);
 
-  const driverDlOptions = driverEntries.map((d) => ({ value: d.dlNo, label: d.dlNo }));
-  const driverNameOptions = driverEntries.map((d) => ({ value: d.driverName.toUpperCase(), label: d.driverName.toUpperCase() }));
-  const driverMobileOptions = driverEntries.map((d) => ({ value: d.mobile, label: d.mobile }));
-
-  const fillDriverFromDl = (dl: string) => {
-    const d = driverEntries.find((x) => x.dlNo === dl);
-    if (!d) return;
-    setDriverName(d.driverName.toUpperCase());
-    setDriverMobile(d.mobile);
-    setDlNo(d.dlNo);
+      // Update all dropdowns to match selection
+      setDriverNameOption({ value: option.id, label: option.driverName.toUpperCase() });
+      setDriverDlOption({ value: option.id, label: option.dlNo });
+      setDriverMobileOption({ value: option.id, label: option.mobile });
   };
 
-  const fillDriverFromMobile = (mobile: string) => {
-    const d = driverEntries.find((x) => x.mobile === mobile);
-    if (!d) return;
-    setDriverName(d.driverName.toUpperCase());
-    setDriverMobile(d.mobile);
-    setDlNo(d.dlNo);
-  };
-
-  const vehicleNoOptions = vehicleEntries.map((v) => ({ value: v.vehicleNo, label: v.vehicleNo }));
-  const vehicleNameOptions = vehicleEntries.map((v) => ({ value: v.vehicleName.toUpperCase(), label: v.vehicleName.toUpperCase() }));
-
-  const fillVehicleFromNo = (no: string) => {
-    const v = vehicleEntries.find((x) => x.vehicleNo === no);
-    if (!v) return;
-    setLorryNo(v.vehicleNo);
-    setLorryName(v.vehicleName.toUpperCase());
-    setOwnerName(v.ownerName ? v.ownerName.toUpperCase() : "");
-    setOwnerMobile(v.ownerMobile ?? "");
+  // --- Vehicle Selection Handlers ---
+  const handleVehicleSelect = (option: any) => {
+      if (!option) return;
+      setLorryNo(option.vehicleNo);
+      setLorryName(option.vehicleName.toUpperCase());
+      setOwnerName(option.ownerName ? option.ownerName.toUpperCase() : "");
+      setOwnerMobile(option.ownerMobile ?? "");
+      
+      // Update dropdowns
+      setLorryNoOption({ value: option.id, label: option.vehicleNo });
+      setLorryNameOption({ value: option.id, label: option.vehicleName.toUpperCase() });
   };
 
   const onOwnerNameChange = (v: string) => setOwnerName(v.toUpperCase());
 
-  // Filter Options: Show only GCs that are NOT already in the items list
-  const gcOptions = availableGcs
-    .filter((g) => !items.some((i) => i.gcNo === g.gcNo))
-    .map((g) => ({ value: g.gcNo, label: g.gcNo }));
-
-  const fromPlaceOptions = fromPlaces.map((p) => ({ value: p.placeName, label: p.placeName }));
-  const toPlaceOptions = toPlaces.map((p) => ({ value: p.placeName, label: p.placeName }));
-
   const handleSave = async (e?: React.FormEvent) => {
     e?.preventDefault();
-
-    // If ID is missing in edit mode, prevent save
     if (isEditMode && !id) return;
 
     let finalMfNo = mfNo;
-    if (!isEditMode) {
-        // We let backend generate it
-        finalMfNo = ""; 
-    }
+    if (!isEditMode) finalMfNo = ""; 
 
     const payload: TripSheetEntry = {
       id: id || "", 
@@ -322,29 +368,35 @@ export const TripSheetForm = () => {
                 />
               </div>
               <div className="col-span-1 lg:col-span-2">
-                <AutocompleteInput
+                <AsyncAutocomplete
                   label="From Place"
                   placeholder="Select From Place"
-                  options={fromPlaceOptions}
-                  value={fromPlace}
-                  onSelect={(v) => setFromPlace(v)}
+                  loadOptions={loadFromPlaceOptions}
+                  value={fromPlaceOption}
+                  onChange={(v: any) => {
+                      setFromPlaceOption(v);
+                      setFromPlace(v?.value || '');
+                  }}
                   required
+                  defaultOptions
                   {...getValidationProp(fromPlace)}
                 />
               </div>
 
               <div className="col-span-1 lg:col-span-2">
-                <AutocompleteInput
+                <AsyncAutocomplete
                   label="To Place"
                   placeholder="Select To Place"
-                  options={toPlaceOptions}
-                  value={toPlace}
-                  onSelect={(v) => { 
-                      setToPlace(v); 
-                      // Auto-fill unload place if creating new
-                      if(!isEditMode) setUnloadPlace(v); 
+                  loadOptions={loadToPlaceOptions}
+                  value={toPlaceOption}
+                  onChange={(v: any) => { 
+                      setToPlaceOption(v);
+                      const val = v?.value || '';
+                      setToPlace(val); 
+                      if(!isEditMode) setUnloadPlace(val); 
                   }}
                   required
+                  defaultOptions
                   {...getValidationProp(toPlace)}
                 />
               </div>
@@ -366,18 +418,17 @@ export const TripSheetForm = () => {
               GC Details
             </h3>
 
-            {/* CHANGE: 'bg-white' replaced with 'bg-card' for dark mode support */}
-            {/* CHANGE: 'border' replaced with 'border-muted' for subtle borders */}
             <div className="border border-muted rounded-md p-4 space-y-4 bg-card">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-8 gap-4 items-end">
                 <div className="col-span-1 sm:col-span-1 lg:col-span-4">
-                  <AutocompleteInput
+                  <AsyncAutocomplete
                     label="Select GC No"
                     placeholder="Search Pending GC..."
-                    options={gcOptions}
-                    value={gcNo}
-                    onSelect={handleGcChange}
+                    loadOptions={loadGcOptions}
+                    value={gcOption}
+                    onChange={(v: any) => handleGcSelect(v)}
                     required
+                    defaultOptions
                     {...getValidationProp(gcNo)}
                   />
                 </div>
@@ -394,7 +445,6 @@ export const TripSheetForm = () => {
                 </div>
 
                 <div className="col-span-1 sm:col-span-1 lg:col-span-2">
-                  {/* CHANGED: onClick now triggers async fetching */}
                   <Button type="button" variant="primary" className="w-full" onClick={handleAddGC}>
                     Add GC
                   </Button>
@@ -402,11 +452,9 @@ export const TripSheetForm = () => {
               </div>
 
               <div className="overflow-x-auto">
-                {/* CHANGE: Added 'border-muted' to table */}
                 <table className="min-w-full border border-muted text-sm">
                   <thead>
                     <tr className="bg-muted/20">
-                      {/* CHANGE: Added 'border-muted' to headers */}
                       <th className="border border-muted p-2">GCNO</th>
                       <th className="border border-muted p-2">QTY</th>
                       <th className="border border-muted p-2">RATE</th>
@@ -422,7 +470,6 @@ export const TripSheetForm = () => {
                   <tbody>
                     {items.map((it, i) => (
                       <tr key={i}>
-                        {/* CHANGE: Added 'border-muted' to cells */}
                         <td className="border border-muted p-2">{it.gcNo}</td>
                         <td className="border border-muted p-2">{it.qty}</td>
                         <td className="border border-muted p-2">{it.rate}</td>
@@ -458,76 +505,83 @@ export const TripSheetForm = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-10 gap-4">
               <div className="col-span-1 lg:col-span-2">
-                <AutocompleteInput
+                {/* DL No Filter - Adapts generic driver loader to show DL as label */}
+                <AsyncAutocomplete
                   label="DL No"
                   placeholder="Select DL No"
-                  options={driverDlOptions}
-                  value={dlNo}
-                  onSelect={(v) => {
-                    setDlNo(v);
-                    fillDriverFromDl(v);
+                  loadOptions={async (s, p, a) => {
+                      const res = await loadDriverOptions(s, p, a);
+                      res.options = res.options.map((o: any) => ({ ...o, label: o.dlNo }));
+                      return res;
                   }}
+                  value={driverDlOption}
+                  onChange={(v: any) => handleDriverSelect(v)}
                   required
+                  defaultOptions
                   {...getValidationProp(dlNo)}
                 />
               </div>
 
               <div className="col-span-1 lg:col-span-2">
-                <AutocompleteInput
+                {/* Mobile Filter */}
+                <AsyncAutocomplete
                   label="Driver Mobile"
-                  placeholder="Select Driver Mobile"
-                  options={driverMobileOptions}
-                  value={driverMobile}
-                  onSelect={(v) => {
-                    setDriverMobile(v);
-                    fillDriverFromMobile(v);
+                  placeholder="Select Mobile"
+                  loadOptions={async (s, p, a) => {
+                      const res = await loadDriverOptions(s, p, a);
+                      res.options = res.options.map((o: any) => ({ ...o, label: o.mobile }));
+                      return res;
                   }}
+                  value={driverMobileOption}
+                  onChange={(v: any) => handleDriverSelect(v)}
                   required
+                  defaultOptions
                   {...getValidationProp(driverMobile)}
                 />
               </div>
 
               <div className="col-span-1 lg:col-span-2">
-                <AutocompleteInput
+                 {/* Name Filter */}
+                <AsyncAutocomplete
                   label="Driver Name"
                   placeholder="Select Driver Name"
-                  options={driverNameOptions}
-                  value={driverName}
-                  onSelect={(v) => {
-                  if (!driverNameReadonly) setDriverName(v);
-                  }}
-                  readOnly={driverNameReadonly}
-                  disabled={driverNameReadonly}
+                  loadOptions={loadDriverOptions}
+                  value={driverNameOption}
+                  onChange={(v: any) => handleDriverSelect(v)}
                   required
+                  defaultOptions
                   {...getValidationProp(driverName)}
                 />
               </div>
 
               <div className="col-span-1 lg:col-span-2">
-                <AutocompleteInput
+                {/* Lorry No Filter */}
+                <AsyncAutocomplete
                   label="Lorry No"
                   placeholder="Select Lorry No"
-                  options={vehicleNoOptions}
-                  value={lorryNo}
-                  onSelect={(v) => {
-                    setLorryNo(v);
-                    fillVehicleFromNo(v);
-                  }}
+                  loadOptions={loadVehicleOptions}
+                  value={lorryNoOption}
+                  onChange={(v: any) => handleVehicleSelect(v)}
                   required
+                  defaultOptions
                   {...getValidationProp(lorryNo)}
                 />
               </div>
 
               <div className="col-span-1 lg:col-span-2">
-                <AutocompleteInput
+                {/* Lorry Name Filter */}
+                <AsyncAutocomplete
                   label="Lorry Name"
                   placeholder="Select Lorry Name"
-                  options={vehicleNameOptions}
-                  value={lorryName}
-                  onSelect={setLorryName}
-                  readOnly={!!lorryNo}
-                  disabled={!!lorryNo}
+                  loadOptions={async (s, p, a) => {
+                      const res = await loadVehicleOptions(s, p, a);
+                      res.options = res.options.map((o: any) => ({ ...o, label: o.vehicleName }));
+                      return res;
+                  }}
+                  value={lorryNameOption}
+                  onChange={(v: any) => handleVehicleSelect(v)}
                   required
+                  defaultOptions
                   {...getValidationProp(lorryName)}
                 />
               </div>
@@ -585,4 +639,3 @@ export const TripSheetForm = () => {
     </div>
   );
 };
-
