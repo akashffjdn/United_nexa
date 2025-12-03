@@ -424,7 +424,7 @@ export const GcEntryList = () => {
                       <div className="font-bold text-blue-600 text-lg">GC #{gc.gcNo}</div>
                       <div className="font-semibold text-foreground">{consignor?.name}</div>
                       <div className="text-sm text-muted-foreground">To: {consignee?.name}</div>
-                      <div className="text-sm text-muted-foreground">From: {gc.from}</div>
+                     
                       <div className="text-sm text-muted-foreground">At: {gc.destination}</div>
                     </div>
                   </div>

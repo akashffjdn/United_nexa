@@ -1,8 +1,9 @@
 // src/utils/api.ts
 import axios from 'axios';
 import { loadingManager } from './loadingManager';
-export const API_URL = 'https://unitedtransportbackend-443415591723.asia-south1.run.app/api';
-// export const API_URL = 'http://localhost:5000/api';
+
+// Use environment variable or default to localhost
+export const API_URL = 'http://localhost:5000/api';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -57,7 +58,7 @@ api.interceptors.request.use(
   }
 );
 
-// 🟢 2. Response Interceptor (With Refresh Logic)
+// 🟢 2. Response Interceptor (With Loop Fix)
 api.interceptors.response.use(
   (response) => {
     loadingManager.hide();
@@ -67,6 +68,12 @@ api.interceptors.response.use(
   async (error) => {
     loadingManager.hide();
     const originalRequest = error.config;
+
+    // 🛑 STOP LOOP: If the error comes from Login or Refresh endpoint, REJECT immediately.
+    // Do not attempt to refresh token for these specific endpoints.
+    if (originalRequest.url?.includes('/auth/login') || originalRequest.url?.includes('/auth/refresh')) {
+        return Promise.reject(error);
+    }
 
     // Check for 401 (Unauthorized) and ensure we haven't already retried
     if (error.response && error.response.status === 401 && !originalRequest._retry) {
@@ -96,6 +103,7 @@ api.interceptors.response.use(
         localStorage.removeItem('authUser');
         localStorage.removeItem('authYear');
         window.location.href = '/login';
+        return Promise.reject(refreshError);
       }
     }
 

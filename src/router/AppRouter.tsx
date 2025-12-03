@@ -1,32 +1,49 @@
+import { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Layout } from '../components/layout/Layout';
 import { useAuth } from '../hooks/useAuth';
 import { DataProvider } from '../contexts/DataContext'; 
-
-// Import Features
-import { LoginScreen } from '../features/auth/LoginScreen';
-import { ConsignorList } from '../features/consignors/ConsignorList';
-import { ConsigneeList } from '../features/consignees/ConsigneeList';
-import { GcEntryList } from '../features/gc-entry/GcEntryList';
-import { GcEntryForm } from '../features/gc-entry/GcEntryForm';
-import { PendingStockHistory } from '../features/pending-stock/PendingStockHistory';
-import { LoadingSheetEntry } from '../features/loading-sheet/LoadingSheetEntry';
-import { FromPlaceList } from '../features/from-places-entry/FromPlacesList';
-import { ToPlacesList } from '../features/to-places-entry/ToPlacesList';
-import { PackingEntryList } from '../features/packing-entry/PackingUnitList';
-import { ContentList } from '../features/content-entry/ContentList';
-import { TripSheetList } from '../features/trip-sheet-entry/TripSheetList';
-import { TripSheetForm } from '../features/trip-sheet-entry/TripSheetForm';
-import { DashboardPage } from '../features/dashboard/DashboardPage';
-import { MasterDashboardPage } from '../features/dashboard/MasterDashboardPage';
 import { LoadingScreen } from '../components/shared/LoadingScreen';
-import { UserList } from '../features/users/UserList';
-import { VehicleList } from '../features/vehicle-details/VehicleList';
-import { DriverList } from '../features/driver-details copy/DriverList';
-// 🟢 NEW IMPORT
-import { OfflinePage } from '../features/misc/OfflinePage';
 
-// Note: TermsAccessPage has been removed as per requirement
+// ----------------------------------------------------------------------
+// 🟢 CODE SPLITTING: Lazy Loading Components
+// ----------------------------------------------------------------------
+
+// Helper to load named exports lazily
+const load = (importPromise: Promise<any>, componentName: string) => 
+  importPromise.then(module => ({ default: module[componentName] }));
+
+// Features -> Auth
+const LoginScreen = lazy(() => load(import('../features/auth/LoginScreen'), 'LoginScreen'));
+
+// Features -> Dashboard
+const DashboardPage = lazy(() => load(import('../features/dashboard/DashboardPage'), 'DashboardPage'));
+const MasterDashboardPage = lazy(() => load(import('../features/dashboard/MasterDashboardPage'), 'MasterDashboardPage'));
+
+// Features -> Operations
+const GcEntryList = lazy(() => load(import('../features/gc-entry/GcEntryList'), 'GcEntryList'));
+const GcEntryForm = lazy(() => load(import('../features/gc-entry/GcEntryForm'), 'GcEntryForm'));
+const LoadingSheetEntry = lazy(() => load(import('../features/loading-sheet/LoadingSheetEntry'), 'LoadingSheetEntry'));
+const TripSheetList = lazy(() => load(import('../features/trip-sheet-entry/TripSheetList'), 'TripSheetList'));
+const TripSheetForm = lazy(() => load(import('../features/trip-sheet-entry/TripSheetForm'), 'TripSheetForm'));
+const PendingStockHistory = lazy(() => load(import('../features/pending-stock/PendingStockHistory'), 'PendingStockHistory'));
+
+// Features -> Masters
+const ConsignorList = lazy(() => load(import('../features/consignors/ConsignorList'), 'ConsignorList'));
+const ConsigneeList = lazy(() => load(import('../features/consignees/ConsigneeList'), 'ConsigneeList'));
+const FromPlaceList = lazy(() => load(import('../features/from-places-entry/FromPlacesList'), 'FromPlaceList'));
+const ToPlacesList = lazy(() => load(import('../features/to-places-entry/ToPlacesList'), 'ToPlacesList'));
+const PackingEntryList = lazy(() => load(import('../features/packing-entry/PackingUnitList'), 'PackingEntryList'));
+const ContentList = lazy(() => load(import('../features/content-entry/ContentList'), 'ContentList'));
+const VehicleList = lazy(() => load(import('../features/vehicle-details/VehicleList'), 'VehicleList'));
+const DriverList = lazy(() => load(import('../features/driver-details copy/DriverList'), 'DriverList'));
+
+// Features -> Admin
+const UserList = lazy(() => load(import('../features/users/UserList'), 'UserList'));
+
+// Features -> Misc
+const OfflinePage = lazy(() => load(import('../features/misc/OfflinePage'), 'OfflinePage'));
+
 
 // --- AUTH PROTECTION WRAPPER ---
 const ProtectedRoute = ({ requireAdmin = false }: { requireAdmin?: boolean }) => {
@@ -43,7 +60,10 @@ const ProtectedRoute = ({ requireAdmin = false }: { requireAdmin?: boolean }) =>
   return (
     <DataProvider>
       <Layout>
-        <Outlet />
+        {/* 🟢 SUSPENSE: Shows loading screen while the specific page chunk is being fetched */}
+        <Suspense fallback={<LoadingScreen message="Loading Page..." variant="minimal" />}>
+          <Outlet />
+        </Suspense>
       </Layout>
     </DataProvider>
   );
@@ -54,7 +74,12 @@ const LoginRoute = () => {
   const { user, loading } = useAuth();
   if (loading) return <LoadingScreen />;
   if (user) return <Navigate to="/" replace />;
-  return <LoginScreen />;
+  
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      <LoginScreen />
+    </Suspense>
+  );
 };
 
 // --- ROUTER DEFINITION ---
@@ -66,7 +91,11 @@ const AppRouter = () => {
       <Route path="/logout" element={<Navigate to="/login" replace />} />
       
       {/* 🟢 NEW OFFLINE ROUTE */}
-      <Route path="/offline" element={<OfflinePage />} />
+      <Route path="/offline" element={
+        <Suspense fallback={<LoadingScreen variant="minimal" />}>
+          <OfflinePage />
+        </Suspense>
+      } />
 
       {/* 2. PROTECTED ROUTES (Wrapped in DataProvider via Outlet) */}
       <Route element={<ProtectedRoute />}>

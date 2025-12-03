@@ -123,7 +123,7 @@ export const FromPlacesForm = ({ initialData, onClose, onSave, onError, checkDup
 
     return (
         // Modal Backdrop
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed -inset-6 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
             {/* Modal Panel */}
             <div className="relative w-96 max-w-lg bg-background rounded-lg shadow-xl max-h-[90vh] overflow-y-auto">
                 {/* Modal Header */}

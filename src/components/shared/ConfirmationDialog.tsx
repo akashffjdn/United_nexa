@@ -22,7 +22,7 @@ export const ConfirmationDialog = ({
 
   return (
     // Modal Backdrop
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div className="fixed -inset-6 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
       {/* Modal Panel */}
       <div className="relative w-full max-w-md bg-background rounded-lg shadow-xl">
         {/* Modal Body */}
@@ -45,7 +45,7 @@ export const ConfirmationDialog = ({
         </div>
         
         {/* Modal Footer (Actions) */}
-        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 bg-muted/50 p-4 rounded-b-lg">
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2  p-4 rounded-b-lg">
           <Button type="button" variant="secondary" onClick={onClose} className="w-full sm:w-auto">
             Cancel
           </Button>

@@ -8,7 +8,7 @@ export const LoginScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isFocused, setIsFocused] = useState<'email' | 'password' | null>(null);
   
-  const { login, loading, error } = useAuth();
+  const { login, loading } = useAuth();
 
   const getCurrentFinancialYear = () => {
     const today = new Date();
@@ -166,12 +166,12 @@ export const LoginScreen = () => {
                 </div>
               </div>
 
-              {error && (
+              {/* {error && (
                 <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/50 flex items-center gap-3 text-sm text-red-600 dark:text-red-400 animate-in slide-in-from-top-2 duration-300">
                   <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.6)]" />
                   <span className="font-medium">{error}</span>
                 </div>
-              )}
+              )} */}
 
               <button
                 type="submit"
