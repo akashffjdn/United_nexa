@@ -77,12 +77,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  // 🟢 LOGOUT FUNCTION (UI SIDE)
+  // This triggers the backend 'logout' controller
   const logout = async () => {
     try {
+      // 1. Call Backend to clear HTTPOnly Cookie
       await api.post('/auth/logout');
     } catch (error) {
       console.error("Logout error", error);
     } finally {
+      // 2. Clear Client-Side State & Storage
       setUser(null);
       setFinancialYear(null);
       setUsers([]);
