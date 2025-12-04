@@ -1,3 +1,4 @@
+
 import { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Layout } from '../components/layout/Layout';
@@ -5,9 +6,10 @@ import { useAuth } from '../hooks/useAuth';
 import { DataProvider } from '../contexts/DataContext'; 
 import { LoadingScreen } from '../components/shared/LoadingScreen';
 
-// ----------------------------------------------------------------------
-// 🟢 CODE SPLITTING: Lazy Loading Components
-// ----------------------------------------------------------------------
+// 🟢 CRITICAL CHANGE: Import OfflinePage DIRECTLY (Not Lazy)
+// This ensures the code is already available when the network cuts out,
+// preventing the Suspense "Loading..." spinner from showing.
+import { OfflinePage } from '../features/misc/OfflinePage';
 
 // Helper to load named exports lazily
 const load = (importPromise: Promise<any>, componentName: string) => 
@@ -41,11 +43,6 @@ const DriverList = lazy(() => load(import('../features/driver-details copy/Drive
 // Features -> Admin
 const UserList = lazy(() => load(import('../features/users/UserList'), 'UserList'));
 
-// Features -> Misc
-const OfflinePage = lazy(() => load(import('../features/misc/OfflinePage'), 'OfflinePage'));
-
-
-// --- AUTH PROTECTION WRAPPER ---
 const ProtectedRoute = ({ requireAdmin = false }: { requireAdmin?: boolean }) => {
   const { user, loading } = useAuth();
 
@@ -56,12 +53,9 @@ const ProtectedRoute = ({ requireAdmin = false }: { requireAdmin?: boolean }) =>
     return <Navigate to="/" replace />; 
   }
 
-  // Wrap authenticated routes in DataProvider and Layout
   return (
     <DataProvider>
       <Layout>
-        {/* 🟢 SUSPENSE: Shows loading screen while the specific page chunk is being fetched */}
-        {/* CHANGED: Set fallback to null to prevent double loading screens (Global Loader + This) */}
         <Suspense fallback={null}>
           <Outlet />
         </Suspense>
@@ -70,7 +64,6 @@ const ProtectedRoute = ({ requireAdmin = false }: { requireAdmin?: boolean }) =>
   );
 };
 
-// --- LOGIN ROUTE WRAPPER ---
 const LoginRoute = () => {
   const { user, loading } = useAuth();
   if (loading) return <LoadingScreen />;
@@ -83,43 +76,25 @@ const LoginRoute = () => {
   );
 };
 
-// --- ROUTER DEFINITION ---
 const AppRouter = () => {
   return (
     <Routes>
-      {/* 1. PUBLIC ROUTES */}
       <Route path="/login" element={<LoginRoute />} />
       <Route path="/logout" element={<Navigate to="/login" replace />} />
       
-      {/* 🟢 NEW OFFLINE ROUTE */}
-      <Route path="/offline" element={
-        <Suspense fallback={<LoadingScreen variant="minimal" />}>
-          <OfflinePage />
-        </Suspense>
-      } />
+      {/* 🟢 CHANGE: Use the direct component, NO Suspense fallback here */}
+      <Route path="/offline" element={<OfflinePage />} />
 
-      {/* 2. PROTECTED ROUTES (Wrapped in DataProvider via Outlet) */}
       <Route element={<ProtectedRoute />}>
-        {/* Main Dashboard */}
         <Route path="/" element={<DashboardPage />} />
-
-        {/* GC Entry */}
         <Route path="/gc-entry" element={<GcEntryList />} />
         <Route path="/gc-entry/new" element={<GcEntryForm />} />
         <Route path="/gc-entry/edit/:gcNo" element={<GcEntryForm />} />
-        
-        {/* Pending Stock */}
         <Route path="/pending-stock" element={<PendingStockHistory />} />
-
-        {/* Loading Sheet */}
         <Route path="/loading-sheet" element={<LoadingSheetEntry />} />
-        
-        {/* Trip Sheet */}
         <Route path="/trip-sheet" element={<TripSheetList />} />
         <Route path="/tripsheet/new" element={<TripSheetForm />} />
         <Route path="/tripsheet/edit/:id" element={<TripSheetForm />} />
-
-        {/* Master Dashboard */}
         <Route path="/master" element={<MasterDashboardPage />} />
         <Route path="/master/consignors" element={<ConsignorList />} />
         <Route path="/master/consignees" element={<ConsigneeList />} />
@@ -131,12 +106,10 @@ const AppRouter = () => {
         <Route path="/master/drivers" element={<DriverList />} />
       </Route>
 
-      {/* 3. ADMIN ONLY ROUTES */}
       <Route element={<ProtectedRoute requireAdmin={true} />}>
         <Route path="/users" element={<UserList />} />
       </Route>
 
-      {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

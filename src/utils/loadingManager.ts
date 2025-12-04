@@ -1,3 +1,4 @@
+
 // src/utils/loadingManager.ts
 
 // Define the shape of our loading state
@@ -14,11 +15,9 @@ let currentMessage = "Loading...";
 let listeners: Listener[] = [];
 
 export const loadingManager = {
-  // Now accepts an optional message string
   show: (message: string = "Processing...") => {
     if (activeRequests === 0) {
       currentMessage = message;
-      // Notify with TRUE and the specific message
       notifyListeners(true, currentMessage);
     }
     activeRequests++;
@@ -26,13 +25,17 @@ export const loadingManager = {
 
   hide: () => {
     activeRequests--;
-    // Prevent negative counter
     if (activeRequests < 0) activeRequests = 0;
     
     if (activeRequests === 0) {
-      // Notify with FALSE (message doesn't matter here)
       notifyListeners(false, "");
     }
+  },
+
+  // 🟢 NEW: Forcefully reset loader to OFF (Used when going offline)
+  reset: () => {
+    activeRequests = 0;
+    notifyListeners(false, "");
   },
 
   subscribe: (listener: Listener) => {

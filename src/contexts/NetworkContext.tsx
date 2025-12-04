@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { loadingManager } from '../utils/loadingManager'; // 🟢 Import to control the loader
 
 interface NetworkContextType {
   isOnline: boolean;
@@ -11,79 +12,80 @@ export const NetworkProvider = ({ children }: { children: React.ReactNode }) => 
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   const navigate = useNavigate();
   const location = useLocation();
-  
-  // Store the last valid route before going offline
-  const lastRouteRef = useRef<string | null>(null);
 
-  // Function to ping Cloudflare
-  const checkInternetConnection = async () => {
+  // 🟢 1. STABLE CHECK: Ping your own app (window.location.origin)
+  // This is instant and won't get blocked by firewalls like Cloudflare might.
+  const checkInternetConnection = useCallback(async () => {
     try {
-      // Pinging Cloudflare's trace endpoint
-      // mode: 'no-cors' is CRITICAL here. It allows us to ping a public domain 
-      // without getting a CORS error. We won't see the response body, 
-      // but if it doesn't throw an error, the network is alive.
-      await fetch('https://www.cloudflare.com/cdn-cgi/trace', { 
+      // 'HEAD' request is very light (headers only, no body)
+      // Timestamp prevents caching
+      await fetch(`${window.location.origin}/?_=${new Date().getTime()}`, { 
         method: 'HEAD',
-        mode: 'no-cors', 
-        cache: 'no-store' 
+        cache: 'no-store',
       });
       return true;
     } catch (error) {
-      // If fetch throws, it means the network request failed entirely
       return false;
     }
-  };
+  }, []);
 
+  // 🟢 2. LESS FREQUENT POLLING
+  // We rely on browser events for immediate detection.
+  // This interval is just a backup sanity check (every 30s is enough).
   useEffect(() => {
-    const handleStatusChange = async () => {
-      // 1. Initial check using browser API
-      const browserOnline = navigator.onLine;
-      
-      if (browserOnline) {
-        // 2. Deep check using Cloudflare Ping
-        const cloudflareReachable = await checkInternetConnection();
-        updateNetworkState(cloudflareReachable);
-      } else {
-        updateNetworkState(false);
+    const interval = setInterval(async () => {
+      if (navigator.onLine) {
+        const status = await checkInternetConnection();
+        setIsOnline(status);
       }
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [checkInternetConnection]);
+
+  // 🟢 3. EVENT LISTENERS (Immediate Reaction)
+  useEffect(() => {
+    const handleOnline = async () => {
+        // Double-check with a real ping to be sure
+        const status = await checkInternetConnection();
+        setIsOnline(status);
     };
+    const handleOffline = () => setIsOnline(false);
 
-    const updateNetworkState = (status: boolean) => {
-      setIsOnline((prevStatus) => {
-        if (prevStatus === status) return status; // Prevent unnecessary updates
-
-        if (!status) {
-          // --- GOING OFFLINE ---
-          // Save current path if it's not already the offline page
-          if (location.pathname !== '/offline') {
-            lastRouteRef.current = location.pathname + location.search;
-          }
-          navigate('/offline');
-        } else {
-          // --- COMING ONLINE ---
-          // Restore the saved path
-          if (location.pathname === '/offline') {
-            const target = lastRouteRef.current || '/'; // Default to dashboard if no history
-            navigate(target, { replace: true });
-          }
-        }
-        return status;
-      });
-    };
-
-    // Listeners for instant reaction (e.g., unplugging cable)
-    window.addEventListener('online', handleStatusChange);
-    window.addEventListener('offline', handleStatusChange);
-
-    // Polling interval for "silent" failures (every 5 seconds)
-    const intervalId = setInterval(handleStatusChange, 5000);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
 
     return () => {
-      window.removeEventListener('online', handleStatusChange);
-      window.removeEventListener('offline', handleStatusChange);
-      clearInterval(intervalId);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
-  }, [navigate, location.pathname, location.search]);
+  }, [checkInternetConnection]);
+
+  // 🟢 4. LOGIC: Handle Offline/Online Transitions
+  useEffect(() => {
+    if (!isOnline) {
+      // --- GOING OFFLINE ---
+      
+      // 1. KILL THE LOADER: Force hide any "Processing..." screens immediately
+      loadingManager.hide();
+
+      // 2. Save location if we aren't already on the offline page
+      if (location.pathname !== '/offline') {
+        const currentPath = location.pathname + location.search;
+        // sessionStorage survives page reloads!
+        sessionStorage.setItem('lastOnlinePath', currentPath);
+        navigate('/offline');
+      }
+    } else {
+      // --- COMING ONLINE ---
+      
+      if (location.pathname === '/offline') {
+        // Retrieve the saved path or default to dashboard
+        const lastPath = sessionStorage.getItem('lastOnlinePath') || '/';
+        navigate(lastPath, { replace: true });
+      }
+    }
+  }, [isOnline, navigate, location.pathname, location.search]);
 
   return (
     <NetworkContext.Provider value={{ isOnline }}>
