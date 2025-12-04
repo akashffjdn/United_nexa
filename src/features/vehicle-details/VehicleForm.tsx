@@ -4,6 +4,9 @@ import { Input } from "../../components/shared/Input";
 import { Button } from "../../components/shared/Button";
 import { X } from "lucide-react";
 import { useData } from "../../hooks/useData";
+// 🟢 NEW: Imports
+import { vehicleSchema } from "../../schemas";
+import { useToast } from "../../contexts/ToastContext";
 
 interface VehicleFormProps {
   initialData?: VehicleEntry;
@@ -11,18 +14,14 @@ interface VehicleFormProps {
   onSave: (entry: VehicleEntry) => void;
 }
 
-// Helper function to check for non-empty or non-zero value
 const isValueValid = (value: any): boolean => {
     if (typeof value === 'string') {
         return value.trim().length > 0;
     }
-    // Check if it's a number and non-zero, or any other truthy value
     return !!value; 
 };
 
-// Utility function to generate the prop used to hide the required marker
 const getValidationProp = (value: any) => ({
-    // This prop tells the Input component to hide the visual marker
     hideRequiredIndicator: isValueValid(value)
 });
 
@@ -32,6 +31,10 @@ export const VehicleForm = ({
   onSave,
 }: VehicleFormProps) => {
   const { vehicleEntries } = useData();
+  const toast = useToast();
+
+  // 🟢 NEW: Validation State
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const [entry, setEntry] = useState({
     id: initialData?.id || "",
@@ -41,151 +44,73 @@ export const VehicleForm = ({
     ownerMobile: initialData?.ownerMobile || "",
   });
 
-  const [errors, setErrors] = useState({
+  // Manual checks state (kept for immediate duplicate feedback)
+  const [manualErrors, setManualErrors] = useState({
     vehicleNo: "",
-    vehicleName: "",
-    ownerName: "",
-    ownerMobile: "",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-
     setEntry((prev) => ({ ...prev, [name]: value }));
+    
+    // Clear Zod error
+    if (formErrors[name]) setFormErrors(prev => ({ ...prev, [name]: '' }));
 
-    //-------------- IMMEDIATE VALIDATION -----------------
+    // Immediate Duplicate Check for Vehicle No
     if (name === "vehicleNo") {
       const trimmed = value.trim();
+      const exists = vehicleEntries.some(
+        (v) =>
+          v.vehicleNo.toLowerCase() === trimmed.toLowerCase() &&
+          v.id !== initialData?.id
+      );
 
-      if (!trimmed) {
-        setErrors((prev) => ({
-          ...prev,
-          vehicleNo: "Vehicle number is required",
-        }));
-      } else {
-        const exists = vehicleEntries.some(
-          (v) =>
-            v.vehicleNo.toLowerCase() === trimmed.toLowerCase() &&
-            v.id !== initialData?.id
-        );
-
-        setErrors((prev) => ({
-          ...prev,
-          vehicleNo: exists ? "Vehicle number already exists" : "",
-        }));
-      }
-    }
-
-    if (name === "vehicleName") {
-      const trimmed = value.trim();
-      setErrors((prev) => ({
+      setManualErrors((prev) => ({
         ...prev,
-        vehicleName: trimmed ? "" : "Vehicle name is required",
+        vehicleNo: exists ? "Vehicle number already exists" : "",
       }));
-    }
-
-    if (name === "ownerName") {
-      const trimmed = value.trim();
-      setErrors((prev) => ({
-        ...prev,
-        ownerName: trimmed ? "" : "Owner name is required",
-      }));
-    }
-
-    if (name === "ownerMobile") {
-      const trimmed = value.trim();
-      if (!trimmed) {
-        setErrors((prev) => ({
-          ...prev,
-          ownerMobile: "Owner mobile is required",
-        }));
-      } else if (!/^\d{10}$/.test(trimmed)) {
-        setErrors((prev) => ({
-          ...prev,
-          ownerMobile: "Mobile number must be 10 digits",
-        }));
-      } else {
-        setErrors((prev) => ({
-          ...prev,
-          ownerMobile: "",
-        }));
-      }
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormErrors({});
 
-    let hasError = false;
-
-    const no = entry.vehicleNo.trim();
-    const name = entry.vehicleName.trim();
-    const owner = entry.ownerName.trim();
-    const mobile = entry.ownerMobile.trim();
-
-    const newErrors = {
-      vehicleNo: "",
-      vehicleName: "",
-      ownerName: "",
-      ownerMobile: "",
-    };
-
-    // Final validations
-    if (!no) {
-      newErrors.vehicleNo = "Vehicle number is required";
-      hasError = true;
-    } else {
-      const exists = vehicleEntries.some(
-        (v) =>
-          v.vehicleNo.toLowerCase() === no.toLowerCase() &&
-          v.id !== initialData?.id
-      );
-
-      if (exists) {
-        newErrors.vehicleNo = "Vehicle number already exists";
-        hasError = true;
-      }
+    // 🟢 1. Check duplicates first
+    if (manualErrors.vehicleNo) {
+        toast.error("Vehicle number already exists.");
+        return;
     }
 
-    if (!name) {
-      newErrors.vehicleName = "Vehicle name is required";
-      hasError = true;
+    // 🟢 2. Zod Validation
+    const validationResult = vehicleSchema.safeParse(entry);
+
+    if (!validationResult.success) {
+        const newErrors: Record<string, string> = {};
+        validationResult.error.issues.forEach((err: any) => {
+            if (err.path[0]) newErrors[err.path[0].toString()] = err.message;
+        });
+        setFormErrors(newErrors);
+        toast.error("Please correct the errors in the form.");
+        return;
     }
-
-    if (!owner) {
-      newErrors.ownerName = "Owner name is required";
-      hasError = true;
-    }
-
-    if (!mobile) {
-      newErrors.ownerMobile = "Owner mobile is required";
-      hasError = true;
-    } else if (!/^\d{10}$/.test(mobile)) {
-      newErrors.ownerMobile = "Mobile number must be 10 digits";
-      hasError = true;
-    }
-
-    setErrors(newErrors);
-
-    if (hasError) return;
 
     const savedEntry: VehicleEntry = {
       ...entry,
       id: initialData?.id || `VEH-${Date.now()}`,
-      vehicleNo: no,
-      vehicleName: name,
-      ownerName: owner,
-      ownerMobile: mobile,
+      vehicleNo: entry.vehicleNo.trim(),
+      vehicleName: entry.vehicleName.trim(),
+      ownerName: entry.ownerName.trim(),
+      ownerMobile: entry.ownerMobile.trim(),
     };
 
     onSave(savedEntry);
   };
 
   return (
-    <div className="fixed -inset-6 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+    <div className="fixed -top-6 left-0 right-0 bottom-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="relative w-96 max-w-2xl bg-background rounded-lg shadow-xl max-h-[90vh] overflow-y-auto">
 
-        {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-muted">
           <h2 className="text-xl font-semibold text-foreground">
             {initialData ? "Edit Vehicle" : "Add Vehicle"}
@@ -199,12 +124,10 @@ export const VehicleForm = ({
           </button>
         </div>
 
-        {/* Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
 
           <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
 
-            {/* Vehicle No */}
             <div>
               <Input
                 label="Vehicle Number"
@@ -212,15 +135,18 @@ export const VehicleForm = ({
                 name="vehicleNo"
                 value={entry.vehicleNo}
                 onChange={handleChange}
-                className={errors.vehicleNo ? "border-red-500" : ""}
+                className={manualErrors.vehicleNo ? "border-red-500" : ""}
                 required { ...getValidationProp(entry.vehicleNo)}
               />
-              {errors.vehicleNo && (
-                <p className="text-sm text-red-600 mt-1">{errors.vehicleNo}</p>
+              {/* Show either manual dup error or zod error */}
+              {manualErrors.vehicleNo && (
+                <p className="text-sm text-red-600 mt-1">{manualErrors.vehicleNo}</p>
+              )}
+              {formErrors.vehicleNo && !manualErrors.vehicleNo && (
+                  <p className="text-sm text-red-600 mt-1">{formErrors.vehicleNo}</p>
               )}
             </div>
 
-            {/* Vehicle Name */}
             <div>
               <Input
                 label="Vehicle Name"
@@ -228,15 +154,11 @@ export const VehicleForm = ({
                 name="vehicleName"
                 value={entry.vehicleName}
                 onChange={handleChange}
-                className={errors.vehicleName ? "border-red-500" : ""}
                 required { ...getValidationProp(entry.vehicleName)}
               />
-              {errors.vehicleName && (
-                <p className="text-sm text-red-600 mt-1">{errors.vehicleName}</p>
-              )}
+              {formErrors.vehicleName && <p className="text-sm text-red-600 mt-1">{formErrors.vehicleName}</p>}
             </div>
 
-            {/* Owner Name */}
             <div>
               <Input
                 label="Owner Name"
@@ -244,15 +166,11 @@ export const VehicleForm = ({
                 name="ownerName"
                 value={entry.ownerName}
                 onChange={handleChange}
-                className={errors.ownerName ? "border-red-500" : ""}
-                required { ...getValidationProp(entry.ownerName)}
+                { ...getValidationProp(entry.ownerName)}
               />
-              {errors.ownerName && (
-                <p className="text-sm text-red-600 mt-1">{errors.ownerName}</p>
-              )}
+              {formErrors.ownerName && <p className="text-sm text-red-600 mt-1">{formErrors.ownerName}</p>}
             </div>
 
-            {/* Owner Mobile */}
             <div>
               <Input
                 label="Owner Mobile"
@@ -260,17 +178,13 @@ export const VehicleForm = ({
                 name="ownerMobile"
                 value={entry.ownerMobile}
                 onChange={handleChange}
-                className={errors.ownerMobile ? "border-red-500" : ""}
-                required { ...getValidationProp(entry.ownerMobile)}
+                { ...getValidationProp(entry.ownerMobile)}
               />
-              {errors.ownerMobile && (
-                <p className="text-sm text-red-600 mt-1">{errors.ownerMobile}</p>
-              )}
+              {formErrors.ownerMobile && <p className="text-sm text-red-600 mt-1">{formErrors.ownerMobile}</p>}
             </div>
 
           </div>
 
-          {/* Footer */}
           <div className="flex justify-end space-x-3 pt-4 border-t border-muted">
             <Button type="button" variant="secondary" onClick={onClose}>
               Cancel
@@ -279,12 +193,6 @@ export const VehicleForm = ({
             <Button
               type="submit"
               variant="primary"
-              disabled={
-                !!errors.vehicleNo ||
-                !!errors.vehicleName ||
-                !!errors.ownerName ||
-                !!errors.ownerMobile
-              }
             >
               Save Vehicle
             </Button>
@@ -295,4 +203,3 @@ export const VehicleForm = ({
     </div>
   );
 };
-

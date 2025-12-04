@@ -4,6 +4,9 @@ import { Input } from "../../components/shared/Input";
 import { Button } from "../../components/shared/Button";
 import { X } from "lucide-react";
 import { useData } from "../../hooks/useData";
+// 🟢 NEW: Imports
+import { driverSchema } from "../../schemas";
+import { useToast } from "../../contexts/ToastContext";
 
 interface DriverFormProps {
   initialData?: DriverEntry;
@@ -11,18 +14,14 @@ interface DriverFormProps {
   onSave: (entry: DriverEntry) => void;
 }
 
-// Helper function to check for non-empty or non-zero value
 const isValueValid = (value: any): boolean => {
     if (typeof value === 'string') {
         return value.trim().length > 0;
     }
-    // Check if it's a number and non-zero, or any other truthy value
     return !!value; 
 };
 
-// Utility function to generate the prop used to hide the required marker
 const getValidationProp = (value: any) => ({
-    // This prop tells the Input component to hide the visual marker
     hideRequiredIndicator: isValueValid(value)
 });
 
@@ -32,6 +31,17 @@ export const DriverForm = ({
   onSave,
 }: DriverFormProps) => {
   const { driverEntries } = useData();
+  const toast = useToast();
+
+  // 🟢 NEW: Validation State
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  
+  // Manual duplicate checking state
+  const [dupErrors, setDupErrors] = useState({
+      driverName: "",
+      dlNo: "",
+      mobile: ""
+  });
 
   const [entry, setEntry] = useState({
     id: initialData?.id || "",
@@ -40,142 +50,75 @@ export const DriverForm = ({
     mobile: initialData?.mobile || "",
   });
 
-  const [errors, setErrors] = useState({
-    driverName: "",
-    dlNo: "",
-    mobile: "",
-  });
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    const trimmed = value.trim();
 
     setEntry((prev) => ({ ...prev, [name]: value }));
+    
+    if (formErrors[name]) setFormErrors(prev => ({ ...prev, [name]: '' }));
 
-    // ---------------- IMMEDIATE VALIDATION -----------------
-
+    // ---------------- IMMEDIATE DUPLICATE CHECKS -----------------
     if (name === "driverName") {
-      const trimmed = value.trim();
-      if (!trimmed) {
-        setErrors((prev) => ({ ...prev, driverName: "Driver name is required" }));
-      } else {
-        
-      }
+      const exists = driverEntries.some(
+        (d) => d.driverName.toLowerCase() === trimmed.toLowerCase() && d.id !== initialData?.id
+      );
+      setDupErrors(prev => ({ ...prev, driverName: exists ? "Driver name already exists" : "" }));
     }
 
     if (name === "dlNo") {
-      const trimmed = value.trim();
-      if (!trimmed) {
-        setErrors((prev) => ({ ...prev, dlNo: "DL number is required" }));
-      } else {
         const exists = driverEntries.some(
-          (d) =>
-            d.dlNo.toLowerCase() === trimmed.toLowerCase() &&
-            d.id !== initialData?.id
+          (d) => d.dlNo.toLowerCase() === trimmed.toLowerCase() && d.id !== initialData?.id
         );
-        setErrors((prev) => ({
-          ...prev,
-          dlNo: exists ? "DL number already exists" : "",
-        }));
-      }
+        setDupErrors(prev => ({ ...prev, dlNo: exists ? "DL number already exists" : "" }));
     }
 
     if (name === "mobile") {
-      const trimmed = value.trim();
-
-      if (!trimmed) {
-        setErrors((prev) => ({ ...prev, mobile: "Mobile number is required" }));
-      } else if (!/^\d{10}$/.test(trimmed)) {
-        setErrors((prev) => ({
-          ...prev,
-          mobile: "Mobile number must be 10 digits",
-        }));
-      } else {
         const exists = driverEntries.some(
           (d) => d.mobile === trimmed && d.id !== initialData?.id
         );
-        setErrors((prev) => ({
-          ...prev,
-          mobile: exists ? "Mobile number already exists" : "",
-        }));
-      }
+        setDupErrors(prev => ({ ...prev, mobile: exists ? "Mobile number already exists" : "" }));
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormErrors({});
 
-    let hasError = false;
-    const newErrors = { driverName: "", dlNo: "", mobile: "" };
-
-    const name = entry.driverName.trim();
-    const dl = entry.dlNo.trim();
-    const mobile = entry.mobile.trim();
-
-    // Final validations
-    if (!name) {
-      newErrors.driverName = "Driver name is required";
-      hasError = true;
-    } else {
-      const exists = driverEntries.some(
-        (d) =>
-          d.driverName.toLowerCase() === name.toLowerCase() &&
-          d.id !== initialData?.id
-      );
-      if (exists) {
-        newErrors.driverName = "Driver name already exists";
-        hasError = true;
-      }
+    // 🟢 1. Check Duplicates
+    if (dupErrors.driverName || dupErrors.dlNo || dupErrors.mobile) {
+        toast.error("Please resolve duplicate entries.");
+        return;
     }
 
-    if (!dl) {
-      newErrors.dlNo = "DL number is required";
-      hasError = true;
-    } else {
-      const exists = driverEntries.some(
-        (d) => d.dlNo.toLowerCase() === dl.toLowerCase() && d.id !== initialData?.id
-      );
-      if (exists) {
-        newErrors.dlNo = "DL number already exists";
-        hasError = true;
-      }
+    // 🟢 2. Zod Validation
+    const validationResult = driverSchema.safeParse(entry);
+
+    if (!validationResult.success) {
+        const newErrors: Record<string, string> = {};
+        validationResult.error.issues.forEach((err: any) => {
+            if (err.path[0]) newErrors[err.path[0].toString()] = err.message;
+        });
+        setFormErrors(newErrors);
+        toast.error("Please correct the errors in the form.");
+        return;
     }
-
-    if (!mobile) {
-      newErrors.mobile = "Mobile number is required";
-      hasError = true;
-    } else if (!/^\d{10}$/.test(mobile)) {
-      newErrors.mobile = "Mobile number must be 10 digits";
-      hasError = true;
-    } else {
-      const exists = driverEntries.some(
-        (d) => d.mobile === mobile && d.id !== initialData?.id
-      );
-      if (exists) {
-        newErrors.mobile = "Mobile number already exists";
-        hasError = true;
-      }
-    }
-
-    setErrors(newErrors);
-
-    if (hasError) return;
 
     const savedEntry: DriverEntry = {
       ...entry,
       id: initialData?.id || `DRV-${Date.now()}`,
-      driverName: name,
-      dlNo: dl,
-      mobile,
+      driverName: entry.driverName.trim(),
+      dlNo: entry.dlNo.trim(),
+      mobile: entry.mobile.trim(),
     };
 
     onSave(savedEntry);
   };
 
   return (
-    <div className="fixed -inset-6 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+    <div className="fixed -top-6 left-0 right-0 bottom-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="relative w-96 max-w-2xl bg-background rounded-lg shadow-xl max-h-[90vh] overflow-y-auto">
 
-        {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-muted">
           <h2 className="text-xl font-semibold text-foreground">
             {initialData ? "Edit Driver" : "Add Driver"}
@@ -189,7 +132,6 @@ export const DriverForm = ({
           </button>
         </div>
 
-        {/* Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
 
           <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
@@ -202,12 +144,11 @@ export const DriverForm = ({
                 name="driverName"
                 value={entry.driverName}
                 onChange={handleChange}
-                className={errors.driverName ? "border-red-500" : ""}
+                className={dupErrors.driverName ? "border-red-500" : ""}
                 required { ...getValidationProp(entry.driverName)}
               />
-              {errors.driverName && (
-                <p className="text-sm text-red-600 mt-1">{errors.driverName}</p>
-              )}
+              {dupErrors.driverName && <p className="text-sm text-red-600 mt-1">{dupErrors.driverName}</p>}
+              {formErrors.driverName && !dupErrors.driverName && <p className="text-sm text-red-600 mt-1">{formErrors.driverName}</p>}
             </div>
 
             {/* DL No */}
@@ -218,12 +159,11 @@ export const DriverForm = ({
                 name="dlNo"
                 value={entry.dlNo}
                 onChange={handleChange}
-                className={errors.dlNo ? "border-red-500" : ""}
+                className={dupErrors.dlNo ? "border-red-500" : ""}
                 required { ...getValidationProp(entry.dlNo)}
               />
-              {errors.dlNo && (
-                <p className="text-sm text-red-600 mt-1">{errors.dlNo}</p>
-              )}
+              {dupErrors.dlNo && <p className="text-sm text-red-600 mt-1">{dupErrors.dlNo}</p>}
+              {formErrors.dlNo && !dupErrors.dlNo && <p className="text-sm text-red-600 mt-1">{formErrors.dlNo}</p>}
             </div>
 
             {/* Mobile */}
@@ -234,16 +174,14 @@ export const DriverForm = ({
                 name="mobile"
                 value={entry.mobile}
                 onChange={handleChange}
-                className={errors.mobile ? "border-red-500" : ""}
+                className={dupErrors.mobile ? "border-red-500" : ""}
                 required { ...getValidationProp(entry.mobile)}
               />
-              {errors.mobile && (
-                <p className="text-sm text-red-600 mt-1">{errors.mobile}</p>
-              )}
+              {dupErrors.mobile && <p className="text-sm text-red-600 mt-1">{dupErrors.mobile}</p>}
+              {formErrors.mobile && !dupErrors.mobile && <p className="text-sm text-red-600 mt-1">{formErrors.mobile}</p>}
             </div>
           </div>
 
-          {/* Footer */}
           <div className="flex justify-end space-x-3 pt-4 border-t border-muted">
             <Button type="button" variant="secondary" onClick={onClose}>
               Cancel
@@ -252,7 +190,6 @@ export const DriverForm = ({
             <Button
               type="submit"
               variant="primary"
-              disabled={!!errors.driverName || !!errors.dlNo || !!errors.mobile}
             >
               Save Driver
             </Button>
@@ -262,4 +199,3 @@ export const DriverForm = ({
     </div>
   );
 };
-

@@ -4,8 +4,9 @@ import { Input } from '../../components/shared/Input';
 import { Button } from '../../components/shared/Button';
 import { X, Info } from 'lucide-react';
 import { useData } from '../../hooks/useData';
-import { AsyncAutocomplete } from '../../components/shared/AsyncAutocomplete'; // 🟢 Fixed Import
+import { AsyncAutocomplete } from '../../components/shared/AsyncAutocomplete'; 
 import { useToast } from '../../contexts/ToastContext';
+import { consigneeSchema } from '../../schemas';
 
 // Get today's date in YYYY-MM-DD format
 const getTodayDate = () => new Date().toISOString().split('T')[0];
@@ -16,18 +17,14 @@ interface ConsigneeFormProps {
   onSave: (consignee: Consignee) => void;
 }
 
-// Helper function to check for non-empty or non-zero value
 const isValueValid = (value: any): boolean => {
     if (typeof value === 'string') {
         return value.trim().length > 0;
     }
-    // Check if it's a number and non-zero, or any other truthy value
     return !!value; 
 };
 
-// Utility function to generate the prop used to hide the required marker
 const getValidationProp = (value: any) => ({
-    // This prop tells the Input component to hide the visual marker
     hideRequiredIndicator: isValueValid(value)
 });
 
@@ -35,6 +32,8 @@ export const ConsigneeForm = ({ initialData, onClose, onSave }: ConsigneeFormPro
   const { consignees, searchToPlaces } = useData();  
   const [duplicateMessage, setDuplicateMessage] = useState<string | null>(null);
   const toast = useToast();
+
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const [consignee, setConsignee] = useState({
     id: initialData?.id || '',
@@ -48,25 +47,22 @@ export const ConsigneeForm = ({ initialData, onClose, onSave }: ConsigneeFormPro
     aadhar: initialData?.aadhar || '',
   });
 
-  // 🟢 Local state for Destination dropdown (Async)
-  // Initialize with current value if editing
   const [destinationOption, setDestinationOption] = useState<any>(
     initialData?.destination 
       ? { label: initialData.destination, value: initialData.destination } 
       : null
   );
 
-  // If ID exists, we are in Update Mode
   const isUpdateMode = !!consignee.id;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setConsignee(prev => ({ ...prev, [name]: value }));
     if (duplicateMessage) setDuplicateMessage(null);
+    // Clear error
+    if (formErrors[name]) setFormErrors(prev => ({ ...prev, [name]: '' }));
   };
 
-  // 🟢 Async Loader for Destination
-  // Using `_prevOptions` to avoid unused variable warning in TS
   const loadDestinationOptions = async (search: string, _prevOptions: any, { page }: any) => {
     const result = await searchToPlaces(search, page);
     return {
@@ -76,15 +72,14 @@ export const ConsigneeForm = ({ initialData, onClose, onSave }: ConsigneeFormPro
     };
   };
 
-  // 🟢 Updated Handler for AsyncAutocomplete
   const handleDestinationChange = (option: any) => {
       setDestinationOption(option);
       setConsignee(prev => ({ ...prev, destination: option?.value || '' }));
       if (duplicateMessage) setDuplicateMessage(null);
+      if (formErrors.destination) setFormErrors(prev => ({ ...prev, destination: '' }));
   };
 
   const handleProofBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    // STRICT RULE: Only run auto-fill during "Add New". 
     if (initialData?.id) return; 
 
     const { value } = e.target;
@@ -98,7 +93,7 @@ export const ConsigneeForm = ({ initialData, onClose, onSave }: ConsigneeFormPro
 
     if (existing) {
       setConsignee({
-        id: existing.id, // Switches form to Update Mode
+        id: existing.id, 
         name: existing.name,
         destination: existing.destination,
         filingDate: getTodayDate(),
@@ -109,19 +104,37 @@ export const ConsigneeForm = ({ initialData, onClose, onSave }: ConsigneeFormPro
         aadhar: existing.aadhar || '',
       });
       
-      // Sync the dropdown state when auto-filling
       setDestinationOption({ label: existing.destination, value: existing.destination });
-
       setDuplicateMessage(`Consignee "${existing.name}" found! Switched to Update mode.`);
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!consignee.gst && !consignee.pan && !consignee.aadhar) {
+    setFormErrors({});
+
+    // 🟢 1. Manual Validation: At least one proof is required
+    const hasGst = consignee.gst && consignee.gst.trim().length > 0;
+    const hasPan = consignee.pan && consignee.pan.trim().length > 0;
+    const hasAadhar = consignee.aadhar && consignee.aadhar.trim().length > 0;
+
+    if (!hasGst && !hasPan && !hasAadhar) {
       toast.error('Please provide at least one proof (GST, PAN, or Aadhar).');
       return;
+    }
+
+    // 2. Validate against Schema (Zod)
+    const validationResult = consigneeSchema.safeParse(consignee);
+
+    if (!validationResult.success) {
+        const newErrors: Record<string, string> = {};
+        // Use .issues and type cast error
+        validationResult.error.issues.forEach((err: any) => {
+            if (err.path[0]) newErrors[err.path[0].toString()] = err.message;
+        });
+        setFormErrors(newErrors);
+        toast.error("Please correct the errors in the form.");
+        return;
     }
     
     const savedConsignee: Consignee = {
@@ -142,7 +155,7 @@ export const ConsigneeForm = ({ initialData, onClose, onSave }: ConsigneeFormPro
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div className="fixed -top-6 left-0 right-0 bottom-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="relative w-full max-w-2xl bg-background rounded-lg shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-4 border-b border-muted">
           <h2 className="text-xl font-semibold text-foreground">
@@ -162,7 +175,6 @@ export const ConsigneeForm = ({ initialData, onClose, onSave }: ConsigneeFormPro
             </div>
           )}
           
-          {/* Identity Proof Fields First */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Input 
               label="GST Number" 
@@ -192,23 +204,36 @@ export const ConsigneeForm = ({ initialData, onClose, onSave }: ConsigneeFormPro
               placeholder="Search Aadhar..."
             />
           </div>
+          {/* Helper Text for Proof Requirement */}
+          <div className="text-xs text-muted-foreground -mt-3 italic">
+            * At least one of the above proofs is required.
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input label="Consignee Name" id="name" name="name" value={consignee.name} onChange={handleChange} required { ...getValidationProp(consignee.name)} />
+            <div>
+              <Input label="Consignee Name" id="name" name="name" value={consignee.name} onChange={handleChange} required { ...getValidationProp(consignee.name)} />
+              {formErrors.name && <p className="text-xs text-red-500 mt-1">{formErrors.name}</p>}
+            </div>
             
-            {/* 🟢 3. REPLACE Input WITH AsyncAutocomplete */}
-            <AsyncAutocomplete 
-                label="Destination" 
-                placeholder="Select or type Destination"
-                loadOptions={loadDestinationOptions}
-                value={destinationOption} 
-                onChange={handleDestinationChange} 
-                required 
-                defaultOptions
-                { ...getValidationProp(consignee.destination)} 
-            />
+            <div>
+              <AsyncAutocomplete 
+                  label="Destination" 
+                  placeholder="Select or type Destination"
+                  loadOptions={loadDestinationOptions}
+                  value={destinationOption} 
+                  onChange={handleDestinationChange} 
+                  required 
+                  defaultOptions
+                  { ...getValidationProp(consignee.destination)} 
+              />
+              {formErrors.destination && <p className="text-xs text-red-500 mt-1">{formErrors.destination}</p>}
+            </div>
             
-            <Input label="Phone Number" id="phone" name="phone" value={consignee.phone} onChange={handleChange} required { ...getValidationProp(consignee.phone)} />
+            <div>
+              <Input label="Phone Number" id="phone" name="phone" value={consignee.phone} onChange={handleChange} required { ...getValidationProp(consignee.phone)} />
+              {formErrors.phone && <p className="text-xs text-red-500 mt-1">{formErrors.phone}</p>}
+            </div>
+
             <Input label="Filing Date" id="filingDate" name="filingDate" type="date" value={consignee.filingDate} onChange={handleChange} required { ...getValidationProp(consignee.filingDate)} />
 
             <div className="md:col-span-2">
@@ -224,7 +249,8 @@ export const ConsigneeForm = ({ initialData, onClose, onSave }: ConsigneeFormPro
                 className="w-full mt-1 px-3 py-2 bg-transparent text-foreground border border-muted-foreground/30 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary" 
                 required 
               />
-               </div>
+              {formErrors.address && <p className="text-xs text-red-500 mt-1">{formErrors.address}</p>}
+             </div>
           </div>
 
           <div className="flex justify-end space-x-3 pt-4 border-t border-muted">

@@ -10,6 +10,8 @@ import { useData } from "../../hooks/useData";
 import { getTodayDate } from "../../utils/dateHelpers";
 import api from "../../utils/api";
 import { useToast } from "../../contexts/ToastContext";
+// 🟢 NEW: Import Zod Schema
+import { tripSheetSchema } from "../../schemas";
 
 const toNum = (v: any) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
@@ -35,7 +37,6 @@ export const TripSheetForm = () => {
     updateTripSheet,
     fetchTripSheetById, 
     fetchGcDetailsForTripSheet, 
-    // Search functions from DataContext
     searchFromPlaces,
     searchToPlaces,
     searchDrivers,
@@ -59,6 +60,9 @@ export const TripSheetForm = () => {
   const [lorryName, setLorryName] = useState<string>("");
   const [ownerName, setOwnerName] = useState<string>("");
   const [ownerMobile, setOwnerMobile] = useState<string>("");
+
+  // 🟢 NEW: Validation Errors State
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // Option States for AsyncDropdowns (to show labels correctly without fetching)
   const [fromPlaceOption, setFromPlaceOption] = useState<any>({ label: 'Sivakasi', value: 'Sivakasi' });
@@ -85,7 +89,6 @@ export const TripSheetForm = () => {
             setFromPlace(sheet.fromPlace);
             setToPlace(sheet.toPlace);
             
-            // 🟢 PRE-FILL OPTIONS FOR DISPLAY (Prevents initial API calls)
             setFromPlaceOption({ label: sheet.fromPlace, value: sheet.fromPlace });
             setToPlaceOption({ label: sheet.toPlace, value: sheet.toPlace });
 
@@ -104,7 +107,6 @@ export const TripSheetForm = () => {
             setOwnerName(sheet.ownerName ?? "");
             setOwnerMobile(sheet.ownerMobile ?? "");
             
-            // 🟢 PRE-FILL DRIVER/LORRY DROPDOWNS
             if(sheet.driverName) setDriverNameOption({ label: sheet.driverName, value: sheet.driverName });
             if(sheet.dlNo) setDriverDlOption({ label: sheet.dlNo, value: sheet.dlNo });
             if(sheet.driverMobile) setDriverMobileOption({ label: sheet.driverMobile, value: sheet.driverMobile });
@@ -124,8 +126,6 @@ export const TripSheetForm = () => {
   }, [isEditMode, id, fetchTripSheetById, navigate]);
 
   // --- ASYNC LOADERS ---
-
-  // 1. GC Search (Direct API call)
   const loadGcOptions = async (search: string, _prev: any, { page }: any) => {
       try {
           const { data } = await api.get('/operations/gc', {
@@ -133,15 +133,15 @@ export const TripSheetForm = () => {
                   search,
                   page,
                   limit: 20,
-                  availableForTripSheet: 'true' // Filter backend-side
+                  availableForTripSheet: 'true' 
               },
-              skipLoader: true // 🟢 CHANGED: Prevent global loader interruption
+              skipLoader: true 
           } as any);
           return {
               options: data.data.map((g: any) => ({ 
                   value: g.gcNo, 
                   label: g.gcNo,
-                  freight: g.freight // Carry extra data
+                  freight: g.freight 
               })),
               hasMore: data.page < data.pages,
               additional: { page: page + 1 }
@@ -151,7 +151,6 @@ export const TripSheetForm = () => {
       }
   };
 
-  // 2. Place Search
   const loadFromPlaceOptions = async (search: string, _prev: any, { page }: any) => {
       const res = await searchFromPlaces(search, page);
       return {
@@ -170,21 +169,19 @@ export const TripSheetForm = () => {
       };
   };
 
-  // 3. Driver Search (Generic)
   const loadDriverOptions = async (search: string, _prev: any, { page }: any) => {
       const res = await searchDrivers(search, page);
       return {
           options: res.data.map((d: any) => ({ 
               value: d.id, 
               label: d.driverName, 
-              ...d // Carry all driver data
+              ...d 
           })),
           hasMore: res.hasMore,
           additional: { page: page + 1 }
       };
   };
 
-  // 4. Vehicle Search
   const loadVehicleOptions = async (search: string, _prev: any, { page }: any) => {
       const res = await searchVehicles(search, page);
       return {
@@ -198,19 +195,15 @@ export const TripSheetForm = () => {
       };
   };
 
-
   // --- FORM LOGIC ---
-
   const [gcNo, setGcNo] = useState<string>("");
   const [qty, setQty] = useState<number>(0);
   const [rate, setRate] = useState<number>(0);
   
-  // Handler for GC Select
   const handleGcSelect = (option: any) => {
     setGcOption(option);
     if (option) {
         setGcNo(option.value);
-        // Auto-fill Freight/Rate from option data
         setRate(parseFloat(option.freight) || 0);
     } else {
         setGcNo("");
@@ -225,7 +218,6 @@ export const TripSheetForm = () => {
     setRate(0);
   };
 
-  // Async Add GC
   const handleAddGC = async () => {
     if (!gcNo) {
       toast.error("Please select a GC No before adding.");
@@ -233,7 +225,6 @@ export const TripSheetForm = () => {
     }
     if (!rate) { toast.error("Please select QTY RATE."); return; }
 
-    // Check if already added
     if (items.some(i => i.gcNo === gcNo)) {
         toast.error("This GC is already added to the list.");
         return;
@@ -261,6 +252,7 @@ export const TripSheetForm = () => {
         };
 
         setItems((p) => [...p, row]);
+        setFormErrors(prev => ({ ...prev, items: '' })); // Clear item error
         resetGC();
 
     } catch (err) {
@@ -282,20 +274,19 @@ export const TripSheetForm = () => {
     if (!isEditMode) setUnloadPlace(toPlace);
   }, [toPlace, isEditMode]);
 
-  // --- Driver Selection Handlers ---
   const handleDriverSelect = (option: any) => {
       if (!option) return;
       setDriverName(option.driverName.toUpperCase());
       setDlNo(option.dlNo);
       setDriverMobile(option.mobile);
 
-      // Update all dropdowns to match selection
       setDriverNameOption({ value: option.id, label: option.driverName.toUpperCase() });
       setDriverDlOption({ value: option.id, label: option.dlNo });
       setDriverMobileOption({ value: option.id, label: option.mobile });
+      
+      setFormErrors(prev => ({ ...prev, driverName: '', dlNo: '', driverMobile: '' }));
   };
 
-  // --- Vehicle Selection Handlers ---
   const handleVehicleSelect = (option: any) => {
       if (!option) return;
       setLorryNo(option.vehicleNo);
@@ -303,16 +294,20 @@ export const TripSheetForm = () => {
       setOwnerName(option.ownerName ? option.ownerName.toUpperCase() : "");
       setOwnerMobile(option.ownerMobile ?? "");
       
-      // Update dropdowns
       setLorryNoOption({ value: option.id, label: option.vehicleNo });
       setLorryNameOption({ value: option.id, label: option.vehicleName.toUpperCase() });
+      
+      setFormErrors(prev => ({ ...prev, lorryNo: '', lorryName: '', ownerName: '', ownerMobile: '' }));
   };
 
-  const onOwnerNameChange = (v: string) => setOwnerName(v.toUpperCase());
+  const onOwnerNameChange = (v: string) => { 
+      setOwnerName(v.toUpperCase());
+      setFormErrors(prev => ({ ...prev, ownerName: '' }));
+  };
 
   const handleSave = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (isEditMode && !id) return;
+    setFormErrors({});
 
     let finalMfNo = mfNo;
     if (!isEditMode) finalMfNo = ""; 
@@ -336,7 +331,23 @@ export const TripSheetForm = () => {
       lorryName,
     };
 
-    // 🟢 FIX: Capture result and only navigate on success
+    // 🟢 1. Validate against Zod Schema
+    const validationResult = tripSheetSchema.safeParse(payload);
+
+    if (!validationResult.success) {
+      const newErrors: Record<string, string> = {};
+      // FIX: Changed .errors to .issues and typed err as any
+      validationResult.error.issues.forEach((err: any) => {
+        if (err.path[0]) {
+          newErrors[err.path[0].toString()] = err.message;
+        }
+      });
+      setFormErrors(newErrors);
+      toast.error("Please fill all required fields correctly.");
+      return;
+    }
+
+    // 🟢 2. Proceed with API call if valid
     let result;
     if (isEditMode) result = await updateTripSheet(payload);
     else result = await addTripSheet(payload);
@@ -367,10 +378,11 @@ export const TripSheetForm = () => {
                   type="date"
                   label="Trip Date"
                   value={tsDate}
-                  onChange={(e) => setTsDate(e.target.value)}
+                  onChange={(e) => { setTsDate(e.target.value); setFormErrors(p => ({...p, tsDate: ''})); }}
                   required
                   {...getValidationProp(tsDate)}
                 />
+                {formErrors.tsDate && <p className="text-xs text-red-500 mt-1">{formErrors.tsDate}</p>}
               </div>
               <div className="col-span-1 lg:col-span-2">
                 <AsyncAutocomplete
@@ -381,11 +393,13 @@ export const TripSheetForm = () => {
                   onChange={(v: any) => {
                       setFromPlaceOption(v);
                       setFromPlace(v?.value || '');
+                      setFormErrors(p => ({...p, fromPlace: ''}));
                   }}
                   required
-                  defaultOptions={false} // 🟢 No auto-fetch on load
+                  defaultOptions={false} 
                   {...getValidationProp(fromPlace)}
                 />
+                {formErrors.fromPlace && <p className="text-xs text-red-500 mt-1">{formErrors.fromPlace}</p>}
               </div>
 
               <div className="col-span-1 lg:col-span-2">
@@ -399,21 +413,24 @@ export const TripSheetForm = () => {
                       const val = v?.value || '';
                       setToPlace(val); 
                       if(!isEditMode) setUnloadPlace(val); 
+                      setFormErrors(p => ({...p, toPlace: ''}));
                   }}
                   required
-                  defaultOptions={false} // 🟢 No auto-fetch on load
+                  defaultOptions={false} 
                   {...getValidationProp(toPlace)}
                 />
+                {formErrors.toPlace && <p className="text-xs text-red-500 mt-1">{formErrors.toPlace}</p>}
               </div>
 
               <div className="col-span-1 sm:col-span-2 lg:col-span-2">
                 <Input
                   label="Carriers"
                   value={carriers}
-                  onChange={(e) => setCarriers(e.target.value)}
+                  onChange={(e) => { setCarriers(e.target.value); setFormErrors(p => ({...p, carriers: ''})); }}
                   required
                   {...getValidationProp(carriers)}
                 />
+                {formErrors.carriers && <p className="text-xs text-red-500 mt-1">{formErrors.carriers}</p>}
               </div>
             </div>
           </div>
@@ -433,7 +450,7 @@ export const TripSheetForm = () => {
                     value={gcOption}
                     onChange={(v: any) => handleGcSelect(v)}
                     required
-                    defaultOptions={false} // 🟢 No auto-fetch on load
+                    defaultOptions={false} 
                     {...getValidationProp(gcNo)}
                   />
                 </div>
@@ -501,6 +518,7 @@ export const TripSheetForm = () => {
                   </tbody>
                 </table>
               </div>
+              {formErrors.items && <p className="text-xs text-red-500 mt-1">{formErrors.items}</p>}
             </div>
           </section>
 
@@ -510,7 +528,6 @@ export const TripSheetForm = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-10 gap-4">
               <div className="col-span-1 lg:col-span-2">
-                {/* DL No Filter */}
                 <AsyncAutocomplete
                   label="DL No"
                   placeholder="Select DL No"
@@ -522,13 +539,13 @@ export const TripSheetForm = () => {
                   value={driverDlOption}
                   onChange={(v: any) => handleDriverSelect(v)}
                   required
-                  defaultOptions={false} // 🟢 No auto-fetch on load
+                  defaultOptions={false} 
                   {...getValidationProp(dlNo)}
                 />
+                {formErrors.dlNo && <p className="text-xs text-red-500 mt-1">{formErrors.dlNo}</p>}
               </div>
 
               <div className="col-span-1 lg:col-span-2">
-                {/* Mobile Filter */}
                 <AsyncAutocomplete
                   label="Driver Mobile"
                   placeholder="Select Mobile"
@@ -540,13 +557,13 @@ export const TripSheetForm = () => {
                   value={driverMobileOption}
                   onChange={(v: any) => handleDriverSelect(v)}
                   required
-                  defaultOptions={false} // 🟢 No auto-fetch on load
+                  defaultOptions={false}
                   {...getValidationProp(driverMobile)}
                 />
+                {formErrors.driverMobile && <p className="text-xs text-red-500 mt-1">{formErrors.driverMobile}</p>}
               </div>
 
               <div className="col-span-1 lg:col-span-2">
-                 {/* Name Filter */}
                 <AsyncAutocomplete
                   label="Driver Name"
                   placeholder="Select Driver Name"
@@ -554,13 +571,13 @@ export const TripSheetForm = () => {
                   value={driverNameOption}
                   onChange={(v: any) => handleDriverSelect(v)}
                   required
-                  defaultOptions={false} // 🟢 No auto-fetch on load
+                  defaultOptions={false} 
                   {...getValidationProp(driverName)}
                 />
+                {formErrors.driverName && <p className="text-xs text-red-500 mt-1">{formErrors.driverName}</p>}
               </div>
 
               <div className="col-span-1 lg:col-span-2">
-                {/* Lorry No Filter */}
                 <AsyncAutocomplete
                   label="Lorry No"
                   placeholder="Select Lorry No"
@@ -568,13 +585,13 @@ export const TripSheetForm = () => {
                   value={lorryNoOption}
                   onChange={(v: any) => handleVehicleSelect(v)}
                   required
-                  defaultOptions={false} // 🟢 No auto-fetch on load
+                  defaultOptions={false} 
                   {...getValidationProp(lorryNo)}
                 />
+                {formErrors.lorryNo && <p className="text-xs text-red-500 mt-1">{formErrors.lorryNo}</p>}
               </div>
 
               <div className="col-span-1 lg:col-span-2">
-                {/* Lorry Name Filter */}
                 <AsyncAutocomplete
                   label="Lorry Name"
                   placeholder="Select Lorry Name"
@@ -586,9 +603,10 @@ export const TripSheetForm = () => {
                   value={lorryNameOption}
                   onChange={(v: any) => handleVehicleSelect(v)}
                   required
-                  defaultOptions={false} // 🟢 No auto-fetch on load
+                  defaultOptions={false} 
                   {...getValidationProp(lorryName)}
                 />
+                {formErrors.lorryName && <p className="text-xs text-red-500 mt-1">{formErrors.lorryName}</p>}
               </div>
 
               <div className="col-span-1 lg:col-span-2">
@@ -600,16 +618,18 @@ export const TripSheetForm = () => {
                   required
                   {...getValidationProp(ownerName)}
                 />
+                {formErrors.ownerName && <p className="text-xs text-red-500 mt-1">{formErrors.ownerName}</p>}
               </div>
 
               <div className="col-span-1 lg:col-span-2">
                 <Input
                   label="Owner Mobile"
                   value={ownerMobile}
-                  onChange={(e) => setOwnerMobile(e.target.value)}
+                  onChange={(e) => { setOwnerMobile(e.target.value); setFormErrors(p => ({...p, ownerMobile: ''})); }}
                   required
                   {...getValidationProp(ownerMobile)}
                 />
+                {formErrors.ownerMobile && <p className="text-xs text-red-500 mt-1">{formErrors.ownerMobile}</p>}
               </div>
 
               <div className="col-span-1 lg:col-span-4">
@@ -617,10 +637,11 @@ export const TripSheetForm = () => {
                   label="Unload Place"
                   placeholder="Select Unload Place"
                   value={unloadPlace}
-                  onChange={(e) => setUnloadPlace(e.target.value)}
+                  onChange={(e) => { setUnloadPlace(e.target.value); setFormErrors(p => ({...p, unloadPlace: ''})); }}
                   required
                   {...getValidationProp(unloadPlace)}
                 />
+                {formErrors.unloadPlace && <p className="text-xs text-red-500 mt-1">{formErrors.unloadPlace}</p>}
               </div>
 
               <div className="col-span-1 sm:col-span-2 lg:col-span-2">

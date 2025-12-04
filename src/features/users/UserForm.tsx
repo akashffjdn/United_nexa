@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Input } from '../../components/shared/Input';
 import { Button } from '../../components/shared/Button';
-import { X, Eye, EyeOff } from 'lucide-react'; // CHANGE: Imported Eye icons
+import { X, Eye, EyeOff } from 'lucide-react'; 
 import type { AppUser } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
+import { registerUserSchema } from '../../schemas';
+import { useToast } from '../../contexts/ToastContext';
 
 interface UserFormProps {
   initialData?: AppUser;
@@ -11,26 +13,23 @@ interface UserFormProps {
   onSave: (user: AppUser) => void;
 }
 
-// Helper function to check for non-empty or non-zero value
 const isValueValid = (value: any): boolean => {
     if (typeof value === 'string') {
         return value.trim().length > 0;
     }
-    // Check if it's a number and non-zero, or any other truthy value
     return !!value; 
 };
 
-// Utility function to generate the prop used to hide the required marker
 const getValidationProp = (value: any) => ({
-    // This prop tells the Input component to hide the visual marker
     hideRequiredIndicator: isValueValid(value)
 });
 
 export const UserForm = ({ initialData, onClose, onSave }: UserFormProps) => {
   const { users } = useAuth(); 
+  const toast = useToast();
   const [emailError, setEmailError] = useState<string>(""); 
-  // CHANGE: State to toggle password visibility
   const [showPassword, setShowPassword] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const [formData, setFormData] = useState({
     name: initialData?.name || '',
@@ -43,10 +42,11 @@ export const UserForm = ({ initialData, onClose, onSave }: UserFormProps) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    
+    if (formErrors[name]) setFormErrors(prev => ({ ...prev, [name]: '' }));
 
     if (name === 'email') {
       const normalizedEmail = value.trim().toLowerCase();
-      
       const exists = users.some(u => 
         u.email.toLowerCase() === normalizedEmail && 
         u.id !== initialData?.id
@@ -62,18 +62,51 @@ export const UserForm = ({ initialData, onClose, onSave }: UserFormProps) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (emailError) return;
+    setFormErrors({});
+
+    if (emailError) {
+        toast.error("Please resolve email errors.");
+        return;
+    }
+
+    // Dynamic schema validation: Omit password validation if editing and empty
+    let validationSchema: any = registerUserSchema;
+    if (initialData && !formData.password) {
+        validationSchema = registerUserSchema.omit({ password: true });
+    }
+
+    const validationResult = validationSchema.safeParse({
+        ...formData,
+    });
+
+    if (!validationResult.success) {
+        const newErrors: Record<string, string> = {};
+        // Fix: Use .issues and cast err to any
+        validationResult.error.issues.forEach((err: any) => {
+            if (err.path[0]) newErrors[err.path[0].toString()] = err.message;
+        });
+        setFormErrors(newErrors);
+        toast.error("Please correct the errors in the form.");
+        return;
+    }
     
+    // 🟢 CLEAN PAYLOAD: Remove empty password before sending to parent/backend
+    const finalData = { ...formData };
+    if (initialData && !finalData.password) {
+        // We cast to any to delete the property safely
+        delete (finalData as any).password;
+    }
+
     const userToSave: AppUser = {
       id: initialData?.id || `user-${Date.now()}`,
-      ...formData,
+      ...finalData,
     } as AppUser;
 
     onSave(userToSave);
   };
 
   return (
-    <div className="fixed -inset-6 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+    <div className="fixed -top-6 left-0 right-0 bottom-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="relative w-full max-w-lg bg-background rounded-lg shadow-xl">
         <div className="flex items-center justify-between p-4 border-b border-muted">
           <h2 className="text-xl font-semibold text-foreground">
@@ -85,15 +118,18 @@ export const UserForm = ({ initialData, onClose, onSave }: UserFormProps) => {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <Input 
-            label="Full Name" 
-            id="name" 
-            name="name" 
-            value={formData.name} 
-            onChange={handleChange} 
-            required 
-            { ...getValidationProp(formData.name)}
-          />
+          <div>
+            <Input 
+                label="Full Name" 
+                id="name" 
+                name="name" 
+                value={formData.name} 
+                onChange={handleChange} 
+                required 
+                { ...getValidationProp(formData.name)}
+            />
+            {formErrors.name && <p className="text-xs text-red-500 mt-1">{formErrors.name}</p>}
+          </div>
           
           <div>
             <Input 
@@ -107,15 +143,11 @@ export const UserForm = ({ initialData, onClose, onSave }: UserFormProps) => {
               { ...getValidationProp(formData.email)} 
               className={emailError ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}
             />
-            {emailError && (
-              <p className="text-sm text-red-600 mt-1 animate-in fade-in slide-in-from-top-1">
-                {emailError}
-              </p>
-            )}
+            {emailError && <p className="text-sm text-red-600 mt-1">{emailError}</p>}
+            {formErrors.email && !emailError && <p className="text-xs text-red-500 mt-1">{formErrors.email}</p>}
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-             {/* CHANGE: Custom Password Input with Eye Icon */}
              <div>
                <label htmlFor="password" className="block text-sm font-medium text-muted-foreground">
                  {initialData ? "Password (Leave blank to keep)" : "Password"}
@@ -125,34 +157,36 @@ export const UserForm = ({ initialData, onClose, onSave }: UserFormProps) => {
                  <input
                    id="password"
                    name="password"
-                   type={showPassword ? "text" : "password"} // Toggle type
+                   type={showPassword ? "text" : "password"} 
                    value={formData.password}
                    onChange={handleChange}
                    required={!initialData}
-                   { ...getValidationProp(formData.password)}
-                   // Matches existing Input component styles + pr-10 for icon space
                    className="w-full px-3 py-2 bg-background text-foreground border border-muted-foreground/30 rounded-md shadow-sm placeholder-muted-foreground focus:outline-none focus:ring-primary focus:border-primary pr-10"
                  />
                  <button
                    type="button"
                    onClick={() => setShowPassword(!showPassword)}
                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-muted-foreground hover:text-foreground"
-                   tabIndex={-1} // Skip tab focus for icon
+                   tabIndex={-1} 
                  >
                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                  </button>
                </div>
+               {formErrors.password && <p className="text-xs text-red-500 mt-1">{formErrors.password}</p>}
              </div>
 
-             <Input 
-               label="Mobile Number" 
-               id="mobile" 
-               name="mobile" 
-               value={formData.mobile} 
-               onChange={handleChange} 
-               required 
-               { ...getValidationProp(formData.mobile)}
-             />
+             <div>
+                <Input 
+                label="Mobile Number" 
+                id="mobile" 
+                name="mobile" 
+                value={formData.mobile} 
+                onChange={handleChange} 
+                required 
+                { ...getValidationProp(formData.mobile)}
+                />
+                {formErrors.mobile && <p className="text-xs text-red-500 mt-1">{formErrors.mobile}</p>}
+             </div>
           </div>
 
           <div>

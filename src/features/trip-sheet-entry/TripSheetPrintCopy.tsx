@@ -67,14 +67,14 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
           justify-content:space-between;
           align-items:flex-start;
         }
-        .company-block { width: 70%; border-right: 1px solid #000; }
+        .company-block { width: 64%; border-right: 1px solid #000; font-weight: 600 }
         .company-title { font-weight: 900; font-size: 20px; }
         .company-sub { font-size: 11px; margin-top: 3px; }
 
         .meta-block {
-          width: 30%;
+          width: 36%;
           text-align: left;
-          font-size: 12px;
+          font-size: 14px;
           line-height: 1.4;
           padding: 10px;
         }
@@ -84,7 +84,7 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
           justify-content:space-between;
           margin-top: 8px;
           padding: 6px 2px;
-          font-weight: 100;
+          font-weight: 200;
           border-top: 1px solid #000;
         }
 
@@ -201,9 +201,18 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
 
         {/* From / To / Date */}
         <div className="fromto">
-          <div>From: {sheet.fromPlace}</div>
-          <div>To: {sheet.toPlace}</div>
-          <div>Date: {fmtDate(sheet.tsDate)}</div>
+          <div>
+            <span className="w-10">From: </span>
+            <span className="font-bold">{sheet.fromPlace}</span>
+          </div>
+          <div>
+             <span className="w-10">To: </span>
+            <span className="font-bold">{sheet.toPlace}</span>
+            </div>
+          <div>
+            <span className="w-10">Date: </span>
+            <span className="font-bold">{fmtDate(sheet.tsDate)}</span>
+          </div>
         </div>
 
         {/* Table */}
@@ -257,7 +266,7 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
          <div className="footer no-gap">
           Goods have been loaded in good condition. All Checkpost papers have been handed over to the truck driver.
           Goods to be unloaded at<span className="dash bold font-semibold">{sheet.unloadPlace     ?? sheet.toPlace}</span>
-          &nbsp;&nbsp; Please pay lorry hire Rs. <span className="dash bold">₹{total.toLocaleString("en-IN")}</span>,
+          &nbsp;&nbsp; Please pay lorry hire Rs. <span className="dash bold font-bold">₹{total.toLocaleString("en-IN")}</span>,
           &nbsp;&nbsp; <strong className="dash bold">{totalWords}</strong> on receiving the goods in sound condition.
         </div>
 

@@ -9,6 +9,8 @@ import { AsyncAutocomplete } from '../../components/shared/AsyncAutocomplete';
 import { Printer, Save, X } from 'lucide-react';
 import { GcPrintManager, type GcPrintJob } from './GcPrintManager';
 import { useToast } from '../../contexts/ToastContext';
+// 🟢 NEW: Import Zod Schema
+import { gcEntrySchema } from '../../schemas';
 
 type ProofType = 'gst' | 'pan' | 'aadhar';
 
@@ -42,6 +44,9 @@ export const GcEntryForm = () => {
   const isEditMode = !!gcNo;
   const [loading, setLoading] = useState(isEditMode);
   
+  // 🟢 NEW: Validation Errors State
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
   // Form State
   const [form, setForm] = useState<Omit<GcEntry, 'id'>>({
     gcNo: '',
@@ -61,7 +66,7 @@ export const GcEntryForm = () => {
     tollFee: "0",
     freight: "0",
     godownCharge: "0",
-    statisticCharge: "0", // 🟢 Ensure this matches backend field
+    statisticCharge: "0",
     advanceNone: "0",
     balanceToPay: "0",
     quantity: "",
@@ -99,24 +104,20 @@ export const GcEntryForm = () => {
             ? tripAmount.toString() 
             : gc.balanceToPay;
 
-          // 🟢 FIX: Robustly handle Statistic Charge (New vs Old Key)
           const backendStatistic = gc.statisticCharge ?? (gc as any).statisticalCharge ?? 0;
 
           setForm({
             ...gc,
-            // Ensure all numeric fields are converted to strings for the Input components
             billValue: (gc.billValue || 0).toString(),
             tollFee: (gc.tollFee || 0).toString(),
             freight: (gc.freight || 0).toString(),
             godownCharge: (gc.godownCharge || 0).toString(),
-            statisticCharge: backendStatistic.toString(), // 🟢 Set correctly
+            statisticCharge: backendStatistic.toString(),
             advanceNone: (gc.advanceNone || 0).toString(),
-            
             balanceToPay: displayBalance.toString(),
             paymentType: gc.paymentType || 'To Pay' 
           });
 
-          // PRE-FILL UI WITH ENRICHED DATA
           if (gc.consignorId && (gc as any).consignorName) {
              setConsignorOption({ value: gc.consignorId, label: (gc as any).consignorName });
              setConsignorGst((gc as any).consignorGSTIN || '');
@@ -199,10 +200,17 @@ export const GcEntryForm = () => {
       if (name === 'quantity') newData.netQty = value;
       return newData;
     });
+    // Clear specific error on change
+    if (formErrors[name]) {
+      setFormErrors(prev => ({ ...prev, [name]: '' }));
+    }
   };
 
   const handleFormValueChange = (name: keyof typeof form, value: string | number) => { 
       setForm(prev => ({ ...prev, [name]: value as string })); 
+      if (formErrors[name]) {
+        setFormErrors(prev => ({ ...prev, [name]: '' }));
+      }
   };
   
   const handleDestinationSelect = (option: any) => {
@@ -211,6 +219,7 @@ export const GcEntryForm = () => {
       setForm(prev => ({ ...prev, destination: val, deliveryAt: val, freightUptoAt: val }));
       setDeliveryOption(option);
       setFreightOption(option);
+      setFormErrors(prev => ({ ...prev, destination: '', deliveryAt: '', freightUptoAt: '' }));
   };
   
   const handleConsignorSelect = (option: any) => {
@@ -222,6 +231,7 @@ export const GcEntryForm = () => {
         setForm(prev => ({ ...prev, consignorId: '', from: 'Sivakasi' })); 
         setConsignorGst(''); 
     }
+    setFormErrors(prev => ({ ...prev, consignorId: '' }));
   };
   
   const handleConsigneeSelect = (option: any) => {
@@ -257,6 +267,7 @@ export const GcEntryForm = () => {
         setConsigneeDestDisplay(''); 
         setForm(prev => ({ ...prev, consigneeId: '', consigneeProofType: 'gst', consigneeProofValue: '' })); 
     }
+    setFormErrors(prev => ({ ...prev, consigneeId: '' }));
   };
   
   const handleProofTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -270,11 +281,40 @@ export const GcEntryForm = () => {
 
   // --- SAVE & PRINT LOGIC ---
   const handleSave = async (andPrint = false) => {
+    setFormErrors({}); // Clear previous errors
+
+    // 🟢 1. Validate Form Data against Schema
+    const validationResult = gcEntrySchema.safeParse(form);
+
+    if (!validationResult.success) {
+      // Map Zod errors to state
+      const newErrors: Record<string, string> = {};
+      // FIX: Changed .errors to .issues and typed err as any to avoid implicit any error
+      validationResult.error.issues.forEach((err: any) => {
+        if (err.path[0]) {
+          newErrors[err.path[0].toString()] = err.message;
+        }
+      });
+      setFormErrors(newErrors);
+      toast.error("Please fill all required fields correctly.");
+      return;
+    }
+
+    // 🟢 2. Use validated data (coerced types)
+    // NOTE: validationResult.data contains numbers for numeric fields now
+    const validatedData = validationResult.data;
+
     const finalGcNo = isEditMode ? form.gcNo : ""; 
-    const gcData: GcEntry = { ...form, id: isEditMode ? (form as any).id : undefined, gcNo: finalGcNo } as GcEntry;
+    
+    // We merge validated data back into the expected structure
+    const gcData: any = { 
+      ...validatedData, 
+      id: isEditMode ? (form as any).id : undefined, 
+      gcNo: finalGcNo 
+    };
 
     if ((form as any).tripSheetAmount) {
-        (gcData as any).tripSheetAmount = (form as any).tripSheetAmount;
+        gcData.tripSheetAmount = (form as any).tripSheetAmount;
     }
 
     let savedData;
@@ -318,6 +358,7 @@ export const GcEntryForm = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="col-span-1">
                 <Input label="GC Date" type="date" name="gcDate" value={form.gcDate} onChange={handleChange} required {...getValidationProp(form.gcDate)} />
+                {formErrors.gcDate && <p className="text-xs text-red-500 mt-1">{formErrors.gcDate}</p>}
               </div>
               <div className="col-span-1">
                 <Input label="From (GC)" name="from" value={form.from} onChange={handleChange} required {...getValidationProp(form.from)} disabled />
@@ -333,6 +374,7 @@ export const GcEntryForm = () => {
                   defaultOptions={false} 
                   {...getValidationProp(form.destination)} 
                 />
+                {formErrors.destination && <p className="text-xs text-red-500 mt-1">{formErrors.destination}</p>}
               </div>
             </div>
           </div>
@@ -351,6 +393,7 @@ export const GcEntryForm = () => {
                   defaultOptions={false}
                   { ...getValidationProp(form.consignorId)} 
                 />
+                {formErrors.consignorId && <p className="text-xs text-red-500 mt-1">{formErrors.consignorId}</p>}
               </div>
               <div className="col-span-1 lg:col-span-4"><Input label="Consignor GSTIN" value={consignorGst} disabled required { ...getValidationProp(consignorGst)} /></div>
               <div className="col-span-1 lg:col-span-3"><Input label="Consignor From" value={form.from} disabled required { ...getValidationProp(form.from)} /></div>
@@ -367,6 +410,7 @@ export const GcEntryForm = () => {
                   defaultOptions={false}
                   {...getValidationProp(form.consigneeId)} 
                 />
+                {formErrors.consigneeId && <p className="text-xs text-red-500 mt-1">{formErrors.consigneeId}</p>}
               </div>
               <div className="col-span-1 lg:col-span-3"><Input label="Consignee Dest" value={consigneeDestDisplay} disabled required { ...getValidationProp(consigneeDestDisplay)} /></div>
               <div className="col-span-1 lg:col-span-2">
@@ -391,6 +435,7 @@ export const GcEntryForm = () => {
                   defaultOptions={false}
                   { ...getValidationProp(form.deliveryAt)} 
                 />
+                {formErrors.deliveryAt && <p className="text-xs text-red-500 mt-1">{formErrors.deliveryAt}</p>}
               </div>
               <div className="col-span-1">
                 <AsyncAutocomplete 
@@ -403,6 +448,7 @@ export const GcEntryForm = () => {
                   defaultOptions={false}
                   { ...getValidationProp(form.freightUptoAt)} 
                 />
+                {formErrors.freightUptoAt && <p className="text-xs text-red-500 mt-1">{formErrors.freightUptoAt}</p>}
               </div>
               <div className="col-span-1"><Input label="Godown" name="godown" value={form.godown} onChange={handleChange} /></div>
             </div>
@@ -411,10 +457,19 @@ export const GcEntryForm = () => {
           <div>
              <h3 className="text-base font-bold text-primary border-b border-border pb-2 mb-4">Contents</h3>
              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-              <div className="col-span-1"><Input label="Qty" name="quantity" value={form.quantity} onChange={handleChange} required {...getValidationProp(form.quantity)} /></div>
-              <div className="col-span-1"><Input label="From No" name="fromNo" value={form.fromNo} onChange={handleChange} required { ...getValidationProp(form.fromNo)} /></div>
+              <div className="col-span-1">
+                <Input label="Qty" name="quantity" value={form.quantity} onChange={handleChange} required {...getValidationProp(form.quantity)} />
+                {formErrors.quantity && <p className="text-xs text-red-500 mt-1">{formErrors.quantity}</p>}
+              </div>
+              <div className="col-span-1">
+                <Input label="From No" name="fromNo" value={form.fromNo} onChange={handleChange} required { ...getValidationProp(form.fromNo)} />
+                {formErrors.fromNo && <p className="text-xs text-red-500 mt-1">{formErrors.fromNo}</p>}
+              </div>
               <div className="col-span-1"><Input label="To No" value={toNo > 0 ? toNo : ''} disabled /></div>
-              <div className="col-span-1"><Input label="Net Qty" name="netQty" value={form.netQty} onChange={handleChange} required { ...getValidationProp(form.netQty)} /></div>
+              <div className="col-span-1">
+                <Input label="Net Qty" name="netQty" value={form.netQty} onChange={handleChange} required { ...getValidationProp(form.netQty)} />
+                {formErrors.netQty && <p className="text-xs text-red-500 mt-1">{formErrors.netQty}</p>}
+              </div>
               <div className="col-span-1">
                 <AsyncAutocomplete 
                   label="Packing" 
@@ -426,6 +481,7 @@ export const GcEntryForm = () => {
                   defaultOptions={false}
                   { ...getValidationProp(form.packing)} 
                 />
+                {formErrors.packing && <p className="text-xs text-red-500 mt-1">{formErrors.packing}</p>}
               </div>
               <div className="col-span-1">
                 <AsyncAutocomplete 
@@ -438,6 +494,7 @@ export const GcEntryForm = () => {
                   defaultOptions={false}
                   { ...getValidationProp(form.contents)} 
                 />
+                {formErrors.contents && <p className="text-xs text-red-500 mt-1">{formErrors.contents}</p>}
               </div>
               <div className="col-span-1"><Input label="Prefix" name="prefix" value={form.prefix} onChange={handleChange} /></div>
             </div>
@@ -446,15 +503,18 @@ export const GcEntryForm = () => {
           <div>
              <h3 className="text-base font-bold text-primary border-b border-border pb-2 mb-4">Billing & Payment</h3>
              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
-              <div className="col-span-1"><Input label="Bill No" name="billNo" value={form.billNo} onChange={handleChange} required { ...getValidationProp(form.billNo)} /></div>
-              <div className="col-span-1"><Input label="Bill Value" name="billValue" value={form.billValue} onChange={handleChange} required { ...getValidationProp(form.billValue)} /></div>
+              <div className="col-span-1">
+                <Input label="Bill No" name="billNo" value={form.billNo} onChange={handleChange} required { ...getValidationProp(form.billNo)} />
+                {formErrors.billNo && <p className="text-xs text-red-500 mt-1">{formErrors.billNo}</p>}
+              </div>
+              <div className="col-span-1">
+                <Input label="Bill Value" name="billValue" value={form.billValue} onChange={handleChange} required { ...getValidationProp(form.billValue)} />
+                {formErrors.billValue && <p className="text-xs text-red-500 mt-1">{formErrors.billValue}</p>}
+              </div>
               <div className="col-span-1"><Input label="Toll" name="tollFee" value={form.tollFee} onChange={handleChange} /></div>
               <div className="col-span-1"><Input label="Freight" name="freight" value={form.freight} onChange={handleChange} /></div>
               <div className="col-span-1"><Input label="Godown" name="godownCharge" value={form.godownCharge} onChange={handleChange} /></div>
-              
-              {/* 🟢 CHANGED: Name matches 'statisticCharge' in state & backend */}
               <div className="col-span-1"><Input label="Statistic" name="statisticCharge" value={form.statisticCharge} onChange={handleChange} /></div>
-              
               <div className="col-span-1"><Input label="Advance" name="advanceNone" value={form.advanceNone} onChange={handleChange} /></div>
               <div className="col-span-1"><Input label="Balance" name="balanceToPay" value={form.balanceToPay} onChange={handleChange} /></div>
             </div>

@@ -4,11 +4,15 @@ import { Input } from '../../components/shared/Input';
 import { Button } from '../../components/shared/Button';
 import { X } from 'lucide-react';
 import type { DuplicateCheckFn } from './FromPlacesList';
+// 🟢 NEW: Imports
+import { placeSchema } from '../../schemas';
 
-interface FormErrors {
-    place: string | null;
-    short: string | null;
-    // general: string | null; // For required field error
+interface FromPlacesFormProps {
+    initialData?: FromPlace;
+    onClose: () => void;
+    onSave: (fromPlace: FromPlace) => void;
+    onError: (message: string) => void; 
+    checkDuplicates: DuplicateCheckFn;
 }
 
 // Helper function to check for non-empty or non-zero value
@@ -16,24 +20,13 @@ const isValueValid = (value: any): boolean => {
     if (typeof value === 'string') {
         return value.trim().length > 0;
     }
-    // Check if it's a number and non-zero, or any other truthy value
     return !!value; 
 };
 
 // Utility function to generate the prop used to hide the required marker
 const getValidationProp = (value: any) => ({
-    // This prop tells the Input component to hide the visual marker
     hideRequiredIndicator: isValueValid(value)
 });
-
-interface FromPlacesFormProps {
-    initialData?: FromPlace;
-    onClose: () => void;
-    onSave: (fromPlace: FromPlace) => void;
-    onError: (message: string) => void; 
-    // 🌟 NEW: Validation function passed from parent
-    checkDuplicates: DuplicateCheckFn;
-}
 
 export const FromPlacesForm = ({ initialData, onClose, onSave, onError, checkDuplicates }: FromPlacesFormProps) => {
     const [fromPlace, setFromPlace] = useState({
@@ -41,75 +34,50 @@ export const FromPlacesForm = ({ initialData, onClose, onSave, onError, checkDup
         shortName: initialData?.shortName || '',
     });
     
-    // 🌟 NEW: Internal state to manage field-level errors dynamically
-    const [fieldErrors, setFieldErrors] = useState<FormErrors>({
-        place: null,
-        short: null,
-        // general: null,
-    });
+    // 🟢 NEW: Validation State
+    const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-    // 🌟 NEW: Validation function to run on change and submit
-    const validateFields = (currentPlace: string, currentShort: string): boolean => {
-        // 1. Check for required fields (simple form validation)
-        const isPlaceNameValid = currentPlace.trim().length > 0;
-        const isShortNameValid = currentShort.trim().length > 0;
-        
-        let newErrors: FormErrors = { place: null, short: null, 
-            // general: null 
-        };
-        
-        // if (!isPlaceNameValid || !isShortNameValid) {
-        //     newErrors.general = 'Place Name and Short Name are required.';
-        // }
-
-        // 2. Check for duplicates using the parent's function
-        const duplicateErrors = checkDuplicates(
-            currentPlace, 
-            currentShort, 
-            initialData?.id
-        );
-
-        newErrors = {
-            ...newErrors,
-            ...duplicateErrors,
-        };
-
-        setFieldErrors(newErrors);
-        
-        // Return true if all checks pass for submission purposes
-        return isPlaceNameValid && isShortNameValid && !duplicateErrors.place && !duplicateErrors.short;
-    };
-    
-    // 🌟 NEW: Dynamic handleChange handler
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        
-        // Update state first
-        setFromPlace(prev => {
-            const newPlace = { ...prev, [name]: value };
-            
-            // Validate immediately after state update (using the new values)
-            validateFields(newPlace.placeName, newPlace.shortName);
-            
-            return newPlace;
-        });
+        setFromPlace(prev => ({ ...prev, [name]: value }));
+        // Clear Zod error on change
+        if (formErrors[name]) setFormErrors(prev => ({ ...prev, [name]: '' }));
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        setFormErrors({});
         
-        // 🚨 Final Validation Check on Submit
-        const isValid = validateFields(fromPlace.placeName, fromPlace.shortName);
+        // 🟢 1. Validate against Zod Schema (Matches Backend)
+        const validationResult = placeSchema.safeParse(fromPlace);
 
-        if (!isValid) {
-            // Trigger the parent's general error handler (which might display the 'required' message)
-            // if (fieldErrors.general) {
-            //      onError(fieldErrors.general);
-            // } else
-                 if (fieldErrors.place || fieldErrors.short) {
-                 onError('Cannot save due to duplicate entry.');
-            }
+        if (!validationResult.success) {
+            const newErrors: Record<string, string> = {};
+            validationResult.error.issues.forEach((err: any) => {
+                if (err.path[0]) newErrors[err.path[0].toString()] = err.message;
+            });
+            setFormErrors(newErrors);
+            // Don't return yet, we might want to show toast or let the inline errors speak
+            // returning to stop submission
             return;
+        }
+
+        // 🟢 2. Check for duplicates (Business Logic)
+        const duplicateErrors = checkDuplicates(
+            fromPlace.placeName, 
+            fromPlace.shortName, 
+            initialData?.id
+        );
+
+        if (duplicateErrors.place || duplicateErrors.short) {
+             // Map duplicate errors to formErrors for display
+             setFormErrors(prev => ({
+                 ...prev,
+                 placeName: duplicateErrors.place || prev.placeName,
+                 shortName: duplicateErrors.short || prev.shortName
+             }));
+             onError('Cannot save due to duplicate entry.');
+             return;
         }
 
         const savedFromPlace: FromPlace = {
@@ -122,11 +90,8 @@ export const FromPlacesForm = ({ initialData, onClose, onSave, onError, checkDup
     };
 
     return (
-        // Modal Backdrop
-        <div className="fixed -inset-6 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-            {/* Modal Panel */}
+        <div className="fixed -top-6 left-0 right-0 bottom-0 z-50 flex items-center justify-center bg-black/50 p-4">
             <div className="relative w-96 max-w-lg bg-background rounded-lg shadow-xl max-h-[90vh] overflow-y-auto">
-                {/* Modal Header */}
                 <div className="flex items-center justify-between p-4 border-b border-muted">
                     <h2 className="text-xl font-semibold text-foreground">
                         {initialData ? 'Edit From Places Entry' : 'Create New From Places Entry'}
@@ -135,22 +100,10 @@ export const FromPlacesForm = ({ initialData, onClose, onSave, onError, checkDup
                         <X size={20} />
                     </button>
                 </div>
-
-                {/* Display the general form error (e.g., Required fields are missing) */}
-                {/* {fieldErrors.general && (
-                    <div className="p-4 bg-red-100 text-red-700 border-b border-red-300">
-                        <p className="flex items-center font-medium">
-                            <X size={16} className="mr-2 inline"/>
-                            {fieldErrors.general}
-                        </p>
-                    </div>
-                )} */}
                 
-                {/* Modal Body */}
                 <form onSubmit={handleSubmit} className="p-6 space-y-6">
                     <div className="grid grid-cols-1 gap-4">
                         
-                        {/* ⚠️ Place Name Input and Error ⚠️ */}
                         <div>
                             <Input 
                                 label="Place Name" 
@@ -161,14 +114,11 @@ export const FromPlacesForm = ({ initialData, onClose, onSave, onError, checkDup
                                 required 
                                 { ...getValidationProp(fromPlace.placeName)}
                             />
-                            {fieldErrors.place && (
-                                <p className="mt-2 text-sm text-red-600 flex items-center">
-                                    {fieldErrors.place}
-                                </p>
+                            {formErrors.placeName && (
+                                <p className="mt-1 text-sm text-red-600">{formErrors.placeName}</p>
                             )}
                         </div>
                         
-                        {/* ⚠️ Short Name Input and Error ⚠️ */}
                         <div>
                             <Input 
                                 label="Short Name" 
@@ -179,16 +129,13 @@ export const FromPlacesForm = ({ initialData, onClose, onSave, onError, checkDup
                                 required 
                                 { ...getValidationProp(fromPlace.shortName)}
                             />
-                            {fieldErrors.short && (
-                                <p className="mt-2 text-sm text-red-600 flex items-center">
-                                    {fieldErrors.short}
-                                </p>
+                            {formErrors.shortName && (
+                                <p className="mt-1 text-sm text-red-600">{formErrors.shortName}</p>
                             )}
                         </div>
                         
                     </div>
 
-                    {/* Modal Footer (Actions) */}
                     <div className="flex justify-end space-x-3 pt-4 border-t border-muted">
                         <Button type="button" variant="secondary" onClick={onClose} className="w-auto">
                             Cancel
@@ -197,8 +144,6 @@ export const FromPlacesForm = ({ initialData, onClose, onSave, onError, checkDup
                             type="submit" 
                             variant="primary" 
                             className="w-auto"
-                            // Optionally disable button if any field error exists
-                            disabled={!!fieldErrors.place || !!fieldErrors.short} 
                         >
                             Save
                         </Button>

@@ -4,6 +4,9 @@ import { Input } from "../../components/shared/Input";
 import { Button } from "../../components/shared/Button";
 import { X } from "lucide-react";
 import { useData } from "../../hooks/useData";
+// 🟢 NEW: Imports
+import { contentSchema } from "../../schemas";
+import { useToast } from "../../contexts/ToastContext";
 
 interface ContentEntryFormProps {
   initialData?: ContentEntry;
@@ -11,18 +14,14 @@ interface ContentEntryFormProps {
   onSave: (entry: ContentEntry) => void;
 }
 
-// Helper function to check for non-empty or non-zero value
 const isValueValid = (value: any): boolean => {
     if (typeof value === 'string') {
         return value.trim().length > 0;
     }
-    // Check if it's a number and non-zero, or any other truthy value
     return !!value; 
 };
 
-// Utility function to generate the prop used to hide the required marker
 const getValidationProp = (value: any) => ({
-    // This prop tells the Input component to hide the visual marker
     hideRequiredIndicator: isValueValid(value)
 });
 
@@ -32,6 +31,7 @@ export const ContentForm = ({
   onSave,
 }: ContentEntryFormProps) => {
   const { contentEntries } = useData();
+  const toast = useToast();
 
   const [entry, setEntry] = useState({
     id: initialData?.id || "",
@@ -39,10 +39,12 @@ export const ContentForm = ({
     shortName: initialData?.shortName || "",
   });
 
-  // Changed to object to track errors per field
-  const [errors, setErrors] = useState({
+  // 🟢 NEW: Validation State
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  // Manual duplicate check state (preserved)
+  const [dupErrors, setDupErrors] = useState({
     contentName: "",
-    shortName: "",
   });
 
   const handleChange = (
@@ -50,101 +52,62 @@ export const ContentForm = ({
   ) => {
     const { name, value } = e.target;
     setEntry((prev) => ({ ...prev, [name]: value }));
+    
+    if (formErrors[name]) setFormErrors(prev => ({ ...prev, [name]: '' }));
 
-    // --- IMMEDIATE VALIDATION ---
+    // --- IMMEDIATE DUPLICATE VALIDATION ---
     if (name === "contentName") {
       const trimmedValue = value.trim();
-      if (!trimmedValue) {
-        setErrors(prev => ({ ...prev, contentName: "Content name is required" }));
-      } else {
-        const exists = contentEntries.some(
+      const exists = contentEntries.some(
           (c) =>
             c.contentName.toLowerCase() === trimmedValue.toLowerCase() &&
             c.id !== initialData?.id
         );
-        setErrors(prev => ({ 
+        setDupErrors(prev => ({ 
           ...prev, 
           contentName: exists ? "Content name already exists" : "" 
         }));
-      }
-    }
-
-    if (name === "shortName") {
-      setErrors(prev => ({ 
-        ...prev, 
-        shortName: value.trim() ? "" : "Short name is required" 
-      }));
-    }
-  };
-
-  // Persist to local storage logic (kept from your previous code)
-  const persistToLocal = (saved: ContentEntry) => {
-    try {
-      const raw = localStorage.getItem("contentEntries");
-      const existing: ContentEntry[] = raw ? JSON.parse(raw) : [];
-      const index = existing.findIndex((c) => c.id === saved.id);
-      if (index >= 0) {
-        existing[index] = saved;
-      } else {
-        existing.push(saved);
-      }
-      localStorage.setItem("contentEntries", JSON.stringify(existing));
-    } catch (err) {
-      console.warn("Could not persist contentEntries to localStorage", err);
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormErrors({});
 
-    const name = entry.contentName.trim();
-    const short = entry.shortName.trim();
-    let hasError = false;
-    const newErrors = { contentName: "", shortName: "" };
-
-    if (!name) {
-      newErrors.contentName = "Content name is required";
-      hasError = true;
-    } else {
-      const exists = contentEntries.some(
-        (c) =>
-          c.contentName.toLowerCase() === name.toLowerCase() &&
-          c.id !== initialData?.id
-      );
-      if (exists) {
-        newErrors.contentName = "Content name already exists";
-        hasError = true;
-      }
+    // 🟢 1. Check Duplicates
+    if (dupErrors.contentName) {
+        toast.error("Please resolve duplicate entries.");
+        return;
     }
 
-    if (!short) {
-      newErrors.shortName = "Short name is required";
-      hasError = true;
-    }
+    // 🟢 2. Validate against Zod Schema
+    const validationResult = contentSchema.safeParse(entry);
 
-    setErrors(newErrors);
-    if (hasError) return;
+    if (!validationResult.success) {
+        const newErrors: Record<string, string> = {};
+        validationResult.error.issues.forEach((err: any) => {
+            if (err.path[0]) newErrors[err.path[0].toString()] = err.message;
+        });
+        setFormErrors(newErrors);
+        toast.error("Please correct the errors in the form.");
+        return;
+    }
 
     // Final data
     const savedEntry: ContentEntry = {
       ...initialData,
       id: initialData?.id || `CNT-${Date.now()}`,
-      contentName: name,
-      shortName: short,
+      contentName: entry.contentName.trim(),
+      shortName: entry.shortName.trim(),
     };
 
-    // Update global state
     onSave(savedEntry);
-
-    // Persist to localStorage
-    persistToLocal(savedEntry);
   };
 
   return (
-    <div className="fixed -inset-6 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+    <div className="fixed -top-6 left-0 right-0 bottom-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="relative w-96 max-w-2xl bg-background rounded-lg shadow-xl max-h-[90vh] overflow-y-auto">
         
-        {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-muted">
           <h2 className="text-xl font-semibold text-foreground">
             {initialData ? "Edit Content Entry" : "Create New Content Entry"}
@@ -157,11 +120,9 @@ export const ContentForm = ({
           </button>
         </div>
 
-        {/* Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
             
-            {/* Content Name */}
             <div>
               <Input
                 label="Content Name"
@@ -171,16 +132,16 @@ export const ContentForm = ({
                 onChange={handleChange}
                 required
                 { ...getValidationProp(entry.contentName)}
-                className={errors.contentName ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}
+                className={dupErrors.contentName ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}
               />
-              {errors.contentName && (
-                <p className="text-sm text-red-600 mt-1 animate-in fade-in slide-in-from-top-1">
-                  {errors.contentName}
-                </p>
+              {dupErrors.contentName && (
+                <p className="text-sm text-red-600 mt-1">{dupErrors.contentName}</p>
+              )}
+              {formErrors.contentName && !dupErrors.contentName && (
+                <p className="text-sm text-red-600 mt-1">{formErrors.contentName}</p>
               )}
             </div>
 
-            {/* Short Name */}
             <div>
               <Input
                 label="Short Name"
@@ -190,17 +151,13 @@ export const ContentForm = ({
                 onChange={handleChange}
                 required
                 { ...getValidationProp(entry.shortName)}
-                className={errors.shortName ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}
               />
-              {errors.shortName && (
-                <p className="text-sm text-red-600 mt-1">
-                  {errors.shortName}
-                </p>
+              {formErrors.shortName && (
+                <p className="text-sm text-red-600 mt-1">{formErrors.shortName}</p>
               )}
             </div>
           </div>
 
-          {/* Footer */}
           <div className="flex justify-end space-x-3 pt-4 border-t border-muted">
             <Button type="button" variant="secondary" onClick={onClose}>
               Cancel
@@ -209,7 +166,6 @@ export const ContentForm = ({
             <Button 
               type="submit" 
               variant="primary"
-              disabled={!!errors.contentName || !!errors.shortName}
             >
               Save Content Entry
             </Button>

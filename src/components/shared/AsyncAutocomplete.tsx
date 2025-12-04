@@ -52,15 +52,17 @@ const ClearIndicator = (props: any) => {
   );
 };
 
-const LoadingIndicator = (props: any) => {
+// 🟢 FIX: Do not spread {...props} onto the DOM element. 
+// It was passing invalid props like 'clearValue', 'selectOption' etc. to the div.
+const LoadingIndicator = () => {
   return (
-    <div {...props} className="p-2 mr-1">
+    <div className="p-2 mr-1">
       <Loader2 size={16} className="animate-spin text-primary" />
     </div>
   );
 };
 
-// 🟢 NEW: Custom Value Container to handle "+ N more" logic
+// 泙 NEW: Custom Value Container to handle "+ N more" logic
 const CustomValueContainer = ({ children, ...props }: ValueContainerProps<OptionType, boolean>) => {
   const { isMulti, getValue } = props;
   const selected = getValue();
@@ -136,7 +138,7 @@ export const AsyncAutocomplete = ({
     return loadOptions(search, prevOptions, { page });
   };
 
-  // 🎨 STYLES
+  // 耳 STYLES
   const customStyles: StylesConfig<OptionType, boolean, GroupBase<OptionType>> = {
     control: (provided, state) => ({
       ...provided,
@@ -147,7 +149,7 @@ export const AsyncAutocomplete = ({
       color: 'hsl(var(--foreground))',
       borderRadius: '0.375rem', 
       padding: '0 2px', 
-      minHeight: '38px', // 🟢 CHANGED: Reduced from 42px to 38px to match Input field
+      minHeight: '38px', // 泙 CHANGED: Reduced from 42px to 38px to match Input field
       // Prevent massive expansion
       maxHeight: isMulti ? '80px' : undefined,
       overflowY: isMulti ? 'auto' : undefined,
@@ -163,7 +165,7 @@ export const AsyncAutocomplete = ({
     }),
     valueContainer: (provided) => ({
       ...provided,
-      padding: '0 8px', // 🟢 CHANGED: Adjusted padding for better vertical centering in 38px height
+      padding: '0 8px', // 泙 CHANGED: Adjusted padding for better vertical centering in 38px height
       gap: '4px',
     }),
     menu: (provided) => ({
@@ -190,7 +192,7 @@ export const AsyncAutocomplete = ({
         backgroundColor: 'hsl(var(--primary) / 0.2)',
       }
     }),
-    // 🟢 Focus Ring Fix
+    // 泙 Focus Ring Fix
     input: (provided) => ({
       ...provided,
       color: 'hsl(var(--foreground))',
@@ -253,12 +255,12 @@ export const AsyncAutocomplete = ({
         defaultOptions={shouldLoad}
         additional={{ page: 1 }}
         styles={customStyles}
-        // 🟢 Inject Custom Components
+        // 泙 Inject Custom Components
         components={{ 
           DropdownIndicator, 
           ClearIndicator, 
           LoadingIndicator,
-          ValueContainer: CustomValueContainer // 👈 The logic to truncate tags
+          ValueContainer: CustomValueContainer // 争 The logic to truncate tags
         }}
         debounceTimeout={400} 
         classNamePrefix="react-select"

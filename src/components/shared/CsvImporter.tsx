@@ -191,7 +191,7 @@ export const CsvImporter = <T,>({
       </Button>
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+        <div className="fixed -top-6 left-0 right-0 bottom-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
           <div className="bg-background rounded-xl shadow-2xl w-full max-w-lg border border-muted flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between p-4 border-b border-muted">
               <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">

@@ -4,8 +4,9 @@ import { Input } from '../../components/shared/Input';
 import { Button } from '../../components/shared/Button';
 import { X, Info } from 'lucide-react';
 import { useData } from '../../hooks/useData';
-import { AsyncAutocomplete } from '../../components/shared/AsyncAutocomplete'; // 🟢 Fixed Import
+import { AsyncAutocomplete } from '../../components/shared/AsyncAutocomplete'; 
 import { useToast } from '../../contexts/ToastContext';
+import { consignorSchema, consigneeSchema } from '../../schemas';
 
 // Get today's date in YYYY-MM-DD format
 const getTodayDate = () => new Date().toISOString().split('T')[0];
@@ -16,18 +17,14 @@ interface ConsignorFormProps {
   onSave: (consignor: Consignor, firstConsignee?: any) => void;
 }
 
-// Helper function to check for non-empty or non-zero value
 const isValueValid = (value: any): boolean => {
     if (typeof value === 'string') {
         return value.trim().length > 0;
     }
-    // Check if it's a number and non-zero, or any other truthy value
     return !!value; 
 };
 
-// Utility function to generate the prop used to hide the required marker
 const getValidationProp = (value: any) => ({
-    // This prop tells the Input component to hide the visual marker
     hideRequiredIndicator: isValueValid(value)
 });
 
@@ -35,6 +32,8 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
   const { consignors, searchToPlaces } = useData();
   const [duplicateMessage, setDuplicateMessage] = useState<string | null>(null);
   const toast = useToast();
+
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const [consignor, setConsignor] = useState({
     id: initialData?.id || '', 
@@ -58,19 +57,17 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
     destination: '',
   });
 
-  // 🟢 Local state for Destination dropdown (Async)
   const [destinationOption, setDestinationOption] = useState<any>(null);
 
-  // Check if we are in Update Mode (either editing existing or auto-filled a match)
   const isUpdateMode = !!consignor.id;
 
   const handleConsignorChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setConsignor(prev => ({ ...prev, [name]: value }));
     if (duplicateMessage) setDuplicateMessage(null);
+    if (formErrors[name]) setFormErrors(prev => ({ ...prev, [name]: '' }));
   };
 
-  // 🟢 Async Loader for Destination
   const loadDestinationOptions = async (search: string, _prevOptions: any, { page }: any) => {
     const result = await searchToPlaces(search, page);
     return {
@@ -80,22 +77,19 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
     };
   };
 
-  // 🟢 Updated Handler for AsyncAutocomplete
   const handleDestinationChange = (option: any) => {
       setDestinationOption(option);
       setConsignee(prev => ({ ...prev, destination: option?.value || '' }));
       if (duplicateMessage) setDuplicateMessage(null);
+      if (formErrors['consignee.destination']) setFormErrors(prev => ({ ...prev, 'consignee.destination': '' }));
   };
   
   const handleProofBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    // STRICT RULE: Only run auto-fill during "Add New". 
     if (initialData?.id) return;
 
     const { value } = e.target;
     if (!value.trim()) return;
 
-    // Client-side lookup is still fine here for instant feedback if 'consignors' array is available
-    // (DataContext preserves this for compatibility)
     const existing = consignors.find(c => 
       (c.gst && c.gst.toLowerCase() === value.toLowerCase()) ||
       (c.pan && c.pan.toLowerCase() === value.toLowerCase()) ||
@@ -104,7 +98,7 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
 
     if (existing) {
       setConsignor({
-        id: existing.id, // Switch to Update Mode using existing ID
+        id: existing.id, 
         name: existing.name,
         from: existing.from,
         filingDate: getTodayDate(),
@@ -121,10 +115,48 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
   const handleConsigneeChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setConsignee(prev => ({ ...prev, [name]: value }));
+    if (formErrors[`consignee.${name}`]) setFormErrors(prev => ({ ...prev, [`consignee.${name}`]: '' }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormErrors({});
+
+    const consignorValidation = consignorSchema.safeParse(consignor);
+    
+    const newErrors: Record<string, string> = {};
+
+    if (!consignorValidation.success) {
+        consignorValidation.error.issues.forEach((err: any) => {
+            if (err.path[0]) newErrors[err.path[0].toString()] = err.message;
+        });
+    }
+
+    if (addFirstConsignee) {
+        const consigneeCheckData = {
+            name: consignee.name,
+            phone: consignee.phone,
+            destination: consignee.destination,
+            address: consignee.address
+        };
+
+        const consigneeValidation = consigneeSchema.safeParse(consigneeCheckData);
+        if (!consigneeValidation.success) {
+            consigneeValidation.error.issues.forEach((err: any) => {
+                if (err.path[0]) newErrors[`consignee.${err.path[0].toString()}`] = err.message;
+            });
+        }
+
+        if (!consignee.proofValue) {
+            newErrors['consignee.proofValue'] = "Proof Value is required for the new consignee";
+        }
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+        setFormErrors(newErrors);
+        toast.error("Please correct the errors in the form.");
+        return;
+    }
     
     const savedConsignor: Consignor = {
       ...initialData,
@@ -134,11 +166,6 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
 
     let savedConsignee: Consignee | undefined = undefined;
     if (addFirstConsignee) {
-      if (!consignee.name || !consignee.phone || !consignee.destination || !consignee.address || !consignee.proofValue) {
-        toast.error("Please fill all required fields for the first consignee.");
-        return;
-      }
-
       savedConsignee = {
         id: `consignee-${Math.random()}`,
         consignorId: savedConsignor.id,
@@ -157,7 +184,7 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
   };
 
   return (
-    <div className="fixed -inset-6 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+    <div className="fixed -top-6 left-0 right-0 bottom-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="relative w-full max-w-2xl bg-background rounded-lg shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-4 border-b border-muted">
           <h2 className="text-xl font-semibold text-foreground">
@@ -177,45 +204,64 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
             </div>
           )}
 
-          {/* Identity Proof Fields First */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-             <Input 
-               label="GST Number" 
-               id="gst" 
-               name="gst" 
-               value={consignor.gst} 
-               onChange={handleConsignorChange} 
-               onBlur={handleProofBlur} 
-               required 
-               { ...getValidationProp(consignor.gst) }
-               placeholder="Enter GST..."
-             />
-             <Input 
-               label="PAN Number" 
-               id="pan" 
-               name="pan" 
-               value={consignor.pan} 
-               onChange={handleConsignorChange} 
-               onBlur={handleProofBlur}
-               placeholder="Enter PAN..."
-             />
-             <Input 
-               label="Aadhar Number" 
-               id="aadhar" 
-               name="aadhar" 
-               value={consignor.aadhar} 
-               onChange={handleConsignorChange}
-               onBlur={handleProofBlur} 
-               placeholder="Enter Aadhar..."
-             />
+             <div>
+               <Input 
+                 label="GST Number" 
+                 id="gst" 
+                 name="gst" 
+                 value={consignor.gst} 
+                 onChange={handleConsignorChange} 
+                 onBlur={handleProofBlur} 
+                 required 
+                 { ...getValidationProp(consignor.gst) }
+                 placeholder="Enter GST..."
+               />
+               {formErrors.gst && <p className="text-xs text-red-500 mt-1">{formErrors.gst}</p>}
+             </div>
+             <div>
+               <Input 
+                 label="PAN Number" 
+                 id="pan" 
+                 name="pan" 
+                 value={consignor.pan} 
+                 onChange={handleConsignorChange} 
+                 onBlur={handleProofBlur}
+                 placeholder="Enter PAN..."
+               />
+             </div>
+             <div>
+               <Input 
+                 label="Aadhar Number" 
+                 id="aadhar" 
+                 name="aadhar" 
+                 value={consignor.aadhar} 
+                 onChange={handleConsignorChange}
+                 onBlur={handleProofBlur} 
+                 placeholder="Enter Aadhar..."
+               />
+             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input label="Consignor Name" id="name" name="name" value={consignor.name} onChange={handleConsignorChange} required { ...getValidationProp(consignor.name)} />
-            <Input label="From (Place)" id="from" name="from" value={consignor.from} onChange={handleConsignorChange} required { ...getValidationProp(consignor.from)} />
+            <div>
+              <Input label="Consignor Name" id="name" name="name" value={consignor.name} onChange={handleConsignorChange} required { ...getValidationProp(consignor.name)} />
+              {formErrors.name && <p className="text-xs text-red-500 mt-1">{formErrors.name}</p>}
+            </div>
             
-            <Input label="Mobile Number" id="mobile" name="mobile" value={consignor.mobile} onChange={handleConsignorChange} />
-            <Input label="Filing Date" id="filingDate" name="filingDate" type="date" value={consignor.filingDate} onChange={handleConsignorChange} required { ...getValidationProp(consignor.filingDate)} />
+            <div>
+              <Input label="From (Place)" id="from" name="from" value={consignor.from} onChange={handleConsignorChange} required { ...getValidationProp(consignor.from)} />
+              {formErrors.from && <p className="text-xs text-red-500 mt-1">{formErrors.from}</p>}
+            </div>
+            
+            <div>
+              <Input label="Mobile Number" id="mobile" name="mobile" value={consignor.mobile} onChange={handleConsignorChange} />
+              {formErrors.mobile && <p className="text-xs text-red-500 mt-1">{formErrors.mobile}</p>}
+            </div>
+            
+            <div>
+              <Input label="Filing Date" id="filingDate" name="filingDate" type="date" value={consignor.filingDate} onChange={handleConsignorChange} required { ...getValidationProp(consignor.filingDate)} />
+            </div>
             
             <div className="md:col-span-2">
               <label htmlFor="address" className="block text-sm font-medium text-muted-foreground">
@@ -229,11 +275,11 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
                 rows={3} 
                 className="w-full mt-1 px-3 py-2 bg-transparent text-foreground border border-muted-foreground/30 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary" 
                 required 
-                { ...getValidationProp(consignor.address)}
-              /></div>
+              />
+              {formErrors.address && <p className="text-xs text-red-500 mt-1">{formErrors.address}</p>}
+            </div>
           </div>
 
-          {/* Hide Consignee section if we found an existing Consignor (to avoid duplicates) */}
           {!isUpdateMode && (
             <div className="space-y-4 pt-4 border-t border-muted">
               <div className="flex items-center">
@@ -265,23 +311,33 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
                     </div>
                     <div className="md:col-span-2">
                       <Input label="Proof Number" id="c-proofValue" name="proofValue" value={consignee.proofValue} onChange={handleConsigneeChange} required={addFirstConsignee} { ...getValidationProp(consignee.proofValue)} />
+                      {formErrors['consignee.proofValue'] && <p className="text-xs text-red-500 mt-1">{formErrors['consignee.proofValue']}</p>}
                     </div>
                   </div>
 
-                  <Input label="Consignee Name" id="c-name" name="name" value={consignee.name} onChange={handleConsigneeChange} required={addFirstConsignee} { ...getValidationProp(consignee.name)} />
-                  <Input label="Phone Number" id="c-phone" name="phone" value={consignee.phone} onChange={handleConsigneeChange} required={addFirstConsignee} {...getValidationProp(consignee.phone)} />
+                  <div>
+                    <Input label="Consignee Name" id="c-name" name="name" value={consignee.name} onChange={handleConsigneeChange} required={addFirstConsignee} { ...getValidationProp(consignee.name)} />
+                    {formErrors['consignee.name'] && <p className="text-xs text-red-500 mt-1">{formErrors['consignee.name']}</p>}
+                  </div>
+
+                  <div>
+                    <Input label="Phone Number" id="c-phone" name="phone" value={consignee.phone} onChange={handleConsigneeChange} required={addFirstConsignee} {...getValidationProp(consignee.phone)} />
+                    {formErrors['consignee.phone'] && <p className="text-xs text-red-500 mt-1">{formErrors['consignee.phone']}</p>}
+                  </div>
                   
-                  {/* 🟢 3. Replaced with AsyncAutocomplete */}
-                  <AsyncAutocomplete 
-                      label="Destination" 
-                      placeholder="Search Destination..."
-                      loadOptions={loadDestinationOptions}
-                      value={destinationOption} 
-                      onChange={handleDestinationChange}
-                      required 
-                      defaultOptions
-                      { ...getValidationProp(consignee.destination)} 
-                  />
+                  <div>
+                    <AsyncAutocomplete 
+                        label="Destination" 
+                        placeholder="Search Destination..."
+                        loadOptions={loadDestinationOptions}
+                        value={destinationOption} 
+                        onChange={handleDestinationChange}
+                        required 
+                        defaultOptions
+                        { ...getValidationProp(consignee.destination)} 
+                    />
+                    {formErrors['consignee.destination'] && <p className="text-xs text-red-500 mt-1">{formErrors['consignee.destination']}</p>}
+                  </div>
                   
                   <div>
                     <label htmlFor="c-address" className="block text-sm font-medium text-muted-foreground">
@@ -295,8 +351,9 @@ export const ConsignorForm = ({ initialData, onClose, onSave }: ConsignorFormPro
                       rows={2} 
                       className="w-full mt-1 px-3 py-2 bg-transparent text-foreground border border-muted-foreground/30 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary" 
                       required={addFirstConsignee} 
-                      { ...getValidationProp(consignee.address)}
-                    /></div>
+                    />
+                    {formErrors['consignee.address'] && <p className="text-xs text-red-500 mt-1">{formErrors['consignee.address']}</p>}
+                  </div>
                 </div>
               )}
             </div>

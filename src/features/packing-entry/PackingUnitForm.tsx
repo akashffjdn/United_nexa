@@ -4,6 +4,9 @@ import { Input } from "../../components/shared/Input";
 import { Button } from "../../components/shared/Button";
 import { X } from "lucide-react";
 import { useData } from "../../hooks/useData";
+// 🟢 NEW: Imports
+import { packingSchema } from "../../schemas";
+import { useToast } from "../../contexts/ToastContext";
 
 interface PackingEntryFormProps {
   initialData?: PackingEntry;
@@ -11,18 +14,14 @@ interface PackingEntryFormProps {
   onSave: (entry: PackingEntry) => void;
 }
 
-// Helper function to check for non-empty or non-zero value
 const isValueValid = (value: any): boolean => {
     if (typeof value === 'string') {
         return value.trim().length > 0;
     }
-    // Check if it's a number and non-zero, or any other truthy value
     return !!value; 
 };
 
-// Utility function to generate the prop used to hide the required marker
 const getValidationProp = (value: any) => ({
-    // This prop tells the Input component to hide the visual marker
     hideRequiredIndicator: isValueValid(value)
 });
 
@@ -33,6 +32,7 @@ export const PackingUnitForm = ({
   onSave,
 }: PackingEntryFormProps) => {
   const { packingEntries } = useData();
+  const toast = useToast();
 
   const [entry, setEntry] = useState({
     id: initialData?.id || "",
@@ -40,95 +40,74 @@ export const PackingUnitForm = ({
     shortName: initialData?.shortName || "",
   });
 
-  // Changed to object to track errors per field
-  const [errors, setErrors] = useState({
+  // 🟢 NEW: Validation State
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  // Manual duplicate check state (preserved)
+  const [dupErrors, setDupErrors] = useState({
     packingName: "",
-    shortName: "",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    
-    // Update value
     setEntry((prev) => ({ ...prev, [name]: value }));
+    
+    if (formErrors[name]) setFormErrors(prev => ({ ...prev, [name]: '' }));
 
-    // --- IMMEDIATE VALIDATION ---
+    // --- IMMEDIATE DUPLICATE VALIDATION ---
     if (name === "packingName") {
       const trimmedValue = value.trim();
-      if (!trimmedValue) {
-        setErrors(prev => ({ ...prev, packingName: "Packing name is required" }));
-      } else {
-        // Check for duplicates immediately
-        const exists = packingEntries.some(
+      const exists = packingEntries.some(
           (p) =>
             p.packingName.toLowerCase() === trimmedValue.toLowerCase() &&
             p.id !== initialData?.id
         );
         
-        setErrors(prev => ({ 
+      setDupErrors(prev => ({ 
           ...prev, 
           packingName: exists ? "Packing name already exists" : "" 
-        }));
-      }
-    }
-
-    if (name === "shortName") {
-      setErrors(prev => ({ 
-        ...prev, 
-        shortName: value.trim() ? "" : "Short name is required" 
       }));
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormErrors({});
 
-    // Final check before saving
-    const name = entry.packingName.trim();
-    const short = entry.shortName.trim();
-    let hasError = false;
-    const newErrors = { packingName: "", shortName: "" };
-
-    if (!name) {
-      newErrors.packingName = "Packing name is required";
-      hasError = true;
-    } else {
-       const exists = packingEntries.some(
-        (p) =>
-          p.packingName.toLowerCase() === name.toLowerCase() &&
-          p.id !== initialData?.id
-      );
-      if (exists) {
-        newErrors.packingName = "Packing name already exists";
-        hasError = true;
-      }
+    // 🟢 1. Check Duplicates
+    if (dupErrors.packingName) {
+        toast.error("Please resolve duplicate entries.");
+        return;
     }
 
-    if (!short) {
-      newErrors.shortName = "Short name is required";
-      hasError = true;
+    // 🟢 2. Validate against Zod Schema
+    const validationResult = packingSchema.safeParse(entry);
+
+    if (!validationResult.success) {
+        const newErrors: Record<string, string> = {};
+        validationResult.error.issues.forEach((err: any) => {
+            if (err.path[0]) newErrors[err.path[0].toString()] = err.message;
+        });
+        setFormErrors(newErrors);
+        toast.error("Please correct the errors in the form.");
+        return;
     }
-
-    setErrors(newErrors);
-
-    if (hasError) return;
 
     // If OK, save
     const savedEntry: PackingEntry = {
       ...entry,
       id: initialData?.id || `PCK-${Date.now()}`,
-      packingName: name,
-      shortName: short,
+      packingName: entry.packingName.trim(),
+      shortName: entry.shortName.trim(),
     };
 
     onSave(savedEntry);
   };
 
   return (
-    <div className="fixed -inset-6 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+    <div className="fixed -top-6 left-0 right-0 bottom-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="relative w-96 max-w-2xl bg-background rounded-lg shadow-xl max-h-[90vh] overflow-y-auto">
 
-        {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-muted">
           <h2 className="text-xl font-semibold text-foreground">
             {initialData ? "Edit Packing Entry" : "Create New Packing Entry"}
@@ -141,12 +120,10 @@ export const PackingUnitForm = ({
           </button>
         </div>
 
-        {/* Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
 
           <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
             
-            {/* Packing Name */}
             <div>
               <Input
                 label="Packing Name"
@@ -156,16 +133,16 @@ export const PackingUnitForm = ({
                 onChange={handleChange}
                 required
                 { ...getValidationProp(entry.packingName)}
-                className={errors.packingName ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}
+                className={dupErrors.packingName ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}
               />
-              {errors.packingName && (
-                <p className="text-sm text-red-600 mt-1 animate-in fade-in slide-in-from-top-1">
-                  {errors.packingName}
-                </p>
+              {dupErrors.packingName && (
+                <p className="text-sm text-red-600 mt-1">{dupErrors.packingName}</p>
+              )}
+              {formErrors.packingName && !dupErrors.packingName && (
+                <p className="text-sm text-red-600 mt-1">{formErrors.packingName}</p>
               )}
             </div>
 
-            {/* Short Name */}
             <div>
               <Input
                 label="Short Name"
@@ -175,17 +152,13 @@ export const PackingUnitForm = ({
                 onChange={handleChange}
                 required
                 { ...getValidationProp(entry.shortName)}
-                className={errors.shortName ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}
               />
-              {errors.shortName && (
-                <p className="text-sm text-red-600 mt-1">
-                  {errors.shortName}
-                </p>
+              {formErrors.shortName && (
+                <p className="text-sm text-red-600 mt-1">{formErrors.shortName}</p>
               )}
             </div>
           </div>
 
-          {/* Footer */}
           <div className="flex justify-end space-x-3 pt-4 border-t border-muted">
             <Button type="button" variant="secondary" onClick={onClose}>
               Cancel
@@ -193,7 +166,6 @@ export const PackingUnitForm = ({
             <Button 
               type="submit" 
               variant="primary"
-              disabled={!!errors.packingName || !!errors.shortName} // Disable save if errors exist
             >
               Save Packing Entry
             </Button>

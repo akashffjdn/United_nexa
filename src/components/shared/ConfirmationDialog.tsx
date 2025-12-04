@@ -22,7 +22,7 @@ export const ConfirmationDialog = ({
 
   return (
     // Modal Backdrop
-    <div className="fixed -inset-6 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+    <div className="fixed -top-6 left-0 right-0 bottom-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
       {/* Modal Panel */}
       <div className="relative w-full max-w-md bg-background rounded-lg shadow-xl">
         {/* Modal Body */}
