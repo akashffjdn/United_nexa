@@ -12,7 +12,6 @@ export type GcPrintTemplateProps = Partial<{
 }>;
 
 // --- MOCK CONTEXT HOOK (Fix for missing export) ---
-// This serves as a fallback since useGcContext is not exported from DataContext
 const useGcContext = () => {
     // Default initial labels based on GcEntryLabels type
     const defaultLabels: GcEntryLabels = {
@@ -77,6 +76,7 @@ const EditableText: React.FC<{
         value={value}
         onChange={onChange}
         placeholder={placeholder}
+        // MODIFIED: Increased default width and made it more flexible
         className={`border border-dashed border-gray-400 p-0.5 w-full appearance-none focus:border-solid focus:bg-white ${className}`}
         style={{ minWidth: '30px' }}
     />
@@ -190,41 +190,48 @@ const GcCoreTemplate: React.FC<GcPrintTemplateProps> = ({ onEdit }) => {
         <div
             className="print-page font-sans text-black bg-white shadow-2xl mx-auto"
             style={{
-                width: "210mm",
-                minHeight: "297mm",
+                // MODIFIED: Changed from fixed 210mm to 100% max-width for screens
+                // Max width set to A4 size equivalent for large screens
+                maxWidth: "210mm",
+                // MODIFIED: Removed minHeight
                 padding: "5mm",
                 boxSizing: "border-box",
+                // MODIFIED: Added flexible width for screen viewing
+                width: "95%",
             }}
         >
             {/* --- 1. HEADER ROW (GSTIN & Mobile) --- */}
-            <div className="flex mb-2 font-bold text-sm">
+            {/* MODIFIED: Changed flex to flex-col on small screens, then back to row on medium screens (md:flex-row) */}
+            <div className="flex flex-col md:flex-row mb-2 font-bold text-sm">
                
-                <div className="flex gap-4">
+                {/* MODIFIED: Now full width on small screens, wraps content */}
+                <div className="flex flex-col md:flex-row gap-2 md:gap-4 w-full">
                     <div className="flex justify-between gap-4 w-full">
                         <EditableText
                             value={localLabels.fixedGstinLabel}
                             onChange={handleLabelChange("fixedGstinLabel")}
-                            className="w-1/2 text-right font-bold"
+                            className="w-1/3 text-right font-bold" // MODIFIED: Adjusted width for better label alignment
                             placeholder="GSTIN Label"
                         />
                         <EditableText
                             value={localLabels.fixedGstinValue}
                             onChange={handleLabelChange("fixedGstinValue")}
-                            className="w-1/2 ml-1"
+                            className="w-2/3 ml-1" // MODIFIED: Adjusted width
                             placeholder="GSTIN Value"
                         />
                     </div>
-                    <div className="flex justify-between gap-4 w-full">
+                    {/* MODIFIED: Added margin top for stacking on mobile */}
+                    <div className="flex justify-between gap-4 w-full mt-1 md:mt-0">
                         <EditableText
                             value={localLabels.mobileLabel}
                             onChange={handleLabelChange("mobileLabel")}
-                            className="w-1/2 text-right font-bold"
+                            className="w-1/3 text-right font-bold" // MODIFIED: Adjusted width
                             placeholder="Mobile Label"
                         />
                         <EditableText
                             value={localLabels.mobileNumberValue}
                             onChange={handleLabelChange("mobileNumberValue")}
-                            className="w-1/2"
+                            className="w-2/3" // MODIFIED: Adjusted width
                             placeholder="Mobile No."
                         />
                     </div>
@@ -232,10 +239,12 @@ const GcCoreTemplate: React.FC<GcPrintTemplateProps> = ({ onEdit }) => {
             </div>
 
             {/* --- 2. MAIN HEADER (GC No., Date, Company Info) --- */}
-            <div className="flex justify-between items-start mb-1">
-                <div className="font-bold text-sm leading-relaxed w-1/4">
+            {/* MODIFIED: Changed flex to flex-col on small screens, then back to row on medium screens (md:flex-row) */}
+            <div className="flex flex-col md:flex-row justify-between items-start mb-1">
+                {/* MODIFIED: Full width on small screens, then back to 1/4 on medium screens */}
+                <div className="font-bold text-sm leading-relaxed w-full md:w-1/4 mb-2 md:mb-0">
                     <div className="flex gap-2 border border-black p-1 mb-1"> {/* Added border */}
-                        <span className="w-20">
+                        <span className="flex-none w-20"> {/* Kept fixed width for labels */}
                             <EditableText
                                 value={localLabels.gcNoLabel}
                                 onChange={handleLabelChange("gcNoLabel")}
@@ -243,11 +252,11 @@ const GcCoreTemplate: React.FC<GcPrintTemplateProps> = ({ onEdit }) => {
                                 placeholder="GC No. Label"
                             />
                         </span>
-                        <span>
+                        <span className="flex-1">
                         </span>
                     </div>
                     <div className="flex gap-2 border border-black p-1"> {/* Added border */}
-                        <span className="w-20">
+                        <span className="flex-none w-20"> {/* Kept fixed width for labels */}
                             <EditableText
                                 value={localLabels.dateLabel}
                                 onChange={handleLabelChange("dateLabel")}
@@ -255,17 +264,18 @@ const GcCoreTemplate: React.FC<GcPrintTemplateProps> = ({ onEdit }) => {
                                 placeholder="Date Label"
                             />
                         </span>
-                        <span>
+                        <span className="flex-1">
                         </span>
                     </div>
                 </div>
 
-                <div className="text-right flex-1 ml-4 border border-black p-2"> {/* Added border and padding */}
-                    <h1 className="text-3xl font-bold uppercase tracking-tight">
+                {/* MODIFIED: Full width on small screens, margins adjusted */}
+                <div className="text-right flex-1 md:ml-4 border border-black p-2 w-full"> {/* Added border and padding */}
+                    <h1 className="text-xl md:text-3xl font-bold uppercase tracking-tight"> {/* MODIFIED: Smaller text on mobile */}
                         <EditableText
                             value={localLabels.companyName}
                             onChange={handleLabelChange("companyName")}
-                            className="text-3xl font-bold text-right uppercase mb-2"
+                            className="text-xl md:text-3xl font-bold text-right uppercase mb-2"
                             placeholder="Company Name"
                         />
                     </h1>
@@ -289,36 +299,40 @@ const GcCoreTemplate: React.FC<GcPrintTemplateProps> = ({ onEdit }) => {
             </div>
 
             {/* --- 3. ROUTE BOX --- */}
-            <div className="border border-black flex font-bold text-lg uppercase mb-2">
-                <div className="flex-none px-2 py-1 border-r border-black w-1/3 flex items-center">
+            <div className="border border-black flex flex-col md:flex-row font-bold text-base md:text-lg uppercase mb-2"> {/* MODIFIED: Stacks on mobile */}
+                <div className="flex-none px-2 py-1 border-b md:border-b-0 md:border-r border-black w-full md:w-1/3 flex items-center justify-between md:justify-start"> {/* MODIFIED: Full width on mobile */}
                     <EditableText
                         value={localLabels.fromLabel}
                         onChange={handleLabelChange("fromLabel")}
-                        className="w-16  font-bold text-lg text-left"
+                        className="w-16 font-bold text-left"
                         placeholder="FROM"
                     />
+                    <span className="md:hidden">--</span> {/* Divider for mobile stacking */}
                 </div>
-                <div className="flex-1 text-center px-2 py-1 border-r border-black">
+                <div className="flex-1 text-center px-2 py-1 border-b md:border-b-0 md:border-r border-black w-full"> {/* MODIFIED: Full width on mobile */}
                     <EditableText
                         value={localLabels.ownerRiskText}
                         onChange={handleLabelChange("ownerRiskText")}
-                        className="w-full text-center  font-bold"
+                        className="w-full text-center font-bold"
                         placeholder="AT OWNER'S RISK"
                     />
                 </div>
-                <div className="flex-none px-2 py-1 w-1/3 text-right flex items-center justify-start">
+                <div className="flex-none px-2 py-1 w-full md:w-1/3 text-right flex items-center justify-between"> {/* MODIFIED: Full width on mobile */}
+                    <span className="md:hidden">--</span> {/* Divider for mobile stacking */}
                     <EditableText
                         value={localLabels.toLabel}
                         onChange={handleLabelChange("toLabel")}
-                        className="w-1/4  font-bold text-lg text-center"
+                        className="w-1/4 font-bold text-center"
                         placeholder="TO"
                     />
                 </div>
             </div>
 
             {/* --- 4. CONSIGNOR / CONSIGNEE --- */}
-            <div className="flex mb-2">
-                <div className="w-1/2 pr-2 border border-black p-1 h-32 flex flex-col justify-between">
+            {/* MODIFIED: Stacks on mobile (flex-col) */}
+            <div className="flex flex-col md:flex-row mb-2">
+                {/* MODIFIED: Full width on mobile. Removed fixed h-32, used min-height instead. */}
+                <div className="w-full md:w-1/2 md:pr-2 border border-black p-1 min-h-32 flex flex-col justify-between mb-2 md:mb-0">
                     <div className="text-xs mb-1 pl-1">
                             <EditableText
                                 value={localLabels.consignorLabel}
@@ -337,7 +351,8 @@ const GcCoreTemplate: React.FC<GcPrintTemplateProps> = ({ onEdit }) => {
                     </div>
                 </div>
 
-                <div className="w-1/2 pl-2 border border-black p-1 h-32">
+                {/* MODIFIED: Full width on mobile. Removed fixed h-32, used min-height instead. */}
+                <div className="w-full md:w-1/2 md:pl-2 border border-black p-1 min-h-32">
                     <div className="text-xs mb-1 pl-1">
                             <EditableText
                                 value={localLabels.consigneeLabel}
@@ -356,8 +371,10 @@ const GcCoreTemplate: React.FC<GcPrintTemplateProps> = ({ onEdit }) => {
             </div>
 
             {/* --- 5. MAIN TABLE (with enhanced borders) --- */}
-            <div className="border border-black mb-0">
-                <table className="w-full border-collapse">
+            {/* NOTE: Complex tables are hard to make fully responsive.
+               We'll wrap it in an overflow-x-auto to allow horizontal scrolling on small screens. */}
+            <div className="border border-black mb-0 overflow-x-auto">
+                <table className="w-full border-collapse min-w-[700px] md:min-w-full"> {/* MODIFIED: Added min-width for mobile */}
                     <thead>
                         <tr className="text-center text-xs font-normal border-b border-black">
                             <th className="border-r border-black w-[10%] py-1 font-normal leading-tight">
@@ -404,7 +421,8 @@ const GcCoreTemplate: React.FC<GcPrintTemplateProps> = ({ onEdit }) => {
                     </thead>
 
                     <tbody className="text-sm font-bold">
-                        <tr className="align-top h-32">
+                        {/* MODIFIED: Removed fixed h-32, using min-h-32 for content to dictate height */}
+                        <tr className="align-top min-h-32">
                             <td className="border-r border-black text-center pt-2">
                             </td>
                             <td className="border-r border-black pl-2 pt-2 uppercase">
@@ -499,7 +517,8 @@ const GcCoreTemplate: React.FC<GcPrintTemplateProps> = ({ onEdit }) => {
                         </tr>
 
                         {/* Row 2: Invoice & Value Info */}
-                        <tr className="border-t border-black h-16">
+                        {/* MODIFIED: Removed fixed h-16, using min-h-16 */}
+                        <tr className="border-t border-black min-h-16">
                             <td colSpan={2} className="border-r border-black align-top p-1">
                                 <div className="flex justify-between text-xs font-bold mb-2">
                                     <span className="flex items-center">
@@ -546,7 +565,8 @@ const GcCoreTemplate: React.FC<GcPrintTemplateProps> = ({ onEdit }) => {
 
                         {/* Row 3: To Pay Words */}
                         <tr className="border-t border-black">
-                            <td colSpan={2} className="border-r border-black p-1 h-10 align-top">
+                            {/* MODIFIED: Removed fixed h-10, using min-h-10 */}
+                            <td colSpan={2} className="border-r border-black p-1 min-h-10 align-top">
                                 <span className="font-normal text-xs mr-2">
                                     <EditableText
                                         value={localLabels.deliveryAtLabel}
@@ -576,9 +596,10 @@ const GcCoreTemplate: React.FC<GcPrintTemplateProps> = ({ onEdit }) => {
             </div>
 
             {/* --- 6. FOOTER AREA --- */}
-            <div className="border-x border-b  border-black p-3 flex justify-between items-end min-h-[6rem] relative">
+            {/* MODIFIED: Uses flex-col on mobile, flex-row on medium screens. Min-height adjusted. */}
+            <div className="border-x border-b  border-black p-3 flex flex-col md:flex-row justify-between items-end min-h-[6rem] relative">
 
-                <div className="flex items-end gap-3 w-1/3">
+                <div className="flex flex-row md:flex-col lg:flex-row items-start md:items-end gap-3 w-full md:w-1/3 mb-4 md:mb-0"> {/* MODIFIED: Full width on mobile */}
                     <div className="flex flex-col items-center flex-shrink-0">
                         <input
                             placeholder="QR Code"
@@ -606,7 +627,8 @@ const GcCoreTemplate: React.FC<GcPrintTemplateProps> = ({ onEdit }) => {
                     </div>
                 </div>
 
-                <div className="absolute left-1/2 -translate-x-1/2 bottom-4 text-center text-xs leading-tight w-1/4 p-1"> {/* Added border */}
+                {/* MODIFIED: Positioning adjusted for mobile. No longer absolutely positioned from the left/center on mobile. */}
+                <div className="static md:absolute md:left-1/2 md:-translate-x-1/2 md:bottom-4 text-center text-xs leading-tight w-full md:w-1/4 p-1 mb-4 md:mb-0">
                     <EditableTextArea
                         value={localLabels.footerUnloadingNote}
                         onChange={handleLabelChange("footerUnloadingNote")}
@@ -616,8 +638,8 @@ const GcCoreTemplate: React.FC<GcPrintTemplateProps> = ({ onEdit }) => {
                     />
                 </div>
 
-                <div className="text-xs mb-1 flex flex-col items-center mr-2 w-1/3 text-right">
-                    <span className="italic font-bold text-[10px] flex items-center gap-1">
+                <div className="text-xs mb-1 flex flex-col items-center w-full md:w-1/3 text-center md:text-right"> {/* MODIFIED: Full width on mobile, text alignment adjusted */}
+                    <span className="italic font-bold text-[10px] flex items-center gap-1 w-full">
                             <EditableText
                             value={localLabels.footerSignatureLine}
                             onChange={handleLabelChange("footerSignatureLine")}
@@ -644,13 +666,18 @@ const GcCoreTemplate: React.FC<GcPrintTemplateProps> = ({ onEdit }) => {
 // --- Outer Wrapper Component (Exports and passes onEdit) ---
 export const GcPrintTemplate: React.FC<GcPrintTemplateProps> = (props) => {
     return (
-        <div className="gc-print-screen-wrapper bg-gray-100 min-h-screen">
+        <div className="gc-print-screen-wrapper bg-gray-100 min-h-screen dark:bg-black">
              <style>{`
                 .print-page {
+                    // MODIFIED: Removed fixed width for screen viewing, kept shadow/margin
                     box-shadow: 0 0 10px rgba(0,0,0,0.1);
                     margin: 20px auto;
                     border: 1px solid #ccc;
+                    // Ensure editable text fields don't cause overflow
+                    word-break: break-word; 
                 }
+                
+                // PRINT STYLES (Only apply when printing)
                 @media print {
                     .gc-print-screen-wrapper {
                         display: block !important;
@@ -661,8 +688,35 @@ export const GcPrintTemplate: React.FC<GcPrintTemplateProps> = (props) => {
                         border: none;
                         margin: 0;
                         padding: 0;
+                        width: 210mm !important; // Enforce A4 width for print
+                        min-height: 297mm !important; // Enforce A4 height for print
+                        max-width: none !important;
                     }
                     @page { size: A4; margin: 0; }
+                    
+                    // Force print layout to be row-based (undo responsive screen styles)
+                    .print-page .flex-col, .print-page .md\\:flex-col {
+                        display: flex !important;
+                        flex-direction: row !important;
+                    }
+                    .print-page .w-full, .print-page .md\\:w-full {
+                        width: auto !important;
+                    }
+                    .print-page .md\\:w-1\\/4 {
+                         width: 25% !important;
+                    }
+                    .print-page .md\\:w-1\\/3 {
+                         width: 33.333333% !important;
+                    }
+                    .print-page .md\\:w-1\\/2 {
+                         width: 50% !important;
+                    }
+                    .print-page .md\\:ml-4 {
+                         margin-left: 1rem !important;
+                    }
+                    .print-page .mb-4, .print-page .mt-1 {
+                         margin: 0 !important;
+                    }
                 }
             `}</style>
             {/* Pass all props (including onEdit) to the core component */}

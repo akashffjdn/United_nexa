@@ -71,7 +71,7 @@ export const TripReportTemplate: React.FC<TripReportTemplateProps> = (props) => 
     const [historyStack, setHistoryStack] = useState<Change[]>([]);
     const hasChanges = historyStack.length > 0;
 
-    // --- Action Handlers ---
+    // --- Action Handlers (unchanged) ---
 
     // 2. Save Handler: Commits local changes to the context and clears history
     const saveHandler = useCallback(() => {
@@ -102,7 +102,7 @@ export const TripReportTemplate: React.FC<TripReportTemplateProps> = (props) => 
         });
     }, []);
 
-    // --- Effects ---
+    // --- Effects (unchanged) ---
 
     // Sync local state when originalLabels change (e.g., loaded from API)
     useEffect(() => {
@@ -120,7 +120,7 @@ export const TripReportTemplate: React.FC<TripReportTemplateProps> = (props) => 
         }
     }, [hasChanges, onEdit, saveHandler, resetHandler, undoHandler]);
    
-    // 4. Handle change and record history
+    // 4. Handle change and record history (unchanged)
     const handleTextChange = (field: keyof TripReportLabels) => (
         e: React.ChangeEvent<HTMLInputElement>
     ) => {
@@ -151,8 +151,10 @@ export const TripReportTemplate: React.FC<TripReportTemplateProps> = (props) => 
         <div
             className="report-page bg-white text-black shadow-2xl mx-auto border border-gray-300"
             style={{
-                width: "210mm",
+                // Responsive Screen Sizing: max-width for A4 appearance on larger screens, full width on mobile
+                maxWidth: "210mm",
                 minHeight: "230mm",
+                // Responsive Padding: less padding on small screens
                 padding: "10mm 10mm",
                 boxSizing: "border-box",
                 fontFamily: '"Times New Roman", Times, serif'
@@ -160,21 +162,21 @@ export const TripReportTemplate: React.FC<TripReportTemplateProps> = (props) => 
         >
     {/* header */}
     <div className="w-full font-serif mb-0 text-black" style={{ fontFamily: '"Times New Roman", Times, serif' }}>
-            {/* Top Title */}
-            <div className="text-center font-bold text-lg mb-1 uppercase">
+            {/* Top Title - RESPONSIVE: Font size adjusted */}
+            <div className="text-center font-bold lg:text-lg sm:text-base text-sm mb-1 uppercase">
                  <EditableText
                     value={localLabels.title || 'STOCK REPORT'}
-                    className="text-lg font-bold text-center w-auto"
+                    className="lg:text-lg sm:text-base text-sm font-bold text-center w-auto"
                     placeholder="STOCK REPORT"
                     onChange={handleTextChange("title")}
                 />
             </div>
    
-            {/* Main Header Box */}
-            <div className="border border-black flex">
-                <div className="w-[70%] border-r border-black p-2">
-                    <div className="flex justify-between gap-4 items-baseline text-xs font-bold mb-1 lining-nums leading-none">
-                        <span className="flex gap-1">
+            {/* Main Header Box - RESPONSIVE: Allow GSTIN/Mobile blocks to wrap on small screens */}
+            <div className="border border-black flex flex-wrap sm:flex-nowrap">
+                <div className="w-full sm:w-[70%] sm:border-r border-black p-2 border-b sm:border-b-0">
+                    <div className="flex flex-wrap md:flex-nowrap justify-between gap-4 items-baseline text-xs font-bold mb-1 lining-nums leading-none">
+                        <span className="flex gap-1 w-full sm:w-auto">
                             <EditableText
                                 value={localLabels.fixedGstinLabel }
                                 className="text-xs font-bold w-auto text-right"
@@ -187,7 +189,7 @@ export const TripReportTemplate: React.FC<TripReportTemplateProps> = (props) => 
                                 onChange={handleTextChange("fixedGstinValue")}
                             />
                         </span>
-                        <span className="flex gap-1">
+                        <span className="flex gap-1 w-full sm:w-auto">
                             <EditableText
                                 value={localLabels.mobileLabel }
                                 className="text-xs font-bold w-auto text-right"
@@ -202,10 +204,10 @@ export const TripReportTemplate: React.FC<TripReportTemplateProps> = (props) => 
                         </span>
                     </div>
    
-                    <h1 className="text-2xl font-bold uppercase text-left tracking-tight mt-1">
+                    <h1 className="lg:text-2xl md:text-xl text-lg font-bold uppercase text-left tracking-tight mt-1">
                         <EditableText
                             value={localLabels.companyName || 'UNITED TRANSPORT COMPANY'}
-                            className="text-2xl font-bold text-left tracking-tight"
+                            className="lg:text-2xl md:text-xl text-lg font-bold text-left tracking-tight"
                             placeholder="UNITED TRANSPORT COMPANY"
                                 onChange={handleTextChange("companyName")}
                         />
@@ -221,46 +223,49 @@ export const TripReportTemplate: React.FC<TripReportTemplateProps> = (props) => 
                 </div>
             </div>
    
-            <div className="border-x border-b border-black p-1 pl-2 text-sm font-normal">
+            <div className="border-x border-b border-black p-1 pl-2 md:text-sm text-xs font-normal">
                 <EditableText
                     value={localLabels.mainHeader || 'Overall Stock Report'}
-                    className="text-xs font-bold w-auto"
+                    className="md:text-sm text-xs font-bold w-auto"
                     placeholder="Stock Report"
                                 onChange={handleTextChange("mainHeader")}
                 />
             </div>
         </div>
 
-            <table className="w-full table-fixed border-collapse border-x border-b border-black text-[11px] leading-tight mt-0">
-                <thead>
-                    <tr className="h-8">
-                        <th className="border border-black w-[10%] p-1 text-center font-bold text-xs">
-                            <EditableText value={localLabels.tsLabel} className="font-bold text-xs text-center"  onChange={handleTextChange("tsLabel")}/>
-                        </th>
-                        <th className="border border-black w-[13%] p-1 text-center font-bold text-xs">
-                            <EditableText value={localLabels.dateLabel } className="font-bold text-xs text-center" onChange={handleTextChange("dateLabel")} />
-                        </th>
-                        <th className="border border-black w-[12%] p-1 text-center font-bold text-xs">
-                            <EditableText value={localLabels.fromPlaceLabel} className="font-bold text-xs text-center" onChange={handleTextChange("fromPlaceLabel")} />
-                        </th>
-                        <th className="border border-black w-[15%] p-1 text-center font-bold text-xs">
-                            <EditableText value={localLabels.toPlaceLabel} className="font-bold text-xs text-center" onChange={handleTextChange("toPlaceLabel")} />
-                        </th>
-                        <th className="border border-black w-[12%] p-1 text-center font-bold text-xs">
-                            <EditableText value={localLabels.amountLabel} className="font-bold text-xs text-center" onChange={handleTextChange("amountLabel")} />
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                   
-                    <tr className="h-8 font-bold bg-gray-50">
-                        <td className="border border-black p-1 px-2 text-right" colSpan={4}>
-                            <EditableText value={localLabels.totalLabel || 'Total :'} className="font-bold text-xs text-right w-auto" placeholder="Total :" onChange={handleTextChange("totalLabel")}/>
-                        </td>
-                        <td className="border border-black p-1" colSpan={1}></td>
-                    </tr>
-                </tbody>
-            </table>
+            {/* Table Wrapper for Horizontal Scroll - RESPONSIVE: Added overflow-x-auto */}
+            <div className="overflow-x-auto">
+                <table className="w-full min-w-[500px] table-fixed border-collapse border-x border-b border-black md:text-[11px] text-[10px] leading-tight mt-0">
+                    <thead>
+                        <tr className="h-8">
+                            <th className="border border-black w-[10%] p-1 text-center font-bold text-[10px] md:text-xs">
+                                <EditableText value={localLabels.tsLabel} className="font-bold text-[10px] md:text-xs text-center"  onChange={handleTextChange("tsLabel")}/>
+                            </th>
+                            <th className="border border-black w-[13%] p-1 text-center font-bold text-[10px] md:text-xs">
+                                <EditableText value={localLabels.dateLabel } className="font-bold text-[10px] md:text-xs text-center" onChange={handleTextChange("dateLabel")} />
+                            </th>
+                            <th className="border border-black w-[12%] p-1 text-center font-bold text-[10px] md:text-xs">
+                                <EditableText value={localLabels.fromPlaceLabel} className="font-bold text-[10px] md:text-xs text-center" onChange={handleTextChange("fromPlaceLabel")} />
+                            </th>
+                            <th className="border border-black w-[15%] p-1 text-center font-bold text-[10px] md:text-xs">
+                                <EditableText value={localLabels.toPlaceLabel} className="font-bold text-[10px] md:text-xs text-center" onChange={handleTextChange("toPlaceLabel")} />
+                            </th>
+                            <th className="border border-black w-[12%] p-1 text-center font-bold text-[10px] md:text-xs">
+                                <EditableText value={localLabels.amountLabel} className="font-bold text-[10px] md:text-xs text-center" onChange={handleTextChange("amountLabel")} />
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    
+                        <tr className="h-8 font-bold bg-gray-50">
+                            <td className="border border-black p-1 px-2 text-right" colSpan={4}>
+                                <EditableText value={localLabels.totalLabel || 'Total :'} className="font-bold text-xs text-right w-auto" placeholder="Total :" onChange={handleTextChange("totalLabel")}/>
+                            </td>
+                            <td className="border border-black p-1" colSpan={1}></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 };
@@ -268,7 +273,7 @@ export const TripReportTemplate: React.FC<TripReportTemplateProps> = (props) => 
 // --- Outer Wrapper Component (for styling/print logic) ---
 export const TripSheetReportTemplate: React.FC<TripReportTemplateProps> = (props) => {
     return (
-        <div className="stock-report-screen-wrapper bg-gray-100">
+        <div className="stock-report-screen-wrapper bg-gray-100 dark:bg-black">
              <style>{`
                 .stock-report-screen-wrapper {
                     min-height: 100vh;

@@ -72,19 +72,19 @@ export const GcEntryForm = () => {
         freightUptoAt: '',
         godown: '',
         billNo: '',
-        billValue: "0",
-        tollFee: "0",
-        freight: "0",
-        godownCharge: "0",
-        statisticCharge: "0",
-        advanceNone: "0",
-        balanceToPay: "0",
+        billValue: 0,
+        tollFee: 0,
+        freight: 0,
+        godownCharge: 0,
+        statisticCharge: 0,
+        advanceNone: 0,
+        balanceToPay: 0,
         quantity: "",
         packing: '',
         contents: '',
         prefix: '',
         fromNo: "1",
-        netQty: "",
+        netQty: 0,
         paymentType: 'To Pay', 
     });
     
@@ -139,13 +139,13 @@ export const GcEntryForm = () => {
 
                     setForm({
                         ...gc,
-                        billValue: (gc.billValue || 0).toString(),
-                        tollFee: (gc.tollFee || 0).toString(),
-                        freight: (gc.freight || 0).toString(),
-                        godownCharge: (gc.godownCharge || 0).toString(),
-                        statisticCharge: backendStatistic.toString(),
-                        advanceNone: (gc.advanceNone || 0).toString(),
-                        balanceToPay: displayBalance.toString(),
+                        billValue: (gc.billValue || 0),
+                        tollFee: (gc.tollFee || 0),
+                        freight: (gc.freight || 0),
+                        godownCharge: (gc.godownCharge || 0),
+                        statisticCharge: backendStatistic,
+                        advanceNone: (gc.advanceNone || 0),
+                        balanceToPay: displayBalance,
                         paymentType: gc.paymentType || 'To Pay' 
                     });
 
@@ -265,7 +265,7 @@ export const GcEntryForm = () => {
         // 1. Update State
         setForm(prev => {
             const newData = { ...prev, [name]: value };
-            if (name === 'quantity') newData.netQty = value;
+            if (name === 'quantity' && typeof value!=='string') newData.netQty = value;
             return newData;
         });
 
@@ -454,11 +454,11 @@ export const GcEntryForm = () => {
             return;
         }
 
-        const validatedData = validationResult.data;
+        // const validatedData = validationResult.data;
         const finalGcNo = isEditMode ? form.gcNo : ""; 
         
         const gcData: any = { 
-            ...validatedData, 
+            ...form, 
             id: isEditMode ? (form as any).id : undefined, 
             gcNo: finalGcNo 
         };

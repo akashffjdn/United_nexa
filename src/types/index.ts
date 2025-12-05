@@ -67,20 +67,20 @@ export interface GcEntry {
   godown: string;
 
   billNo: string;
-  billValue: string;
-  tollFee: string;
-  freight: string;
-  godownCharge: string;
-  statisticCharge: string;
-  advanceNone: string;
-  balanceToPay: string;
+  billValue: number;
+  tollFee: number;
+  freight: number;
+  godownCharge: number;
+  statisticCharge: number;
+  advanceNone: number;
+  balanceToPay: number;
 
   quantity: string;
   packing: string;
   contents: string;
   prefix: string;
   fromNo: string;
-  netQty: string;
+  netQty: number;
 
   paymentType: 'To Pay' | 'Paid'; 
 
