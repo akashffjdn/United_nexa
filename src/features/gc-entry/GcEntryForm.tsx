@@ -258,34 +258,48 @@ export const GcEntryForm = () => {
         };
     };
 
-    // --- Handlers with Debounced Validation ---
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        
-        // 1. Update State
-        setForm(prev => {
-            const newData = { ...prev, [name]: value };
-            if (name === 'quantity' && typeof value!=='string') newData.netQty = value;
-            return newData;
-        });
+    const { name, value } = e.target;
+    
+    setForm(prev => {
+        // 1. Update the field being typed in
+        // Note: For number fields edited directly, this might temporarily assign a string 
+        // to a number type depending on your TS configuration, which is common in React forms.
+        const newData = { ...prev, [name]: value };
 
-        // 2. Clear Immediate Errors
-        if (formErrors[name]) {
-            setFormErrors(prev => { const n = { ...prev }; delete n[name]; return n; });
+        // 2. Auto-update netQty if quantity changes
+        if (name === 'quantity') {
+            // Fix: Parse the string 'value' to a number before assigning to netQty
+            const parsedQty = parseFloat(value);
+            newData.netQty = isNaN(parsedQty) ? 0 : parsedQty;
         }
 
-        // 3. Clear Timeout
-        if (validationTimeouts.current[name]) {
-            clearTimeout(validationTimeouts.current[name]);
-        }
+        return newData;
+    });
 
-        // 4. Delayed Validation
-        validationTimeouts.current[name] = setTimeout(() => {
-            validateField(name, value);
-            // Also validate dependent fields
-            if (name === 'quantity') validateField('netQty', value);
-        }, 500);
-    };
+    // 3. Clear Immediate Errors
+    if (formErrors[name]) {
+        setFormErrors(prev => { const n = { ...prev }; delete n[name]; return n; });
+    }
+    
+    // Clear netQty error if we are auto-updating it
+    if (name === 'quantity' && formErrors['netQty']) {
+         setFormErrors(prev => { const n = { ...prev }; delete n['netQty']; return n; });
+    }
+
+    // 4. Validation Debounce
+    if (validationTimeouts.current[name]) {
+        clearTimeout(validationTimeouts.current[name]);
+    }
+
+    validationTimeouts.current[name] = setTimeout(() => {
+        validateField(name, value);
+        if (name === 'quantity') {
+            // Validate the numeric value we just assigned
+            validateField('netQty', value === '' ? 0 : Number(value));
+        }
+    }, 500);
+};
 
     const handleFormValueChange = (name: keyof typeof form, value: string | number) => { 
         // 1. Update State
