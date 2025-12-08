@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Eye, EyeOff, Mail, Lock, ArrowRight, Truck, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+// 泙 NEW: Import Schema
+import { loginSchema } from '../../schemas';
 
 export const LoginScreen = () => {
   const [email, setEmail] = useState('');
@@ -8,6 +10,11 @@ export const LoginScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isFocused, setIsFocused] = useState<'email' | 'password' | null>(null);
   
+  // 泙 NEW: Validation State
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const validationTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+
   const { login, loading } = useAuth();
 
   const getCurrentFinancialYear = () => {
@@ -17,9 +24,67 @@ export const LoginScreen = () => {
     return month >= 4 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
   };
 
+  // 泙 NEW: Field Validation Helper
+  const validateField = (name: string, value: string) => {
+    try {
+        const fieldSchema = (loginSchema.shape as any)[name];
+        if (fieldSchema) {
+            const result = fieldSchema.safeParse(value);
+            if (!result.success) {
+                setFormErrors(prev => ({ ...prev, [name]: result.error.issues[0].message }));
+            } else {
+                setFormErrors(prev => {
+                    const next = { ...prev };
+                    delete next[name];
+                    return next;
+                });
+            }
+        }
+    } catch (e) {}
+  };
+
+  // 泙 NEW: Debounced Change Handlers
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value;
+      setEmail(val);
+      
+      if (formErrors.email) setFormErrors(prev => ({ ...prev, email: '' }));
+      
+      if (validationTimeouts.current.email) clearTimeout(validationTimeouts.current.email);
+      
+      validationTimeouts.current.email = setTimeout(() => {
+          validateField('email', val);
+      }, 500);
+  };
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value;
+      setPassword(val);
+
+      if (formErrors.password) setFormErrors(prev => ({ ...prev, password: '' }));
+
+      if (validationTimeouts.current.password) clearTimeout(validationTimeouts.current.password);
+
+      validationTimeouts.current.password = setTimeout(() => {
+          validateField('password', val);
+      }, 500);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password || loading) return;
+    
+    // 泙 NEW: Validate before submit
+    const validationResult = loginSchema.safeParse({ email, password });
+    if (!validationResult.success) {
+        const newErrors: Record<string, string> = {};
+        validationResult.error.issues.forEach((err: any) => {
+             if(err.path[0]) newErrors[err.path[0].toString()] = err.message;
+        });
+        setFormErrors(newErrors);
+        return;
+    }
+
+    if (loading) return;
 
     try {
       await login(email, password, getCurrentFinancialYear());
@@ -104,8 +169,8 @@ export const LoginScreen = () => {
                 </label>
                 <div 
                   className={`relative flex items-center rounded-xl border-2 transition-colors duration-300 overflow-hidden ${
-                    isFocused === 'email' 
-                      ? 'border-blue-600 bg-slate-50 dark:bg-slate-900' 
+                    isFocused === 'email' || formErrors.email
+                      ? formErrors.email ? 'border-red-500 bg-red-50/10' : 'border-blue-600 bg-slate-50 dark:bg-slate-900' 
                       : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 hover:border-slate-300' 
                   }`}
                 >
@@ -116,7 +181,7 @@ export const LoginScreen = () => {
                     id="email"
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={handleEmailChange}
                     onFocus={() => setIsFocused('email')}
                     onBlur={() => setIsFocused(null)}
                     className="w-full bg-transparent px-4 py-3.5 text-sm font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 relative z-0"
@@ -124,6 +189,7 @@ export const LoginScreen = () => {
                     required
                   />
                 </div>
+                {formErrors.email && <p className="text-xs text-red-500 ml-1">{formErrors.email}</p>}
               </div>
 
               <div className="group space-y-2">
@@ -137,8 +203,8 @@ export const LoginScreen = () => {
                 </div>
                 <div 
                   className={`relative flex items-center rounded-xl border-2 transition-colors duration-300 overflow-hidden ${
-                    isFocused === 'password' 
-                      ? 'border-blue-600 bg-slate-50 dark:bg-slate-900' 
+                    isFocused === 'password' || formErrors.password
+                      ? formErrors.password ? 'border-red-500 bg-red-50/10' : 'border-blue-600 bg-slate-50 dark:bg-slate-900' 
                       : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 hover:border-slate-300' 
                   }`}
                 >
@@ -149,7 +215,7 @@ export const LoginScreen = () => {
                     id="password"
                     type={showPassword ? 'text' : 'password'}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={handlePasswordChange}
                     onFocus={() => setIsFocused('password')}
                     onBlur={() => setIsFocused(null)}
                     className="w-full bg-transparent px-4 py-3.5 text-sm font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 relative z-0"
@@ -164,18 +230,12 @@ export const LoginScreen = () => {
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
+                {formErrors.password && <p className="text-xs text-red-500 ml-1">{formErrors.password}</p>}
               </div>
-
-              {/* {error && (
-                <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/50 flex items-center gap-3 text-sm text-red-600 dark:text-red-400 animate-in slide-in-from-top-2 duration-300">
-                  <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.6)]" />
-                  <span className="font-medium">{error}</span>
-                </div>
-              )} */}
 
               <button
                 type="submit"
-                disabled={loading || !email || !password}
+                disabled={loading || !email || !password || Object.keys(formErrors).length > 0}
                 className="group relative w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-base shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:shadow-none active:scale-[0.98]"
               >
                 {loading ? (

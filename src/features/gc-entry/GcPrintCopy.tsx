@@ -1,9 +1,9 @@
-
 import React from "react";
 import type { GcEntry, Consignor, Consignee } from "../../types";
 import { numberToWords, numberToWordsInRupees } from "../../utils/toWords";
 import { useAuth } from "../../hooks/useAuth"; 
-import { API_URL } from "../../utils/api"; // Import API_URL
+import { API_URL } from "../../utils/api"; 
+import { useDataContext } from "../../contexts/DataContext"; 
 
 const formatCurrency = (amount: number | string | undefined) => {
   const num = parseFloat(amount?.toString() || "0");
@@ -33,35 +33,35 @@ export const GcPrintCopy: React.FC<Props> = ({
   copyType,
 }) => {
   const { user } = useAuth();
+  const { printSettings } = useDataContext(); 
+  const label = printSettings.gc; 
 
   // --- QR Code Logic (Backend Direct) ---
-  // 1. Determine role
   const roleSlug = getRoleSlug(copyType);
-  
-  // 2. Build Backend API URL (Direct Redirect)
-  // Example: http://localhost:5000/api/public/view-terms?gcNo=1050&role=consignor
   const directApiUrl = `${API_URL}/public/view-terms?gcNo=${gc.gcNo}&role=${roleSlug}`;
-  
-  // 3. Generate QR Code Image URL
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&margin=0&data=${encodeURIComponent(directApiUrl)}`;
 
-  const quantityNum = parseFloat(gc.quantity) || 0;
-  const fromNoNum = parseFloat(gc.fromNo) || 0;
-  const billValueNum = parseFloat(gc.billValue) || 0;
+  // 🟢 FIX: Handle potential number types directly without parseFloat causing TS errors
+  const quantityNum = Number(gc.quantity) || 0;
+  const fromNoNum = Number(gc.fromNo) || 0;
+  const billValueNum = Number(gc.billValue) || 0;
   
+  // 🟢 FIX: Access tripSheetAmount safely
   const balanceToPayNum = (gc as any).tripSheetAmount !== undefined 
     ? (gc as any).tripSheetAmount 
-    : (parseFloat(gc.balanceToPay) || 0);
+    : (Number(gc.balanceToPay) || 0);
   
-  const freightNum = parseFloat(gc.freight) || 0;
-  const godownChargeNum = parseFloat(gc.godownCharge) || 0;
-  const statisticChargeNum = parseFloat(gc.statisticCharge) || 0;
-  const tollFeeNum = parseFloat(gc.tollFee) || 0;
+  // 🟢 FIX: Removed parseFloat for numeric fields
+  const freightNum = Number(gc.freight) || 0;
+  const godownChargeNum = Number(gc.godownCharge) || 0;
+  const statisticChargeNum = Number(gc.statisticCharge) || 0;
+  const tollFeeNum = Number(gc.tollFee) || 0;
   
   const totalCharges = freightNum + godownChargeNum + statisticChargeNum + tollFeeNum;
   
   const isPaid = gc.paymentType?.toLowerCase() === 'paid';
-  const paymentStatusLabel = isPaid ? "PAID" : "TO PAY";
+  // 🟢 FIX: Use type-safe access or fallback. We will add this field to the type definition below.
+  const paymentStatusLabel = isPaid ? "PAID" : (label as any).paymentTypeToPay || "TO PAY"; 
 
   const marks = `${gc.prefix} ${fromNoNum} to ${
     (fromNoNum > 0 && quantityNum > 0) ? (fromNoNum + quantityNum - 1) : ''
@@ -106,52 +106,52 @@ export const GcPrintCopy: React.FC<Props> = ({
       <div className="flex justify-between items-end mb-2 font-bold text-sm">
         <div className="uppercase text-base">{copyType}</div>
         <div className="flex gap-8">
-          <div>GSTIN:33ABLPV5082H3Z8</div>
-          <div>Mobile : 9787718433</div>
+          <div>{label.fixedGstinLabel}:{label.fixedGstinValue}</div>
+          <div>{label.mobileLabel} : {label.mobileNumberValue}</div>
         </div>
       </div>
 
       <div className="flex justify-between items-start mb-1">
         <div className="font-bold text-sm leading-relaxed">
           <div className="flex gap-2">
-            <span className="w-20">G.C. No.</span>
+            <span className="w-20">{label.gcNoLabel}</span>
             <span>{gc.gcNo}</span>
           </div>
           <div className="flex gap-2">
-            <span className="w-20">Date :</span>
+            <span className="w-20">{label.dateLabel} :</span>
             <span>{gc.gcDate}</span>
           </div>
         </div>
 
         <div className="text-right flex-1 ml-4">
           <h1 className="text-3xl font-bold uppercase tracking-tight">
-            UNITED TRANSPORT COMPANY
+            {label.companyName}
           </h1>
           <div className="font-bold text-sm uppercase">
-            TRANSPORT CONTRACTORS & GOODS, FORWARDERS
+            {label.tagLine}
           </div>
-          <div className="font-bold text-xs mt-0.5">
-            164-A, Arumugam Road, Near A.V.T. School, SIVAKASI - 626123
+          <div className="font-bold text-xs mt-0.5 whitespace-pre-wrap">
+            {label.companyAddress}
           </div>
         </div>
       </div>
 
       <div className="border border-black flex font-bold text-lg uppercase mb-2">
         <div className="flex-none px-2 py-1 border-r border-black">
-          FROM <span className="ml-2">{gc.from}</span>
+          {label.fromLabel} <span className="ml-2">{gc.from}</span>
         </div>
         <div className="flex-1 text-center px-2 py-1 border-r border-black">
-          AT OWNER'S RISK
+          {label.ownerRiskText}
         </div>
         <div className="flex-none px-2 py-1">
-          TO <span className="ml-2">{gc.destination}</span>
+          {label.toLabel} <span className="ml-2">{gc.destination}</span>
         </div>
       </div>
 
       {/* --- CONSIGNOR / CONSIGNEE --- */}
       <div className="flex mb-2">
         <div className="w-1/2 pr-2">
-          <div className="text-xs mb-1 pl-4">Consignor :</div>
+          <div className="text-xs mb-1 pl-4">{label.consignorLabel}</div>
           <div className="pl-8 font-bold text-sm uppercase">
             {consignor.name}
           </div>
@@ -164,7 +164,7 @@ export const GcPrintCopy: React.FC<Props> = ({
         </div>
 
         <div className="w-1/2 pl-2">
-          <div className="text-xs mb-1 pl-4">Consignee :</div>
+          <div className="text-xs mb-1 pl-4">{label.consigneeLabel}</div>
           <div className="pl-8 font-bold text-sm uppercase">
             {consignee.name}
           </div>
@@ -182,20 +182,20 @@ export const GcPrintCopy: React.FC<Props> = ({
         <table className="w-full border-collapse">
           <thead>
             <tr className="text-center text-xs font-normal border-b border-black">
-              <th className="border-r border-black w-[10%] py-1 font-normal leading-tight">
-                No. of<br />Packages
+              <th className="border-r border-black w-[10%] py-1 font-normal leading-tight whitespace-pre-wrap">
+                {label.tableHeaderPackages}
               </th>
-              <th className="border-r border-black w-[45%] py-1 font-normal leading-tight">
-                DESCRIPTION<br />(said to Contain - Contents not known)
+              <th className="border-r border-black w-[45%] py-1 font-normal leading-tight whitespace-pre-wrap">
+                {label.tableHeaderDescription}
               </th>
-              <th className="border-r border-black w-[10%] py-1 font-normal leading-tight">
-                WEIGHT<br />(APPROX)
+              <th className="border-r border-black w-[10%] py-1 font-normal leading-tight whitespace-pre-wrap">
+                {label.tableHeaderWeight}
               </th>
-              <th className="border-r border-black w-[10%] py-1 font-normal leading-tight">
-                RATE
+              <th className="border-r border-black w-[10%] py-1 font-normal leading-tight whitespace-pre-wrap">
+                {label.tableHeaderRate}
               </th>
-              <th className="w-[25%] py-1 font-normal">
-                FREIGHT
+              <th className="w-[25%] py-1 font-normal whitespace-pre-wrap">
+                {label.tableHeaderFreight}
               </th>
             </tr>
           </thead>
@@ -211,36 +211,36 @@ export const GcPrintCopy: React.FC<Props> = ({
                 <div className="flex flex-col h-full">
                   <div className="flex-1 px-2 pt-2 text-right text-xs leading-loose">
                     <div className="flex justify-between">
-                      <span className="font-normal">Freight :</span>
+                      <span className="font-normal">{label.labelFreight} :</span>
                       <span>{formatCurrency(gc.freight)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="font-normal">Godown Charge :</span>
+                      <span className="font-normal">{label.labelGodownCharge} :</span>
                       <span>{formatCurrency(gc.godownCharge)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="font-normal">Statistical Charge :</span>
+                      <span className="font-normal">{label.labelStatisticalCharge} :</span>
                       <span>{formatCurrency(gc.statisticCharge)}</span>
                     </div>
                     {tollFeeNum > 0 && (
                         <div className="flex justify-between">
-                        <span className="font-normal">Toll Fee :</span>
+                        <span className="font-normal">{label.labelTollFee} :</span>
                         <span>{formatCurrency(gc.tollFee)}</span>
                         </div>
                     )}
                     <div className="flex justify-between border-t border-black mt-1 pt-1">
-                      <span className="font-normal">Total :</span>
+                      <span className="font-normal">{label.labelTotal} :</span>
                       <span>{formatCurrency(totalCharges)}</span>
                     </div>
                   </div>
 
                   <div className="mt-auto text-right text-xs px-2 pb-1">
                      <div className="flex justify-between items-center mb-1">
-                        <span className="font-normal">Advance Paid :</span>
+                        <span className="font-normal">{label.labelAdvancePaid} :</span>
                         <span className="font-bold">{gc.advanceNone || "NIL"}</span>
                      </div>
                      <div className="flex justify-between items-center">
-                        <span className="font-normal">Balance To Pay :</span>
+                        <span className="font-normal">{label.labelBalanceToPay} :</span>
                         <span className="font-bold">{formatCurrency(balanceToPayNum)}</span>
                      </div>
                   </div>
@@ -251,11 +251,11 @@ export const GcPrintCopy: React.FC<Props> = ({
             <tr className="border-t border-black h-16">
               <td colSpan={2} className="border-r border-black align-top p-1">
                  <div className="flex justify-between text-xs font-bold mb-2">
-                    <span>INVOICE No.: {gc.billNo}</span>
-                    <span>Dated : {gc.billDate}</span>
+                    <span>{label.invoiceNoLabel}: {gc.billNo}</span>
+                    <span>{label.invoiceDateLabel} : {gc.billDate}</span>
                  </div>
                  <div className="text-xs font-bold">
-                    Identification Marks : <span className="ml-2">{marks}</span>
+                    {label.marksLabel} : <span className="ml-2">{marks}</span>
                  </div>
               </td>
 
@@ -264,7 +264,7 @@ export const GcPrintCopy: React.FC<Props> = ({
                     {paymentStatusLabel}
                  </div>
                  <div className="text-xs font-normal mb-1">
-                    Value of the goods
+                    {label.labelValueGoods}
                  </div>
                  <div className="text-sm font-bold">
                     Rs. {formatCurrency(billValueNum)}
@@ -274,13 +274,13 @@ export const GcPrintCopy: React.FC<Props> = ({
 
             <tr className="border-t border-black">
               <td colSpan={2} className="border-r border-black p-1 h-10 align-top">
-                 <span className="font-normal text-xs mr-2">Delivery at :</span>
+                 <span className="font-normal text-xs mr-2">{label.deliveryAtLabel} :</span>
                  <span className="font-bold text-sm uppercase">{gc.deliveryAt}</span>
               </td>
               
               <td colSpan={3} className="p-1 align-top">
                  <div className="flex items-baseline gap-2">
-                    <span className="text-xs font-normal whitespace-nowrap">To pay Rs.</span>
+                    <span className="text-xs font-normal whitespace-nowrap">{label.toPayRsLabel}</span>
                     <span className="text-xs font-bold uppercase leading-tight break-words">
                         {numberToWordsInRupees(balanceToPayNum)}
                     </span>
@@ -298,35 +298,35 @@ export const GcPrintCopy: React.FC<Props> = ({
          <div className="flex items-end gap-3 w-1/3">
             <div className="flex flex-col items-center flex-shrink-0">
               <img 
-                src={qrCodeUrl} // <--- USING THE DYNAMIC QR URL TO BACKEND
+                src={qrCodeUrl} 
                 alt="T&C QR" 
                 className="w-20 h-20"
                 style={{ imageRendering: "pixelated" }} 
               />
               <span className="text-[9px] font-bold mt-0.5 uppercase tracking-wide">
-                Scan for Terms
+                {label.scanLabel}
               </span>
             </div>
 
             <div className="text-xs font-bold mb-3 leading-tight">
-              <span className="font-normal block text-[10px] text-gray-600 mb-0.5">Freight fixed upto:</span>
+              <span className="font-normal block text-[10px] text-gray-600 mb-0.5">{label.freightFixedUptoLabel}</span>
               <span className="uppercase">{gc.freightUptoAt}</span>
             </div>
          </div>
 
-         <div className="absolute left-1/2 -translate-x-1/2 bottom-4 text-center text-xs leading-tight pointer-events-none">
-             Unloading charges<br/>payable by party
+         <div className="absolute left-1/2 -translate-x-1/2 bottom-4 text-center text-xs leading-tight pointer-events-none whitespace-pre-wrap">
+             {label.footerUnloadingNote}
          </div>
 
          <div className="text-xs mb-1 flex flex-col items-center mr-2 w-1/3 text-right"> 
             <div className="h-10"></div>
             <span className="font-bold uppercase mb-1">{user?.name || 'Admin'}</span>
-            <span className="italic font-bold text-[10px]">For UNITED TRANSPORT COMPANY</span>
+            <span className="italic font-bold text-[10px]">{label.footerSignatureLine}</span>
          </div>
       </div>
 
-      <div className="text-center text-[10px] mt-1">
-        Consignment booked subject to the terms & conditions printed overleaf.
+      <div className="text-center text-[10px] mt-1 whitespace-pre-wrap">
+        {label.footerNote}
       </div>
 
     </div>

@@ -1,73 +1,17 @@
 import React, { useCallback, useEffect, useState } from "react";
 import type { TripPrintLabels } from "../../types";
 
-// --- TYPE DEFINITIONS ---
 type Change = {
     field: keyof TripPrintLabels;
     oldValue: string;
 };
 
-export type TripSheetTemplateProps = Partial<{
+export type TripSheetTemplateProps = {
+    initialData: TripPrintLabels;
+    onSave: (data: TripPrintLabels) => void;
     onEdit: (hasChanges: boolean, saveHandler: () => void, resetHandler: () => void, undoHandler: () => void) => void;
-}>;
-
-// --- MOCK CONTEXT HOOK (Fix for missing context properties) ---
-const useTripPrintContext = () => {
-    // Default initial labels based on TripPrintLabels type
-    const defaultLabels: TripPrintLabels = {
-        title: "TRIP SHEET",
-        fixedGstinLabel: "GSTIN:",
-        fixedGstinValue: "33ABLPV5082H3Z8",
-        mobileLabel: "Mobile:",
-        mobileNumberValue: "9787718433",
-        companyName: "UNITED TRANSPORT COMPANY",
-        companyAddress: "164-A, Arumugam Road, Near A.V.T. School, SIVAKASI - 626123",
-        
-        mfNoLabel: "M.F. No.:",
-        carriersLabel: "Carriers:",
-        
-        fromLabel: "From:",
-        toLabel: "To:",
-        dateLabel: "Date:",
-        
-        cnNoHeader: "C.N.No.",
-        packagesHeader: "No. of Packages",
-        contentsHeader: "Contents",
-        consignorHeader: "Consignor",
-        consigneeHeader: "Consignee",
-        toPayHeader: "To Pay",
-        
-        footerNote0: "Goods have been loaded in good condition. All Checkpost papers have been handed over to the truck driver.",
-        footerNote1: "Goods to be unloaded at",
-        footerNote2: "Please pay lorry hire Rs.",
-        footerNote3: "on receiving the goods in sound condition.",
-        totalPackagesLabel: "TOTAL PACKAGES:",
-        lorryHireLabel: "Lorry Hire",
-        
-        driverNameLabel: "Driver Name",
-        dlNoLabel: "D.L.No.",
-        driverMobileLabel: "Driver number",
-        ownerNameLabel: "Owner Name",
-        ownerMobileLabel: "Owner number",
-        lorryNoLabel: "Lorry No.",
-        lorryNameLabel: "Lorry Name",
-        
-        legalNote: "I have received the goods noted above in good and condition along with the documents. I am responsible for the safe delivery at the destination. All risks and expenses EN ROUTE will be of the driver. Transit risks are covered by driver/owner. Received all the related documents & goods intact. We will not be responsible for the unloading on holidays.",
-        signatureDriverLabel: "Signature of the Owner/Driver/Broker",
-        signatureClerkLabel: "Signature of the Booking Clerk"
-    };
-
-    const [tripPrintLabels, setTripPrintLabels] = useState<TripPrintLabels>(defaultLabels);
-
-    const updateTripPrintLabels = (newLabels: TripPrintLabels) => {
-        setTripPrintLabels(newLabels);
-        console.log("Trip Print Labels updated (Local Mock):", newLabels);
-    };
-
-    return { tripPrintLabels, updateTripPrintLabels };
 };
 
-// --- EditableText Component (Unchanged) ---
 const EditableText: React.FC<{
     value: string;
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -79,12 +23,11 @@ const EditableText: React.FC<{
         value={value || ""}
         onChange={onChange}
         placeholder={placeholder}
-        className={`border border-dashed border-gray-600 p-0.5 w-full appearance-none focus:border-solid focus:bg-white ${className}`}
+        className={`border border-dashed border-gray-600 p-0.5 w-full appearance-none focus:border-solid focus:bg-white bg-transparent ${className}`}
         style={{ minWidth: '30px' }}
     />
 );
 
-// --- EditableTextArea Component (Unchanged) ---
 const EditableTextArea: React.FC<{
     value: string;
     onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
@@ -97,82 +40,62 @@ const EditableTextArea: React.FC<{
         onChange={onChange}
         placeholder={placeholder}
         rows={rows}
-        className={`border border-dashed border-gray-400 p-0.5 w-full focus:border-solid focus:bg-white ${className}`}
-        style={{ minHeight: `${rows * 1.5}rem`}}
+        className={`border border-dashed border-gray-400 p-0.5 w-full focus:border-solid focus:bg-white bg-transparent ${className}`}
+        style={{ minHeight: `${rows * 1.2}rem`}}
     />
 );
 
-// --- Core Template Component with Action Logic ---
-const TripSheetCoreTemplate: React.FC<TripSheetTemplateProps> = ({ onEdit }) => {
-    // 泙 FIX: Use local hook instead of missing DataContext properties
-    const { tripPrintLabels: originalLabels, updateTripPrintLabels } = useTripPrintContext();
-   
-    const [localLabels, setLocalLabels] = useState<TripPrintLabels>(originalLabels);
+const TripSheetCoreTemplate: React.FC<TripSheetTemplateProps> = ({ initialData, onSave, onEdit }) => {
+    
+    const [localLabels, setLocalLabels] = useState<TripPrintLabels>(initialData);
     const [historyStack, setHistoryStack] = useState<Change[]>([]);
     const hasChanges = historyStack.length > 0;
 
     type StaticChangeElement = HTMLInputElement | HTMLTextAreaElement;
 
-    // --- Action Handlers ---
-
     const saveHandler = useCallback(() => {
-        updateTripPrintLabels(localLabels);
+        onSave(localLabels);
         setHistoryStack([]);
-    }, [localLabels, updateTripPrintLabels]);
+    }, [localLabels, onSave]);
 
     const resetHandler = useCallback(() => {
-        setLocalLabels(originalLabels);
+        setLocalLabels(initialData);
         setHistoryStack([]);
-    }, [originalLabels]);
+    }, [initialData]);
 
     const undoHandler = useCallback(() => {
         setHistoryStack(prevStack => {
             if (prevStack.length === 0) return prevStack;
-
             const lastChange = prevStack[prevStack.length - 1];
-           
-            // 泙 FIX: Explicitly type prevLabels
             setLocalLabels((prevLabels: TripPrintLabels) => ({
                 ...prevLabels,
                 [lastChange.field]: lastChange.oldValue || ''
             }));
-
             return prevStack.slice(0, -1);
         });
     }, []);
 
-    // --- Effects ---
-
-    // 1. Sync local state when originalLabels change from context
     useEffect(() => {
-        if (JSON.stringify(localLabels) !== JSON.stringify(originalLabels)) {
-            setLocalLabels(originalLabels);
-            setHistoryStack([]);
+        if (JSON.stringify(localLabels) !== JSON.stringify(initialData) && historyStack.length === 0) {
+            setLocalLabels(initialData);
         }
-    }, [originalLabels]);
+    }, [initialData]);
 
-    // 2. Report current status and handlers to the parent component
     useEffect(() => {
         if (onEdit) {
             onEdit(hasChanges, saveHandler, resetHandler, undoHandler);
         }
     }, [hasChanges, onEdit, saveHandler, resetHandler, undoHandler]);
    
-    // --- Change Handler with History Recording ---
     const handleTextChange = (field: keyof TripPrintLabels) => (
         e: React.ChangeEvent<StaticChangeElement>
     ) => {
         const newValue = e.target.value;
         const currentValue = localLabels[field];
-
-        // 1. Update local state immediately
-        // 泙 FIX: Explicitly type prevLabels
         setLocalLabels((prevLabels: TripPrintLabels) => ({
             ...prevLabels,
             [field]: newValue
         }));
-
-        // 2. Record change for history/undo
         if (newValue !== currentValue) {
             setHistoryStack(prevStack => {
                 return [
@@ -183,17 +106,16 @@ const TripSheetCoreTemplate: React.FC<TripSheetTemplateProps> = ({ onEdit }) => 
         }
     };
 
-    const label = localLabels as unknown as TripPrintLabels;
+    const label = localLabels;
 
-    // --- Template Markup (Using localLabels) ---
     return (
         <div
-            className="report-page bg-white text-black shadow-2xl mx-auto border border-gray-300 w-11/12 max-w-screen-lg lg:max-w-[210mm] p-3 md:p-6" // MODIFIED: Responsive width and padding
+            className="report-page bg-white text-black shadow-2xl mx-auto border border-gray-300 w-full lg:max-w-[210mm]" 
             style={{
-                // REMOVED: Fixed width: "210mm" and padding: "10mm"
                 minHeight: "297mm",
                 boxSizing: "border-box",
-                fontFamily: 'Arial, Helvetica, sans-serif'
+                fontFamily: 'Arial, Helvetica, sans-serif',
+                padding: "3mm"
             }}
         >
             <div className="border-2 border-black p-2 w-full box-border">
@@ -207,66 +129,62 @@ const TripSheetCoreTemplate: React.FC<TripSheetTemplateProps> = ({ onEdit }) => 
                     />
                 </div>
                
-                {/* Header Block (Company & Meta) */}
-                <div className="flex flex-col md:flex-row border-2 border-black"> {/* MODIFIED: Stack on mobile */}
-                    <div className="w-full md:w-[70%] md:border-r border-b md:border-b-0 border-black p-2"> {/* MODIFIED: w-full on mobile, border-b for separation */}
-                        <div className="flex flex-col sm:flex-row justify-between gap-2 sm:gap-4 items-baseline text-xs font-bold mb-1 leading-none"> {/* MODIFIED: Stack GSTIN/Mobile blocks */}
-                            <span className="flex gap-1 w-full sm:w-auto">
-                                <EditableText value={label.fixedGstinLabel} className="text-xs font-bold w-1/3 text-right" placeholder="GSTIN:" onChange={handleTextChange("fixedGstinLabel")} />
-                                <EditableText value={label.fixedGstinValue} className="text-xs font-bold w-2/3" placeholder="33ABLPV5082H3Z8" onChange={handleTextChange("fixedGstinValue")} />
+                <div className="flex flex-row border-2 border-black"> 
+                    <div className="w-[70%] border-r border-black p-1"> 
+                        <div className="flex flex-row justify-between gap-1 items-baseline text-[9px] md:text-xs font-bold mb-1 leading-none"> 
+                            <span className="flex gap-1 w-1/2">
+                                <EditableText value={label.fixedGstinLabel} className="text-left font-bold w-12" placeholder="GSTIN:" onChange={handleTextChange("fixedGstinLabel")} />
+                                <EditableText value={label.fixedGstinValue} className="font-bold w-full" placeholder="Value" onChange={handleTextChange("fixedGstinValue")} />
                             </span>
-                            <span className="flex gap-1 w-full sm:w-auto">
-                                <EditableText value={label.mobileLabel} className="text-xs font-bold w-1/3 text-right" placeholder="Mobile:" onChange={handleTextChange("mobileLabel")} />
-                                <EditableText value={label.mobileNumberValue} className="text-xs font-bold w-2/3" placeholder="9787718433" onChange={handleTextChange("mobileNumberValue")} />
+                            <span className="flex gap-1 w-1/2 justify-end">
+                                <EditableText value={label.mobileLabel} className="text-left font-bold w-12" placeholder="Mobile:" onChange={handleTextChange("mobileLabel")} />
+                                <EditableText value={label.mobileNumberValue} className="font-bold w-16" placeholder="Number" onChange={handleTextChange("mobileNumberValue")} />
                             </span>
                         </div>
                        
-                        <h1 className="text-xl font-extrabold uppercase text-left tracking-tight mt-1">
-                            <EditableText value={label.companyName } className="text-xl font-extrabold text-left tracking-tight" placeholder="COMPANY NAME" onChange={handleTextChange("companyName")} />
+                        <h1 className="text-sm md:text-xl font-extrabold uppercase text-left tracking-tight mt-1">
+                            <EditableText value={label.companyName } className="text-sm md:text-xl font-extrabold text-left" placeholder="COMPANY NAME" onChange={handleTextChange("companyName")} />
                         </h1>
-                        <p className="text-xs font-normal mt-1 text-left">
-                            <EditableText value={label.companyAddress } className="text-xs font-normal text-left" placeholder="Address..." onChange={handleTextChange("companyAddress")} />
+                        <p className="text-[9px] md:text-xs font-normal mt-1 text-left">
+                            <EditableText value={label.companyAddress } className="text-[9px] md:text-xs font-normal text-left" placeholder="Address..." onChange={handleTextChange("companyAddress")} />
                         </p>
                     </div>
 
-                    <div className="w-full md:w-[30%] text-left text-xs p-2 space-y-1"> {/* MODIFIED: w-full on mobile */}
-                        <div>
-                            <strong><EditableText value={label.mfNoLabel } className="text-xs font-bold w-1/3" placeholder="M.F. No.:" onChange={handleTextChange("mfNoLabel")} /></strong>
+                    <div className="w-[30%] text-left text-[9px] md:text-xs p-1 space-y-1"> 
+                        <div className="flex flex-col">
+                            <strong><EditableText value={label.mfNoLabel } className="font-bold w-full" placeholder="M.F. No.:" onChange={handleTextChange("mfNoLabel")} /></strong>
                         </div>
-                        <div>
-                            <strong><EditableText value={label.carriersLabel } className="text-xs font-bold w-1/3" placeholder="Carriers:" onChange={handleTextChange("carriersLabel")} /></strong>
+                        <div className="flex flex-col">
+                            <strong><EditableText value={label.carriersLabel } className="font-bold w-full" placeholder="Carriers:" onChange={handleTextChange("carriersLabel")} /></strong>
                         </div>
                     </div>
                 </div>
 
-                {/* From / To / Date Block */}
-                <div className="flex flex-col sm:flex-row justify-between mt-2 p-1 border-t border-b border-black text-sm font-normal gap-2 sm:gap-0"> {/* MODIFIED: Stack on mobile */}
-                    <div className="flex gap-1 w-full sm:w-auto">
-                        <EditableText value={label.fromLabel } className="text-sm font-bold w-auto text-center" placeholder="From:" onChange={handleTextChange("fromLabel")} />
+                <div className="flex flex-row justify-between mt-2 p-1 border-t border-b border-black text-[10px] md:text-sm font-normal gap-1"> 
+                    <div className="flex gap-1 w-1/3">
+                        <EditableText value={label.fromLabel } className="font-bold w-full text-center" placeholder="From:" onChange={handleTextChange("fromLabel")} />
                     </div>
-                    <div className="flex gap-1 w-full sm:w-auto">
-                        <EditableText value={label.toLabel } className="text-sm font-bold w-auto text-center" placeholder="To:" onChange={handleTextChange("toLabel")} />
+                    <div className="flex gap-1 w-1/3 border-l border-r border-black/20">
+                        <EditableText value={label.toLabel } className="font-bold w-full text-center" placeholder="To:" onChange={handleTextChange("toLabel")} />
                     </div>
-                    <div className="flex gap-1 w-full sm:w-auto">
-                        <EditableText value={label.dateLabel } className="text-sm font-bold w-auto text-center" placeholder="Date:" onChange={handleTextChange("dateLabel")} />
+                    <div className="flex gap-1 w-1/3">
+                        <EditableText value={label.dateLabel } className="font-bold w-full text-center" placeholder="Date:" onChange={handleTextChange("dateLabel")} />
                     </div>
                 </div>
 
-                {/* Main Table */}
-                <div className="overflow-x-auto"> {/* MODIFIED: Wrapper for horizontal scroll */}
-                    <table className="w-full table-fixed border-collapse border-black text-[11px] mt-1 border-2 my-4 min-w-[600px] md:min-w-full"> {/* MODIFIED: min-width for mobile scroll */}
+                <div className="overflow-x-auto"> 
+                    <table className="w-full table-fixed border-collapse border-black text-[9px] md:text-[11px] mt-1 border-2 my-4 min-w-[300px]"> 
                         <thead>
                             <tr>
-                                <th className="border border-black w-[10%] p-1 text-center font-bold text-xs"><EditableText value={label.cnNoHeader } className="font-bold text-xs text-center" onChange={handleTextChange("cnNoHeader")} /></th>
-                                <th className="border border-black w-[15%] p-1 text-center font-bold text-xs"><EditableText value={label.packagesHeader  } className="font-bold text-xs text-center" onChange={handleTextChange("packagesHeader")} /></th>
-                                <th className="border border-black w-[12%] p-1 text-center font-bold text-xs"><EditableText value={label.contentsHeader } className="font-bold text-xs text-center" onChange={handleTextChange("contentsHeader")} /></th>
-                                <th className="border border-black w-[20%] p-1 text-center font-bold text-xs"><EditableText value={label.consignorHeader } className="font-bold text-xs text-center" onChange={handleTextChange("consignorHeader")} /></th>
-                                <th className="border border-black w-[20%] p-1 text-center font-bold text-xs"><EditableText value={label.consigneeHeader } className="font-bold text-xs text-center" onChange={handleTextChange("consigneeHeader")} /></th>
-                                <th className="border border-black w-[10%] p-1 text-center font-bold text-xs"><EditableText value={label.toPayHeader } className="font-bold text-xs text-center" onChange={handleTextChange("toPayHeader")} /></th>
+                                <th className="border border-black w-[10%] p-0.5 text-center font-bold"><EditableText value={label.cnNoHeader } className="font-bold text-center" onChange={handleTextChange("cnNoHeader")} /></th>
+                                <th className="border border-black w-[15%] p-0.5 text-center font-bold"><EditableText value={label.packagesHeader  } className="font-bold text-center" onChange={handleTextChange("packagesHeader")} /></th>
+                                <th className="border border-black w-[12%] p-0.5 text-center font-bold"><EditableText value={label.contentsHeader } className="font-bold text-center" onChange={handleTextChange("contentsHeader")} /></th>
+                                <th className="border border-black w-[20%] p-0.5 text-center font-bold"><EditableText value={label.consignorHeader } className="font-bold text-center" onChange={handleTextChange("consignorHeader")} /></th>
+                                <th className="border border-black w-[20%] p-0.5 text-center font-bold"><EditableText value={label.consigneeHeader } className="font-bold text-center" onChange={handleTextChange("consigneeHeader")} /></th>
+                                <th className="border border-black w-[10%] p-0.5 text-center font-bold"><EditableText value={label.toPayHeader } className="font-bold text-center" onChange={handleTextChange("toPayHeader")} /></th>
                             </tr>
                         </thead>
                         <tbody>
-                            {/* Placeholder rows matching the 15 visible rows and height of 22px */}
                             {Array.from({ length: 3 }).map((_, i) => (
                                 <tr key={`f-${i}`} className="h-[22px]">
                                     <td className="border border-black p-1">&nbsp;</td>
@@ -277,11 +195,9 @@ const TripSheetCoreTemplate: React.FC<TripSheetTemplateProps> = ({ onEdit }) => 
                                     <td className="border border-black p-1">&nbsp;</td>
                                 </tr>
                             ))}
-                           
-                            {/* TOTAL ROW */}
                             <tr className="h-8 font-bold">
                                 <td className="border border-black p-1 px-2 text-left" colSpan={5}>
-                                    <EditableText value={label.totalPackagesLabel } className="font-bold text-xs text-left w-auto" placeholder="TOTAL PACKAGES:" onChange={handleTextChange("totalPackagesLabel")} />
+                                    <EditableText value={label.totalPackagesLabel } className="font-bold text-left w-auto" placeholder="TOTAL:" onChange={handleTextChange("totalPackagesLabel")} />
                                 </td>
                                 <td colSpan={1}></td>
                             </tr>
@@ -289,66 +205,41 @@ const TripSheetCoreTemplate: React.FC<TripSheetTemplateProps> = ({ onEdit }) => 
                     </table>
                 </div>
 
-                {/* Footer Section */}
-                <div className="text-xs mt-2 space-y-2">
-                        <EditableText value={label.footerNote0 } className="text-xs w-full" placeholder="Note 0..." onChange={handleTextChange("footerNote0")} />                        
-                        <EditableText value={label.footerNote1 } className="text-xs w-auto" placeholder="Note 1..." onChange={handleTextChange("footerNote1")} />
-
-                        <EditableText value={label.footerNote2 } className="text-xs w-auto" placeholder="Note 2..." onChange={handleTextChange("footerNote2")} />
-                       
-                        <EditableText value={label.footerNote3 } className="text-xs w-auto" placeholder="Note 3..." onChange={handleTextChange("footerNote3")} />
+                <div className="text-[10px] md:text-xs mt-2 space-y-1">
+                        <EditableText value={label.footerNote0 } className="w-full" placeholder="Note 0..." onChange={handleTextChange("footerNote0")} />                        
+                        <EditableText value={label.footerNote1 } className="w-auto" placeholder="Note 1..." onChange={handleTextChange("footerNote1")} />
+                        <EditableText value={label.footerNote2 } className="w-auto" placeholder="Note 2..." onChange={handleTextChange("footerNote2")} />
+                        <EditableText value={label.footerNote3 } className="w-auto" placeholder="Note 3..." onChange={handleTextChange("footerNote3")} />
                 </div>
                
-                {/* Driver / Owner / Lorry Grid */}
-                <div className="border-t border-black mt-2 pt-2 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs"> {/* MODIFIED: grid-cols-1 on mobile */}
-                    {/* Driver Column */}
-                    <div className="border-b border-gray-300 md:border-b-0 pb-2 md:pb-0"> {/* MODIFIED: Added bottom border for mobile separation */}
-                        <div className="mb-1">
-                            <strong><EditableText value={label.driverNameLabel } className="text-xs font-bold w-1/3" placeholder="Driver Name" onChange={handleTextChange("driverNameLabel")} /></strong>
-                        </div>
-                        <div className="mb-1">
-                            <strong><EditableText value={label.dlNoLabel } className="text-xs font-bold w-1/3" placeholder="D.L.No." onChange={handleTextChange("dlNoLabel")} /></strong>
-                        </div>
-                        <div>
-                            <strong><EditableText value={label.driverMobileLabel } className="text-xs font-bold w-1/3" placeholder="Driver number" onChange={handleTextChange("driverMobileLabel")} /></strong>
-                        </div>
+                <div className="border-t border-black mt-2 pt-2 grid grid-cols-3 gap-2 text-[9px] md:text-xs"> 
+                    <div className="border-r border-gray-300 pr-1"> 
+                        <div className="mb-1"><strong><EditableText value={label.driverNameLabel } className="font-bold w-full" placeholder="Driver Name" onChange={handleTextChange("driverNameLabel")} /></strong></div>
+                        <div className="mb-1"><strong><EditableText value={label.dlNoLabel } className="font-bold w-full" placeholder="D.L.No." onChange={handleTextChange("dlNoLabel")} /></strong></div>
+                        <div><strong><EditableText value={label.driverMobileLabel } className="font-bold w-full" placeholder="Driver mobile" onChange={handleTextChange("driverMobileLabel")} /></strong></div>
                     </div>
-                   
-                    {/* Owner Column */}
-                    <div className="border-b border-gray-300 md:border-b-0 pb-2 md:pb-0"> {/* MODIFIED: Added bottom border for mobile separation */}
-                        <div className="mb-1">
-                            <strong><EditableText value={label.ownerNameLabel } className="text-xs font-bold w-1/3" placeholder="Owner Name" onChange={handleTextChange("ownerNameLabel")} /></strong>
-                        </div>
-                        <div>
-                            <strong><EditableText value={label.ownerMobileLabel } className="text-xs font-bold w-1/3" placeholder="Owner number" onChange={handleTextChange("ownerMobileLabel")} /></strong>
-                        </div>
+                    <div className="border-r border-gray-300 pr-1"> 
+                        <div className="mb-1"><strong><EditableText value={label.ownerNameLabel } className="font-bold w-full" placeholder="Owner Name" onChange={handleTextChange("ownerNameLabel")} /></strong></div>
+                        <div><strong><EditableText value={label.ownerMobileLabel } className="font-bold w-full" placeholder="Owner mobile" onChange={handleTextChange("ownerMobileLabel")} /></strong></div>
                     </div>
-
-                    {/* Lorry Column */}
                     <div>
-                        <div className="mb-1">
-                            <strong><EditableText value={label.lorryNoLabel } className="text-xs font-bold w-1/3" placeholder="Lorry No." onChange={handleTextChange("lorryNoLabel")} /></strong>
-                        </div>
-                        <div>
-                            <strong><EditableText value={label.lorryNameLabel } className="text-xs font-bold w-1/3" placeholder="Lorry Name" onChange={handleTextChange("lorryNameLabel")} /></strong>
-                        </div>
+                        <div className="mb-1"><strong><EditableText value={label.lorryNoLabel } className="font-bold w-full" placeholder="Lorry No." onChange={handleTextChange("lorryNoLabel")} /></strong></div>
+                        <div><strong><EditableText value={label.lorryNameLabel } className="font-bold w-full" placeholder="Lorry Name" onChange={handleTextChange("lorryNameLabel")} /></strong></div>
                     </div>
                 </div>
 
-                {/* Legal / Signatures */}
                 <div className="border-t border-black mt-2 pt-2">
-                    <p className="text-[10px] leading-snug">
-                        <EditableTextArea
-                                value={label.legalNote }
-                                className="text-[10px] w-full wordbreak" placeholder="Legal/Terms Note..." onChange={handleTextChange("legalNote")} // MODIFIED: text size reduced slightly
-                            />
+                    <p className="text-[8px] md:text-[10px] leading-snug">
+                        <EditableTextArea value={label.legalNote } className="w-full wordbreak" placeholder="Legal Note..." onChange={handleTextChange("legalNote")} />
                     </p>
-                    <div className="flex flex-col sm:flex-row justify-around mt-6 text-xs gap-4 sm:gap-0"> {/* MODIFIED: Stacked on mobile */}
-                        <div className="w-full sm:w-1/2 md:w-1/3 text-center"> {/* MODIFIED: w-full/w-1/2 on mobile */}
-                            <EditableText value={label.signatureDriverLabel} className="text-xs w-full text-center" placeholder="Signature Label 1" onChange={handleTextChange("signatureDriverLabel")} />
+                    <div className="flex flex-row justify-around mt-6 text-[9px] md:text-xs gap-4"> 
+                        <div className="w-1/2 text-center"> 
+                            <div className="border-t border-black mb-1 w-2/3 mx-auto"></div>
+                            <EditableText value={label.signatureDriverLabel} className="w-full text-center" placeholder="Sign Driver" onChange={handleTextChange("signatureDriverLabel")} />
                         </div>
-                        <div className="w-full sm:w-1/2 md:w-1/3 text-center"> {/* MODIFIED: w-full/w-1/2 on mobile */}
-                            <EditableText value={label.signatureClerkLabel} className="text-xs w-full text-center" placeholder="Signature Label 2" onChange={handleTextChange("signatureClerkLabel")} />
+                        <div className="w-1/2 text-center"> 
+                            <div className="border-t border-black mb-1 w-2/3 mx-auto"></div>
+                            <EditableText value={label.signatureClerkLabel} className="w-full text-center" placeholder="Sign Clerk" onChange={handleTextChange("signatureClerkLabel")} />
                         </div>
                     </div>
                 </div>
@@ -358,15 +249,13 @@ const TripSheetCoreTemplate: React.FC<TripSheetTemplateProps> = ({ onEdit }) => 
     );
 };
 
-// --- Outer Wrapper Component (Exports and passes onEdit) ---
 export const TripSheetPrintTemplate: React.FC<TripSheetTemplateProps> = (props) => {
-    // Add print styles to the wrapper
     return (
         <div className="trip-sheet-screen-wrapper bg-gray-100 min-h-screen dark:bg-black">
             <style>{`
                 .report-page {
                     box-shadow: 0 0 10px rgba(0,0,0,0.1);
-                    margin: 20px auto;
+                    margin: 10px auto;
                     border: 1px solid #ccc;
                 }
                 @media print {
@@ -378,7 +267,6 @@ export const TripSheetPrintTemplate: React.FC<TripSheetTemplateProps> = (props) 
                         box-shadow: none;
                         border: none;
                         margin: 0;
-                        /* Force A4 Size for Print Media */
                         width: 210mm !important;
                         max-width: 210mm !important;
                         padding: 10mm !important; 
@@ -387,7 +275,6 @@ export const TripSheetPrintTemplate: React.FC<TripSheetTemplateProps> = (props) 
                     @page { size: A4; margin: 0; }
                 }
             `}</style>
-            {/* Pass all props (including onEdit) to the core component */}
             <TripSheetCoreTemplate {...props} />
         </div>
     );

@@ -1,33 +1,34 @@
 import { useEffect, useMemo, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import type { TripSheetEntry } from '../../types';
+import type { TripSheetEntry, TripReportLabels } from '../../types';
 import { X, Printer } from 'lucide-react';
+import { useDataContext } from '../../contexts/DataContext'; // 🟢 Import DataContext
 
 // --------------------------------------------------
 // REPORT HEADER (Fixed for Even Alignment)
 // --------------------------------------------------
-const ReportHeader = () => (
+const ReportHeader = ({ labels }: { labels: TripReportLabels }) => (
   <div
     className="w-full font-serif mb-0 text-black"
     style={{ fontFamily: '"Times New Roman", Times, serif' }}
   >
     <div className="text-center font-bold text-lg mb-1 uppercase">
-      TRIP SHEET REPORT
+      {labels.title}
     </div>
 
     <div className="border border-black flex">
       <div className="w-[70%] border-r border-black p-2">
         <div className="flex justify-between items-baseline text-xs font-bold mb-1 leading-none">
-          <span>GSTIN:33ABLPV5082H3Z8</span>
-          <span>Mobile : 9787718433</span>
+          <span>{labels.fixedGstinLabel} {labels.fixedGstinValue}</span>
+          <span>{labels.mobileLabel} {labels.mobileNumberValue}</span>
         </div>
 
         <h1 className="text-2xl font-bold uppercase text-left tracking-tight mt-1">
-          UNITED TRANSPORT COMPANY
+          {labels.companyName}
         </h1>
 
         <p className="text-xs font-bold mt-1 text-left">
-          164-A, Arumugam Road, Near A.V.T. School, SIVAKASI - 626123
+          {labels.companyAddress}
         </p>
       </div>
 
@@ -35,7 +36,7 @@ const ReportHeader = () => (
     </div>
 
     <div className="border-x border-b border-black p-1 pl-2 text-sm font-normal">
-      Overall TripSheet Report
+      {labels.mainHeader}
     </div>
   </div>
 );
@@ -49,6 +50,7 @@ interface PageProps {
   totalPages: number;
   isLastPage: boolean;
   grandTotal: number;
+  labels: TripReportLabels; // 🟢 Pass labels down
 }
 
 const ReportPage = ({
@@ -57,6 +59,7 @@ const ReportPage = ({
   totalPages,
   isLastPage,
   grandTotal,
+  labels, // 🟢 Destructure labels
 }: PageProps) => (
   <div
     className="report-page bg-white text-black"
@@ -72,17 +75,17 @@ const ReportPage = ({
   >
     {/* CONTENT SECTION (Grows to fill space) */}
     <div className="flex-1">
-      <ReportHeader />
+      <ReportHeader labels={labels} />
 
       {/* TABLE */}
       <table className="w-full table-fixed border-collapse border-x border-b border-black text-[11px] leading-tight mt-0">
         <thead>
           <tr className="h-8">
-            <th className="border border-black w-[12%] p-1 text-left font-bold text-xs">TS No</th>
-            <th className="border border-black w-[12%] p-1 text-left font-bold text-xs">Date</th>
-            <th className="border border-black w-[20%] p-1 text-left font-bold text-xs">From</th>
-            <th className="border border-black w-[20%] p-1 text-left font-bold text-xs">To</th>
-            <th className="border border-black w-[15%] p-1 text-right font-bold text-xs">Amount</th>
+            <th className="border border-black w-[12%] p-1 text-left font-bold text-xs">{labels.tsLabel}</th>
+            <th className="border border-black w-[12%] p-1 text-left font-bold text-xs">{labels.dateLabel}</th>
+            <th className="border border-black w-[20%] p-1 text-left font-bold text-xs">{labels.fromPlaceLabel}</th>
+            <th className="border border-black w-[20%] p-1 text-left font-bold text-xs">{labels.toPlaceLabel}</th>
+            <th className="border border-black w-[15%] p-1 text-right font-bold text-xs">{labels.amountLabel}</th>
           </tr>
         </thead>
 
@@ -102,7 +105,7 @@ const ReportPage = ({
           {isLastPage && (
             <tr className="h-8 font-bold bg-gray-50">
               <td className="border border-black p-1 px-2 text-right" colSpan={4}>
-                TOTAL:
+                {labels.totalLabel}
               </td>
               <td className="border border-black p-1 px-2 text-right">
                 ₹{grandTotal.toLocaleString("en-IN")}
@@ -130,6 +133,9 @@ export const TripSheetReportPrint = ({
   sheets: TripSheetEntry[];
   onClose: () => void;
 }) => {
+  const { printSettings } = useDataContext(); // 🟢 Get Settings
+  const labels = printSettings.tripReport;    // 🟢 Alias
+
   const printTriggered = useRef(false);
 
   // 1. Calculate Grand Total
@@ -402,6 +408,7 @@ export const TripSheetReportPrint = ({
             totalPages={pages.length}
             isLastPage={i === pages.length - 1}
             grandTotal={grandTotal}
+            labels={labels} // 🟢 Pass labels
           />
         ))}
       </div>

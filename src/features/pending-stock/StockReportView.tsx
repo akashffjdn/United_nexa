@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import type { GcEntry, Consignor, Consignee } from '../../types';
+import type { GcEntry, Consignor, Consignee, StockLabels } from '../../types';
 import { X, Printer } from 'lucide-react';
+import { useDataContext } from '../../contexts/DataContext'; // 🟢 Import DataContext
 
 // --- Report Header (Fixed for Even Alignment) ---
-const ReportHeader = () => (
+// 🟢 Update: Accept labels as props
+const ReportHeader = ({ label }: { label: StockLabels }) => (
   <div className="w-full font-serif mb-0 text-black" style={{ fontFamily: '"Times New Roman", Times, serif' }}>
     {/* Top Title */}
     <div className="text-center font-bold text-lg mb-1 uppercase">
-      STOCK REPORT
+      {label.title}
     </div>
 
     {/* Main Header Box */}
@@ -17,15 +19,15 @@ const ReportHeader = () => (
       {/* Left Section (Company Info) */}
       <div className="w-[70%] border-r border-black p-2">
         <div className="flex justify-between items-baseline text-xs font-bold mb-1 lining-nums leading-none">
-          <span>GSTIN:33ABLPV5082H3Z8</span>
-          <span>Mobile : 9787718433</span>
+          <span>{label.fixedGstinLabel} {label.fixedGstinValue}</span>
+          <span>{label.mobileLabel} {label.mobileNumberValue}</span>
         </div>
 
         <h1 className="text-2xl font-bold uppercase text-left tracking-tight mt-1">
-          UNITED TRANSPORT COMPANY
+          {label.companyName}
         </h1>
         <p className="text-xs font-bold mt-1 text-left">
-          164-A, Arumugam Road, Near A.V.T. School, SIVAKASI - 626123
+          {label.companyAddress}
         </p>
       </div>
 
@@ -37,7 +39,7 @@ const ReportHeader = () => (
 
     {/* Sub Header Row */}
     <div className="border-x border-b border-black p-1 pl-2 text-sm font-normal">
-      Overall Stock Report
+      {label.mainHeader}
     </div>
   </div>
 );
@@ -53,6 +55,7 @@ interface ReportPageProps {
   totalPages: number;
   isLastPage: boolean;
   grandTotal: number;
+  labels: StockLabels; // 🟢 Pass labels down
 }
 
 const ReportPage = ({ 
@@ -60,7 +63,8 @@ const ReportPage = ({
   pageNumber, 
   totalPages, 
   isLastPage, 
-  grandTotal 
+  grandTotal,
+  labels // 🟢 Destructure
 }: ReportPageProps) => {
   return (
     <div 
@@ -73,18 +77,18 @@ const ReportPage = ({
         fontFamily: '"Times New Roman", Times, serif' 
       }}
     >
-      <ReportHeader />
+      <ReportHeader label={labels} /> {/* 🟢 Pass labels */}
 
       {/* Table */}
       <table className="w-full table-fixed border-collapse border-x border-b border-black text-[11px] leading-tight mt-0">
         <thead>
           <tr className="h-8">
-            <th className="border border-black w-[8%] p-1 text-left font-bold text-xs">GC.No.</th>
-            <th className="border border-black w-[8%] p-1 text-left font-bold text-xs">Stock Qty</th>
-            <th className="border border-black w-[15%] p-1 text-center font-bold text-xs">Contents</th>
-            <th className="border border-black w-[30%] p-1 text-center font-bold text-xs">Consignor</th>
-            <th className="border border-black w-[30%] p-1 text-center font-bold text-xs">Consignee</th>
-            <th className="border border-black w-[12%] p-1 text-center font-bold text-xs">GC Date</th>
+            <th className="border border-black w-[8%] p-1 text-left font-bold text-xs">{labels.gcLabel}</th>
+            <th className="border border-black w-[8%] p-1 text-left font-bold text-xs">{labels.stockCountLabel}</th>
+            <th className="border border-black w-[15%] p-1 text-center font-bold text-xs">{labels.contentLabel}</th>
+            <th className="border border-black w-[30%] p-1 text-center font-bold text-xs">{labels.consignorLabel}</th>
+            <th className="border border-black w-[30%] p-1 text-center font-bold text-xs">{labels.consigneeLabel}</th>
+            <th className="border border-black w-[12%] p-1 text-center font-bold text-xs">{labels.dateLabel}</th>
           </tr>
         </thead>
         <tbody>
@@ -110,7 +114,7 @@ const ReportPage = ({
           {/* TOTAL ROW - Only show on the last page */}
           {isLastPage && (
             <tr className="h-8 font-bold bg-gray-50">
-              <td className="border border-black p-1 px-2 text-right">Total:</td>
+              <td className="border border-black p-1 px-2 text-right">{labels.totalLabel}</td>
               <td className="border border-black p-1 px-2 text-left">{grandTotal}</td>
               <td className="border border-black p-1"></td>
               <td className="border border-black p-1"></td>
@@ -142,6 +146,9 @@ interface StockReportPrintProps {
 }
 
 export const StockReportPrint = ({ jobs, onClose }: StockReportPrintProps) => {
+  const { printSettings } = useDataContext(); // 🟢 Get Settings
+  const labels = printSettings.stockReport; // 🟢 Alias
+  
   const printTriggered = useRef(false);
   
   // 1. Calculate Grand Total of Quantity
@@ -414,6 +421,7 @@ export const StockReportPrint = ({ jobs, onClose }: StockReportPrintProps) => {
             totalPages={pages.length}
             isLastPage={index === pages.length - 1}
             grandTotal={grandTotal}
+            labels={labels} // 🟢 Pass labels
           />
         ))}
       </div>

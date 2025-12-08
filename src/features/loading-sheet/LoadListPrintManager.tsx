@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import type { GcEntry, Consignor, Consignee } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
 import { X, Printer } from 'lucide-react';
+import { useDataContext } from '../../contexts/DataContext'; // 🟢 Import DataContext
 
 export type LoadListJob = {
     gc: GcEntry;
@@ -25,6 +26,9 @@ const getCurrentDate = () => {
 
 export const LoadListPrintManager: React.FC<LoadListPrintManagerProps> = ({ jobs, onClose }) => {
     const { user } = useAuth(); 
+    const { printSettings } = useDataContext(); // 🟢 Get Settings
+    const label = printSettings.loadingSheet; // 🟢 Alias
+
     const userName = user?.name
     const printTriggered = useRef(false);
 
@@ -356,8 +360,10 @@ export const LoadListPrintManager: React.FC<LoadListPrintManagerProps> = ({ jobs
                     {/* CONTENT SECTION (Grows to fill space) */}
                     <div className="flex-1">
                         <div className="text-center mb-6">
-                            <h2 className="text-xl font-extrabold mb-1">UNITED TRANSPORT CO. SIVAKASI</h2>
-                            <h3 className="text-lg font-extrabold">LOAD TO AS ON {getCurrentDate()}</h3>
+                            {/* 🟢 Dynamic Company Name */}
+                            <h2 className="text-xl font-extrabold mb-1 uppercase">{label.companyName}</h2>
+                            {/* 🟢 Dynamic Main Header with Date */}
+                            <h3 className="text-lg font-extrabold uppercase">{label.mainHeader} AS ON {getCurrentDate()}</h3>
                         </div>
 
                         {printData.map((data, index) => (
@@ -391,11 +397,13 @@ export const LoadListPrintManager: React.FC<LoadListPrintManagerProps> = ({ jobs
                         <div className="border-t-2 border-black w-full my-2"></div>
                         <div className="py-1 print-split-footer">
                             <div className="font-bold text-lg">
-                                Total : {grandTotalQuantity}
+                                {/* 🟢 Dynamic Total Label */}
+                                {label.totalLabel} {grandTotalQuantity}
                             </div>
                             <div className="text-xs text-center">
                                 <p className="italic font-bold mr-1 mb-1">{userName}</p>
-                                <p className="italic font-bold mr-1">For UNITED TRANSPORT COMPANY</p>
+                                {/* 🟢 Dynamic Signature Line */}
+                                <p className="italic font-bold mr-1">{label.companySignatureLine}</p>
                             </div>
                         </div>
                         <div className="border-t-2 border-black w-full my-2"></div>

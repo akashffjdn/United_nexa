@@ -1,267 +1,197 @@
 import React, { useCallback, useEffect, useState } from "react";
 import type { TripReportLabels } from "../../types";
 
-// --- TYPE DEFINITIONS ---
-// History stack type
 type Change = {
     field: keyof TripReportLabels;
     oldValue: string;
 };
 
-// Props for the TripReportTemplate
-type TripReportTemplateProps = Partial<{
+// 🟢 UPDATE: Props now accept data and save callback
+export type TripReportTemplateProps = {
+    initialData: TripReportLabels;
+    onSave: (data: TripReportLabels) => void;
     onEdit: (hasChanges: boolean, saveHandler: () => void, resetHandler: () => void, undoHandler: () => void) => void;
-}>;
-
-// --- MOCK CONTEXT HOOK (Fix for missing context properties) ---
-const useTripReportContext = () => {
-    // Default initial labels based on TripReportLabels type and fallback values used in JSX
-    const defaultLabels: TripReportLabels = {
-        title: 'TRIP SHEET REPORT',
-        companyName: 'UNITED TRANSPORT COMPANY',
-        companyAddress: '164-A, Arumugam Road, Near A.V.T. School, SIVAKASI - 626123',
-        fixedGstinLabel: 'GSTIN:',
-        fixedGstinValue: '33ABLPV5082H3Z8',
-        mobileLabel: 'Mobile :',
-        mobileNumberValue: '9787718433',
-        mainHeader: 'Overall TripSheet Report',
-        tsLabel: 'TS No',
-        dateLabel: 'Date',
-        fromPlaceLabel: 'From',
-        toPlaceLabel: 'To',
-        amountLabel: 'Amount',
-        totalLabel: 'Total :'
-    };
-
-    const [tripLabels, setTripLabels] = useState<TripReportLabels>(defaultLabels);
-
-    const updateTripLabels = (newLabels: TripReportLabels) => {
-        setTripLabels(newLabels);
-        console.log("Trip Report Labels updated (Local Mock):", newLabels);
-    };
-
-    return { tripLabels, updateTripLabels };
 };
 
-// --- EditableText Component (Unchanged) ---
+// 🟢 REMOVED: useTripReportContext (Logic moved to DataContext and passed via props)
+
 const EditableText: React.FC<{
     value: string;
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
     className?: string;
     placeholder?: string;
-}> = ({ value, onChange, className = "", placeholder = "" }) => (
+}> = ({ value, onChange, placeholder = "" }) => (
     <input
         type="text"
         value={value || ""}
         onChange={onChange}
         placeholder={placeholder}
-        className={`border border-dashed border-gray-400 p-0.5 w-full appearance-none focus:border-solid focus:bg-white ${className}`}
+        className={`border border-dashed border-gray-400 p-0.5 w-full appearance-none focus:border-solid focus:bg-white bg-transparent ${"className"}`}
         style={{ minWidth: '30px' }}
     />
 );
 
-// --- Trip Report Template Component (Logic Implemented) ---
 export const TripReportTemplate: React.FC<TripReportTemplateProps> = (props) => {
-    // 🟢 FIX: Use local hook instead of missing DataContext properties
-    const { tripLabels: originalLabels, updateTripLabels } = useTripReportContext();
-    const { onEdit } = props;
+    // 🟢 Use props.initialData instead of local context
+    const { initialData, onSave, onEdit } = props;
 
-    // 1. Local State for editing and history
-    const [localLabels, setLocalLabels] = useState<TripReportLabels>(originalLabels);
+    const [localLabels, setLocalLabels] = useState<TripReportLabels>(initialData);
     const [historyStack, setHistoryStack] = useState<Change[]>([]);
     const hasChanges = historyStack.length > 0;
 
-    // --- Action Handlers (unchanged) ---
-
-    // 2. Save Handler: Commits local changes to the context and clears history
+    // 🟢 Update handler to call prop function
     const saveHandler = useCallback(() => {
-        updateTripLabels(localLabels);
+        onSave(localLabels);
         setHistoryStack([]);
-    }, [localLabels, updateTripLabels]);
+    }, [localLabels, onSave]);
 
-    // 2. Reset Handler: Reverts local changes to the original context state and clears history
     const resetHandler = useCallback(() => {
-        setLocalLabels(originalLabels);
+        setLocalLabels(initialData);
         setHistoryStack([]);
-    }, [originalLabels]);
+    }, [initialData]);
 
-    // 2. Undo Handler: Pops last change from stack and applies the oldValue
     const undoHandler = useCallback(() => {
         setHistoryStack(prevStack => {
             if (prevStack.length === 0) return prevStack;
-
             const lastChange = prevStack[prevStack.length - 1];
-           
-            // 🟢 FIX: Explicitly type prevLabels
             setLocalLabels((prevLabels: TripReportLabels) => ({
                 ...prevLabels,
                 [lastChange.field]: lastChange.oldValue
             }));
-
             return prevStack.slice(0, -1);
         });
     }, []);
 
-    // --- Effects (unchanged) ---
-
-    // Sync local state when originalLabels change (e.g., loaded from API)
+    // 🟢 Sync local state when incoming data changes
     useEffect(() => {
-        // Only sync if the labels from the context are different from the current local labels
-        if (JSON.stringify(localLabels) !== JSON.stringify(originalLabels)) {
-            setLocalLabels(originalLabels);
-            setHistoryStack([]);
+        if (JSON.stringify(localLabels) !== JSON.stringify(initialData) && historyStack.length === 0) {
+            setLocalLabels(initialData);
         }
-    }, [originalLabels]);
+    }, [initialData]);
 
-    // 3. Report current status and handlers to the parent component
     useEffect(() => {
         if (onEdit) {
             onEdit(hasChanges, saveHandler, resetHandler, undoHandler);
         }
     }, [hasChanges, onEdit, saveHandler, resetHandler, undoHandler]);
    
-    // 4. Handle change and record history (unchanged)
     const handleTextChange = (field: keyof TripReportLabels) => (
         e: React.ChangeEvent<HTMLInputElement>
     ) => {
         const newValue = e.target.value;
         const currentValue = localLabels[field];
-
-        // 🟢 FIX: Explicitly type prevLabels
         setLocalLabels((prevLabels: TripReportLabels) => ({
             ...prevLabels,
             [field]: newValue
         }));
-
-        // Only add to history if the value actually changed
         if (newValue !== currentValue) {
             setHistoryStack(prevStack => {
                 return [
                     ...prevStack,
-                    // Record the value *before* the current change
                     { field: field, oldValue: currentValue || '' }
                 ];
             });
         }
     };
-
-    // --- Rendering ---
    
     return (
         <div
             className="report-page bg-white text-black shadow-2xl mx-auto border border-gray-300"
             style={{
-                // Responsive Screen Sizing: max-width for A4 appearance on larger screens, full width on mobile
                 maxWidth: "210mm",
                 minHeight: "230mm",
-                // Responsive Padding: less padding on small screens
-                padding: "10mm 10mm",
+                padding: "5mm",
                 boxSizing: "border-box",
                 fontFamily: '"Times New Roman", Times, serif'
             }}
         >
-    {/* header */}
-    <div className="w-full font-serif mb-0 text-black" style={{ fontFamily: '"Times New Roman", Times, serif' }}>
-            {/* Top Title - RESPONSIVE: Font size adjusted */}
-            <div className="text-center font-bold lg:text-lg sm:text-base text-sm mb-1 uppercase">
-                 <EditableText
-                    value={localLabels.title || 'STOCK REPORT'}
-                    className="lg:text-lg sm:text-base text-sm font-bold text-center w-auto"
-                    placeholder="STOCK REPORT"
-                    onChange={handleTextChange("title")}
-                />
-            </div>
-   
-            {/* Main Header Box - RESPONSIVE: Allow GSTIN/Mobile blocks to wrap on small screens */}
-            <div className="border border-black flex flex-wrap sm:flex-nowrap">
-                <div className="w-full sm:w-[70%] sm:border-r border-black p-2 border-b sm:border-b-0">
-                    <div className="flex flex-wrap md:flex-nowrap justify-between gap-4 items-baseline text-xs font-bold mb-1 lining-nums leading-none">
-                        <span className="flex gap-1 w-full sm:w-auto">
+            <div className="w-full font-serif mb-0 text-black">
+                <div className="text-center font-bold text-sm md:text-lg mb-1 uppercase">
+                     <EditableText
+                        value={localLabels.title || 'TRIP SHEET REPORT'}
+                        className="font-bold text-center w-auto"
+                        placeholder="TRIP SHEET REPORT"
+                        onChange={handleTextChange("title")}
+                    />
+                </div>
+    
+                <div className="border border-black flex flex-row">
+                    <div className="w-[70%] border-r border-black p-1 md:p-2">
+                        <div className="flex justify-between gap-1 items-baseline text-[9px] md:text-xs font-bold mb-1 lining-nums leading-none">
+                            <span className="flex gap-1 w-1/2">
+                                <EditableText value={localLabels.fixedGstinLabel} className="text-right w-auto" placeholder="GSTIN:" onChange={handleTextChange("fixedGstinLabel")} />
+                                <EditableText value={localLabels.fixedGstinValue} className="w-auto" onChange={handleTextChange("fixedGstinValue")} />
+                            </span>
+                            <span className="flex gap-1 w-1/2 justify-end">
+                                <EditableText value={localLabels.mobileLabel} className="text-right w-auto" placeholder="Mobile:" onChange={handleTextChange("mobileLabel")} />
+                                <EditableText value={localLabels.mobileNumberValue} className="w-auto" onChange={handleTextChange("mobileNumberValue")} />
+                            </span>
+                        </div>
+    
+                        <h1 className="text-sm md:text-2xl font-bold uppercase text-left tracking-tight mt-1">
                             <EditableText
-                                value={localLabels.fixedGstinLabel }
-                                className="text-xs font-bold w-auto text-right"
-                                placeholder="GSTIN:..."
-                                onChange={handleTextChange("fixedGstinLabel")}
+                                value={localLabels.companyName || 'UNITED TRANSPORT COMPANY'}
+                                className="font-bold text-left tracking-tight"
+                                placeholder="UNITED TRANSPORT COMPANY"
+                                    onChange={handleTextChange("companyName")}
                             />
+                        </h1>
+                        <p className="text-[9px] md:text-xs font-bold mt-1 text-left">
                             <EditableText
-                                value={localLabels.fixedGstinValue }
-                                className="text-xs font-bold w-auto"
-                                onChange={handleTextChange("fixedGstinValue")}
+                                value={localLabels.companyAddress}
+                                className="font-bold text-left"
+                                placeholder="Address..."
+                                    onChange={handleTextChange("companyAddress")}
                             />
-                        </span>
-                        <span className="flex gap-1 w-full sm:w-auto">
-                            <EditableText
-                                value={localLabels.mobileLabel }
-                                className="text-xs font-bold w-auto text-right"
-                                placeholder="Mobile :..."
-                                onChange={handleTextChange("mobileLabel")}
-                            />
-                            <EditableText
-                                value={localLabels.mobileNumberValue }
-                                className="text-xs font-bold w-auto"
-                                onChange={handleTextChange("mobileNumberValue")}
-                            />
-                        </span>
+                        </p>
                     </div>
-   
-                    <h1 className="lg:text-2xl md:text-xl text-lg font-bold uppercase text-left tracking-tight mt-1">
-                        <EditableText
-                            value={localLabels.companyName || 'UNITED TRANSPORT COMPANY'}
-                            className="lg:text-2xl md:text-xl text-lg font-bold text-left tracking-tight"
-                            placeholder="UNITED TRANSPORT COMPANY"
-                                onChange={handleTextChange("companyName")}
-                        />
-                    </h1>
-                    <p className="text-xs font-bold mt-1 text-left">
-                        <EditableText
-                            value={localLabels.companyAddress || '164-A, Arumugam Road, Near A.V.T. School, SIVAKASI - 626123'}
-                            className="text-xs font-bold text-left"
-                            placeholder="Address..."
-                                onChange={handleTextChange("companyAddress")}
-                        />
-                    </p>
+                    <div className="w-[30%]"></div>
+                </div>
+    
+                <div className="border-x border-b border-black p-1 pl-2 text-[10px] md:text-sm font-normal">
+                    <EditableText
+                        value={localLabels.mainHeader || 'Overall TripSheet Report'}
+                        className="font-bold w-auto"
+                        placeholder="Report Header"
+                        onChange={handleTextChange("mainHeader")}
+                    />
                 </div>
             </div>
-   
-            <div className="border-x border-b border-black p-1 pl-2 md:text-sm text-xs font-normal">
-                <EditableText
-                    value={localLabels.mainHeader || 'Overall Stock Report'}
-                    className="md:text-sm text-xs font-bold w-auto"
-                    placeholder="Stock Report"
-                                onChange={handleTextChange("mainHeader")}
-                />
-            </div>
-        </div>
 
-            {/* Table Wrapper for Horizontal Scroll - RESPONSIVE: Added overflow-x-auto */}
             <div className="overflow-x-auto">
-                <table className="w-full min-w-[500px] table-fixed border-collapse border-x border-b border-black md:text-[11px] text-[10px] leading-tight mt-0">
+                <table className="w-full min-w-[320px] table-fixed border-collapse border-x border-b border-black text-[9px] md:text-[11px] leading-tight mt-0">
                     <thead>
-                        <tr className="h-8">
-                            <th className="border border-black w-[10%] p-1 text-center font-bold text-[10px] md:text-xs">
-                                <EditableText value={localLabels.tsLabel} className="font-bold text-[10px] md:text-xs text-center"  onChange={handleTextChange("tsLabel")}/>
+                        <tr className="h-6 md:h-8">
+                            <th className="border border-black w-[10%] p-0.5 text-center font-bold">
+                                <EditableText value={localLabels.tsLabel} className="font-bold text-center"  onChange={handleTextChange("tsLabel")}/>
                             </th>
-                            <th className="border border-black w-[13%] p-1 text-center font-bold text-[10px] md:text-xs">
-                                <EditableText value={localLabels.dateLabel } className="font-bold text-[10px] md:text-xs text-center" onChange={handleTextChange("dateLabel")} />
+                            <th className="border border-black w-[13%] p-0.5 text-center font-bold">
+                                <EditableText value={localLabels.dateLabel } className="font-bold text-center" onChange={handleTextChange("dateLabel")} />
                             </th>
-                            <th className="border border-black w-[12%] p-1 text-center font-bold text-[10px] md:text-xs">
-                                <EditableText value={localLabels.fromPlaceLabel} className="font-bold text-[10px] md:text-xs text-center" onChange={handleTextChange("fromPlaceLabel")} />
+                            <th className="border border-black w-[25%] p-0.5 text-center font-bold">
+                                <EditableText value={localLabels.fromPlaceLabel} className="font-bold text-center" onChange={handleTextChange("fromPlaceLabel")} />
                             </th>
-                            <th className="border border-black w-[15%] p-1 text-center font-bold text-[10px] md:text-xs">
-                                <EditableText value={localLabels.toPlaceLabel} className="font-bold text-[10px] md:text-xs text-center" onChange={handleTextChange("toPlaceLabel")} />
+                            <th className="border border-black w-[25%] p-0.5 text-center font-bold">
+                                <EditableText value={localLabels.toPlaceLabel} className="font-bold text-center" onChange={handleTextChange("toPlaceLabel")} />
                             </th>
-                            <th className="border border-black w-[12%] p-1 text-center font-bold text-[10px] md:text-xs">
-                                <EditableText value={localLabels.amountLabel} className="font-bold text-[10px] md:text-xs text-center" onChange={handleTextChange("amountLabel")} />
+                            <th className="border border-black w-[15%] p-0.5 text-center font-bold">
+                                <EditableText value={localLabels.amountLabel} className="font-bold text-center" onChange={handleTextChange("amountLabel")} />
                             </th>
                         </tr>
                     </thead>
                     <tbody>
-                    
-                        <tr className="h-8 font-bold bg-gray-50">
-                            <td className="border border-black p-1 px-2 text-right" colSpan={4}>
-                                <EditableText value={localLabels.totalLabel || 'Total :'} className="font-bold text-xs text-right w-auto" placeholder="Total :" onChange={handleTextChange("totalLabel")}/>
+                        <tr className="h-6 md:h-8">
+                             <td className="border border-black p-0.5"></td>
+                             <td className="border border-black p-0.5"></td>
+                             <td className="border border-black p-0.5"></td>
+                             <td className="border border-black p-0.5"></td>
+                             <td className="border border-black p-0.5"></td>
+                        </tr>
+                        <tr className="h-6 md:h-8 font-bold bg-gray-50">
+                            <td className="border border-black p-0.5 px-2 text-right" colSpan={4}>
+                                <EditableText value={localLabels.totalLabel || 'Total :'} className="font-bold text-right w-auto" placeholder="Total :" onChange={handleTextChange("totalLabel")}/>
                             </td>
-                            <td className="border border-black p-1" colSpan={1}></td>
+                            <td className="border border-black p-0.5" colSpan={1}></td>
                         </tr>
                     </tbody>
                 </table>
@@ -270,7 +200,6 @@ export const TripReportTemplate: React.FC<TripReportTemplateProps> = (props) => 
     );
 };
 
-// --- Outer Wrapper Component (for styling/print logic) ---
 export const TripSheetReportTemplate: React.FC<TripReportTemplateProps> = (props) => {
     return (
         <div className="stock-report-screen-wrapper bg-gray-100 dark:bg-black">
@@ -280,7 +209,7 @@ export const TripSheetReportTemplate: React.FC<TripReportTemplateProps> = (props
                 }
                 .report-page {
                     box-shadow: 0 0 10px rgba(0,0,0,0.1);
-                    margin: 20px auto;
+                    margin: 10px auto;
                     border: 1px solid #ccc;
                 }
                 @media print {
@@ -293,6 +222,9 @@ export const TripSheetReportTemplate: React.FC<TripReportTemplateProps> = (props
                         border: none;
                         margin: 0;
                         padding: 0;
+                        width: 210mm !important;
+                        max-width: 210mm !important; 
+                        min-height: 297mm;
                     }
                     @page { size: A4; margin: 0; }
                 }
@@ -301,3 +233,5 @@ export const TripSheetReportTemplate: React.FC<TripReportTemplateProps> = (props
         </div>
     );
 }
+
+export default TripSheetReportTemplate;
