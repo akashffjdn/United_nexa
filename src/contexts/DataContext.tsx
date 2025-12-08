@@ -1,11 +1,130 @@
-import React, { createContext, useState, useMemo, useCallback } from 'react';
+import React, { createContext, useState, useMemo, useCallback, useEffect } from 'react';
 import type {
   Consignor, Consignee, GcEntry, FromPlace, ToPlace, PackingEntry,
-  ContentEntry, TripSheetEntry, VehicleEntry, DriverEntry
+  ContentEntry, TripSheetEntry, VehicleEntry, DriverEntry, PrintTemplateData
 } from '../types';
 import api from '../utils/api';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './ToastContext';
+
+// --- DEFAULT TEMPLATE SETTINGS (FALLBACK) ---
+const defaultPrintSettings: PrintTemplateData = {
+  gc: {
+    fixedGstinLabel: "GSTIN",
+    fixedGstinValue: "33ABLPV5082H3Z8",
+    mobileLabel: "Mobile",
+    mobileNumberValue: "9787718433",
+    gcNoLabel: "G.C. No.",
+    dateLabel: "Date",
+    companyName: "UNITED TRANSPORT COMPANY",
+    tagLine: "TRANSPORT CONTRACTORS & GOODS, FORWARDERS",
+    companyAddress: "164-A, Arumugam Road, Near A.V.T. School, SIVAKASI - 626123",
+    fromLabel: "FROM",
+    toLabel: "TO",
+    ownerRiskText: "AT OWNER'S RISK",
+    consignorLabel: "Consignor :",
+    consigneeLabel: "Consignee :",
+    tableHeaderPackages: "No. of Packages",
+    tableHeaderDescription: "DESCRIPTION (said to Contain - Contents not known)",
+    tableHeaderWeight: "WEIGHT (APPROX)",
+    tableHeaderRate: "RATE",
+    tableHeaderFreight: "FREIGHT",
+    labelFreight: "Freight",
+    labelGodownCharge: "Godown Charge",
+    labelStatisticalCharge: "Statistical Charge",
+    labelTollFee: "Toll Fee",
+    labelTotal: "Total",
+    labelAdvancePaid: "Advance Paid",
+    labelBalanceToPay: "Balance To Pay",
+    invoiceNoLabel: "INVOICE No.",
+    invoiceDateLabel: "Dated",
+    marksLabel: "Identification Marks",
+    labelValueGoods: "Value of the goods",
+    deliveryAtLabel: "Delivery at",
+    toPayRsLabel: "To pay Rs.",
+    paymentTypeToPay: "TO PAY",
+    scanLabel: "Scan for Terms",
+    freightFixedUptoLabel: "Freight fixed upto",
+    footerSignatureLine: "For UNITED TRANSPORT COMPANY",
+    footerNote: "Consignment booked subject to the terms & conditions printed overleaf.",
+    footerUnloadingNote: "Unloading charges payable by party"
+  },
+  tripSheet: {
+    title: "TRIP SHEET",
+    fixedGstinLabel: "GSTIN:",
+    fixedGstinValue: "33ABLPV5082H3Z8",
+    mobileLabel: "Mobile:",
+    mobileNumberValue: "9787718433",
+    companyName: "UNITED TRANSPORT COMPANY",
+    companyAddress: "164-A, Arumugam Road, Near A.V.T. School, SIVAKASI - 626123",
+    mfNoLabel: "M.F. No.:",
+    carriersLabel: "Carriers:",
+    fromLabel: "From:",
+    toLabel: "To:",
+    dateLabel: "Date:",
+    cnNoHeader: "C.N.No.",
+    packagesHeader: "No. of Packages",
+    contentsHeader: "Contents",
+    consignorHeader: "Consignor",
+    consigneeHeader: "Consignee",
+    toPayHeader: "To Pay",
+    footerNote0: "Goods have been loaded in good condition. All Checkpost papers have been handed over to the truck driver.",
+    footerNote1: "Goods to be unloaded at",
+    footerNote2: "Please pay lorry hire Rs.",
+    footerNote3: "on receiving the goods in sound condition.",
+    totalPackagesLabel: "TOTAL PACKAGES:",
+    lorryHireLabel: "Lorry Hire",
+    driverNameLabel: "Driver Name",
+    dlNoLabel: "D.L.No.",
+    driverMobileLabel: "Driver number",
+    ownerNameLabel: "Owner Name",
+    ownerMobileLabel: "Owner number",
+    lorryNoLabel: "Lorry No.",
+    lorryNameLabel: "Lorry Name",
+    legalNote: "I have received the goods noted above in good and condition along with the documents. I am responsible for the safe delivery at the destination. All risks and expenses EN ROUTE will be of the driver. Transit risks are covered by driver/owner. Received all the related documents & goods intact. We will not be responsible for the unloading on holidays.",
+    signatureDriverLabel: "Signature of the Owner/Driver/Broker",
+    signatureClerkLabel: "Signature of the Booking Clerk"
+  },
+  loadingSheet: {
+    companyName: "UNITED TRANSPORT COMPANY",
+    mainHeader: "Loading Sheet",
+    totalLabel: "Total :",
+    companySignatureLine: "For UNITED TRANSPORT COMPANY"
+  },
+  stockReport: {
+    title: "STOCK REPORT",
+    companyName: "UNITED TRANSPORT COMPANY",
+    companyAddress: "164-A, Arumugam Road, Near A.V.T. School, SIVAKASI - 626123",
+    fixedGstinLabel: "GSTIN:",
+    fixedGstinValue: "33ABLPV5082H3Z8",
+    mobileLabel: "Mobile :",
+    mobileNumberValue: "9787718433",
+    mainHeader: "Overall Stock Report",
+    gcLabel: "GC.No.",
+    stockCountLabel: "Stock Qty",
+    contentLabel: "Contents",
+    consignorLabel: "Consignor",
+    consigneeLabel: "Consignee",
+    dateLabel: "GC Date",
+    totalLabel: "Total :"
+  },
+  tripReport: {
+    title: 'TRIP SHEET REPORT',
+    companyName: 'UNITED TRANSPORT COMPANY',
+    companyAddress: '164-A, Arumugam Road, Near A.V.T. School, SIVAKASI - 626123',
+    fixedGstinLabel: 'GSTIN:',
+    fixedGstinValue: '33ABLPV5082H3Z8',
+    mobileLabel: 'Mobile :',
+    mobileNumberValue: '9787718433',
+    mainHeader: 'Overall TripSheet Report',
+    tsLabel: 'TS No',
+    dateLabel: 'Date',
+    fromPlaceLabel: 'From',
+    toPlaceLabel: 'To',
+    amountLabel: 'Amount',
+    totalLabel: 'Total :'
+  }
+};
 
 interface DataContextType {
   // --- Existing State Arrays ---
@@ -20,11 +139,14 @@ interface DataContextType {
   vehicleEntries: VehicleEntry[];
   driverEntries: DriverEntry[];
 
+  // Print Settings State
+  printSettings: PrintTemplateData;
+
   // --- Existing CRUD Actions ---
   addConsignor: (consignor: Consignor) => Promise<void>;
   updateConsignor: (consignor: Consignor) => Promise<void>;
   deleteConsignor: (id: string) => Promise<void>;
-  // 🟢 NEW: Import Actions
+
   importConsignors: (data: Consignor[]) => Promise<void>;
   importConsignees: (data: Consignee[]) => Promise<void>;
   importFromPlaces: (data: FromPlace[]) => Promise<void>;
@@ -86,6 +208,11 @@ interface DataContextType {
   fetchContentEntries: () => Promise<void>;
   fetchVehicleEntries: () => Promise<void>;
   fetchDriverEntries: () => Promise<void>;
+
+  // Template Fetcher & Updater
+  fetchPrintSettings: () => Promise<void>;
+  updatePrintSettings: (settings: PrintTemplateData) => Promise<void>;
+
   refreshData: () => Promise<void>;
 
   // --- Search Functions ---
@@ -97,8 +224,8 @@ interface DataContextType {
   searchToPlaces: (search: string, page: number) => Promise<any>;
   searchPackings: (search: string, page: number) => Promise<any>;
   searchContents: (search: string, page: number) => Promise<any>;
-  searchGodowns: (search: string, page: number) => Promise<any>;
 }
+
 export const useDataContext = () => {
   const context = React.useContext(DataContext);
   if (context === undefined) {
@@ -106,7 +233,6 @@ export const useDataContext = () => {
   }
   return context;
 };
-
 
 export const useGcContext = () => {
   const context = React.useContext(DataContext);
@@ -116,7 +242,6 @@ export const useGcContext = () => {
   return context;
 };
 
-
 export const useStockContext = () => {
   const context = React.useContext(DataContext);
   if (context === undefined) {
@@ -124,7 +249,6 @@ export const useStockContext = () => {
   }
   return context;
 };
-
 
 export const useReportContext = () => {
   const context = React.useContext(DataContext);
@@ -134,7 +258,6 @@ export const useReportContext = () => {
   return context;
 };
 
-
 export const useTripPrintContext = () => {
   const context = React.useContext(DataContext);
   if (context === undefined) {
@@ -142,7 +265,6 @@ export const useTripPrintContext = () => {
   }
   return context;
 };
-
 
 export const DataContext = createContext<DataContextType | undefined>(undefined);
 
@@ -158,6 +280,9 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   const [contentEntries, setContentEntries] = useState<ContentEntry[]>([]);
   const [vehicleEntries, setVehicleEntries] = useState<VehicleEntry[]>([]);
   const [driverEntries, setDriverEntries] = useState<DriverEntry[]>([]);
+
+  // Print Settings State
+  const [printSettings, setPrintSettings] = useState<PrintTemplateData>(defaultPrintSettings);
 
   // 🟡 MOCK: GC Entries State for testing
   const [mockGcEntries, setMockGcEntries] = useState<GcEntry[]>([
@@ -261,13 +386,53 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     try { const { data } = await api.get('/master/drivers'); setDriverEntries(data); } catch (e) { console.error(e); }
   }, []);
 
+  // NEW: Fetch Print Settings
+  const fetchPrintSettings = useCallback(async () => {
+    try {
+      // 🟢 Add a timestamp to the request to bypass browser caching if necessary
+      const { data } = await api.get(`/master/templates?_=${new Date().getTime()}`);
+
+      // Merge with defaults to ensure all fields exist even if DB is partial
+      setPrintSettings(prev => ({
+        ...prev,
+        gc: { ...prev.gc, ...data.gc },
+        tripSheet: { ...prev.tripSheet, ...data.tripSheet },
+        loadingSheet: { ...prev.loadingSheet, ...data.loadingSheet },
+        stockReport: { ...prev.stockReport, ...data.stockReport },
+        tripReport: { ...prev.tripReport, ...data.tripReport },
+      }));
+    } catch (e) {
+      console.error("Failed to fetch print settings, using defaults.", e);
+    }
+  }, []);
+
+  // NEW: Update Print Settings
+  const updatePrintSettings = async (settings: PrintTemplateData) => {
+    try {
+      const { data } = await api.put('/master/templates', settings);
+      setPrintSettings(data);
+      toast.success("Print settings updated successfully");
+    } catch (e) {
+      handleError(e, "Failed to update print settings");
+    }
+  };
+
   const fetchAllData = useCallback(async () => {
     if (!user) return;
+
+    // We execute these in parallel for speed
     await Promise.all([
-      fetchConsignors(), fetchConsignees(), fetchFromPlaces(), fetchToPlaces(),
-      fetchPackingEntries(), fetchContentEntries(), fetchVehicleEntries(), fetchDriverEntries()
+
+      fetchPrintSettings() // 🟢 This fetches the latest labels from DB
     ]);
-  }, [user, fetchConsignors, fetchConsignees, fetchFromPlaces, fetchToPlaces, fetchPackingEntries, fetchContentEntries, fetchVehicleEntries, fetchDriverEntries]);
+  }, [user, fetchConsignors, fetchConsignees, fetchFromPlaces, fetchToPlaces, fetchPackingEntries, fetchContentEntries, fetchVehicleEntries, fetchDriverEntries, fetchPrintSettings]);
+
+  // 🟢🟢 FIX: The missing trigger! This ensures fetchAllData runs on login/load. 🟢🟢
+  useEffect(() => {
+    if (user) {
+      fetchAllData();
+    }
+  }, [user, fetchAllData]);
 
   // --- Search Functions ---
   const searchConsignors = async (search: string, page: number) => {
@@ -326,13 +491,6 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (e) { return { data: [], hasMore: false }; }
   };
 
-  const searchGodowns = async (search: string, page: number) => {
-    try {
-      const { data } = await api.get('/master/godowns', { params: { search, page }, skipLoader: true } as any);
-      return data;
-    } catch (e) { return { data: [], hasMore: false }; }
-  };
-
   // 🟡 MOCK: GC Actions (API calls commented out for testing)
   const getNextGcNo = async () => {
     // try { const { data } = await api.get('/operations/gc/next-no'); return data.nextGcNo; } catch (e) { return "Error"; }
@@ -371,10 +529,21 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     }));
   };
 
-  const fetchLoadingSheetPrintData = async (gcNos: string[], selectAll?: boolean, filters?: any) => { try { const { data } = await api.post('/operations/loading-sheet/print-data', { gcNos, selectAll, filters }); return data; } catch (e) { handleError(e, "Error fetching loading sheet print data"); return []; } };
-  const fetchTripSheetPrintData = async (mfNos: string[], selectAll?: boolean, filters?: any) => { try { const { data } = await api.post('/operations/tripsheet/print-data', { mfNos, selectAll, filters }); return data; } catch (e) { handleError(e, "Error fetching trip sheet print data"); return []; } };
-  const fetchPendingStockReport = async (filters: any) => { try { const { data } = await api.get('/operations/pending-stock/report', { params: filters }); return data; } catch (e) { handleError(e, "Error fetching report"); return []; } };
-  const fetchTripSheetReport = async (filters: any) => { try { const { data } = await api.get('/operations/tripsheet/report', { params: filters }); return data; } catch (e) { handleError(e, "Error fetching report"); return []; } };
+  const fetchLoadingSheetPrintData = async (gcNos: string[], selectAll?: boolean, filters?: any) => {
+    try { const { data } = await api.post('/operations/loading-sheet/print-data', { gcNos, selectAll, filters }); return data; } catch (e) { handleError(e, "Error fetching loading sheet print data"); return []; }
+  };
+
+  const fetchTripSheetPrintData = async (mfNos: string[], selectAll?: boolean, filters?: any) => {
+    try { const { data } = await api.post('/operations/tripsheet/print-data', { mfNos, selectAll, filters }); return data; } catch (e) { handleError(e, "Error fetching trip sheet print data"); return []; }
+  };
+
+  const fetchPendingStockReport = async (filters: any) => {
+    try { const { data } = await api.get('/operations/pending-stock/report', { params: filters }); return data; } catch (e) { handleError(e, "Error fetching report"); return []; }
+  };
+
+  const fetchTripSheetReport = async (filters: any) => {
+    try { const { data } = await api.get('/operations/tripsheet/report', { params: filters }); return data; } catch (e) { handleError(e, "Error fetching report"); return []; }
+  };
 
   const addGcEntry = async (data: GcEntry) => {
     // try { const response = await api.post('/operations/gc', data); toast.success("GC Entry created successfully"); return response.data; }
@@ -413,7 +582,9 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     toast.success("Loading progress saved (MOCK)");
   };
 
-  const fetchTripSheetById = async (id: string) => { try { const { data } = await api.get(`/operations/tripsheet/${id}`); return data; } catch (e) { return null; } };
+  const fetchTripSheetById = async (id: string) => {
+    try { const { data } = await api.get(`/operations/tripsheet/${id}`); return data; } catch (e) { return null; }
+  };
 
   const addTripSheet = async (data: TripSheetEntry) => {
     try {
@@ -431,9 +602,11 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (e) { handleError(e, "Failed to update Trip Sheet"); }
   };
 
-  const deleteTripSheet = async (id: string) => { try { await api.delete(`/operations/tripsheet/${id}`); toast.success("Trip Sheet deleted successfully"); } catch (e) { handleError(e, "Failed to delete Trip Sheet"); } };
+  const deleteTripSheet = async (id: string) => {
+    try { await api.delete(`/operations/tripsheet/${id}`); toast.success("Trip Sheet deleted successfully"); } catch (e) { handleError(e, "Failed to delete Trip Sheet"); }
+  };
 
-  // 🟢 NEW: BULK IMPORT FUNCTIONS
+  // BULK IMPORT FUNCTIONS
   const importConsignors = async (data: Consignor[]) => {
     try { await api.post('/master/consignors/bulk', data); toast.success(`${data.length} Consignors imported successfully`); fetchConsignors(); } catch (e) { handleError(e, "Import failed"); }
   };
@@ -496,11 +669,15 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     const dests = new Set([...toPlaces.map(tp => tp.placeName), ...consignees.map(c => c.destination)]);
     return Array.from(dests).map(d => ({ value: d, label: d }));
   }, [toPlaces, consignees]);
+
   const getPackingTypes = useCallback(() => packingEntries.map(p => ({ value: p.packingName, label: p.packingName })), [packingEntries]);
   const getContentsTypes = useCallback(() => contentEntries.map(c => ({ value: c.contentName, label: c.contentName })), [contentEntries]);
 
   const value = useMemo(() => ({
-    consignors, consignees, gcEntries: mockGcEntries, tripSheets: [], fromPlaces, toPlaces, packingEntries, contentEntries, vehicleEntries, driverEntries,
+    consignors, consignees, gcEntries: [], tripSheets: [], mockGcEntries, fromPlaces, toPlaces, packingEntries, contentEntries, vehicleEntries, driverEntries,
+    // EXPORT NEW STATE & FUNCTIONS
+    printSettings, fetchPrintSettings, updatePrintSettings,
+
     addConsignor, updateConsignor, deleteConsignor, addConsignee, updateConsignee, deleteConsignee,
     getNextGcNo, fetchGcById, fetchTripSheetById, addGcEntry, updateGcEntry, deleteGcEntry, saveLoadingProgress,
     fetchGcPrintData, fetchLoadingSheetPrintData, fetchTripSheetPrintData, fetchPendingStockReport, fetchTripSheetReport, fetchGcDetailsForTripSheet,
@@ -510,10 +687,9 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     addDriverEntry, updateDriverEntry, deleteDriverEntry, getUniqueDests, getPackingTypes, getContentsTypes,
     refreshData: fetchAllData,
     fetchConsignors, fetchConsignees, fetchFromPlaces, fetchToPlaces, fetchPackingEntries, fetchContentEntries, fetchVehicleEntries, fetchDriverEntries,
-    searchConsignors, searchConsignees, searchVehicles, searchDrivers, searchFromPlaces, searchToPlaces, searchPackings, searchContents, searchGodowns,
-    // 🟢 Exporting new bulk import functions
+    searchConsignors, searchConsignees, searchVehicles, searchDrivers, searchFromPlaces, searchToPlaces, searchPackings, searchContents,
     importConsignors, importConsignees, importFromPlaces, importToPlaces, importPackings, importContents, importVehicles, importDrivers
-  }), [consignors, consignees, mockGcEntries, fromPlaces, toPlaces, packingEntries, contentEntries, vehicleEntries, driverEntries, fetchAllData, fetchConsignors, fetchConsignees, fetchFromPlaces, fetchToPlaces, fetchPackingEntries, fetchContentEntries, fetchVehicleEntries, fetchDriverEntries]);
+  }), [consignors, consignees, fromPlaces, mockGcEntries, toPlaces, packingEntries, contentEntries, vehicleEntries, driverEntries, printSettings, fetchAllData, fetchConsignors, fetchConsignees, fetchFromPlaces, fetchToPlaces, fetchPackingEntries, fetchContentEntries, fetchVehicleEntries, fetchDriverEntries, fetchPrintSettings]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 };

@@ -14,9 +14,9 @@ import {
   ChevronDown,
   ChevronRight,
   Database,
-  Car, // Added for Vehicles
-  UserCircle, // Added for Drivers
-  Settings // 🟢 Added for Print Settings
+  Car, 
+  UserCircle, 
+  Settings 
 } from 'lucide-react'; 
 import { useAuth } from '../../hooks/useAuth';
 
@@ -29,10 +29,8 @@ export const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) => {
   const location = useLocation();
   const { user } = useAuth(); 
   
-  // State for the collapsible Data Management menu
   const [isDataMgmtOpen, setIsDataMgmtOpen] = useState(false);
 
-  // Automatically open the sub-menu if the current URL is a master route, users, or settings route
   useEffect(() => {
     if (location.pathname.startsWith('/master') || location.pathname === '/users' || location.pathname === '/settings') {
       setIsDataMgmtOpen(true);
@@ -57,10 +55,9 @@ export const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) => {
     { name: 'Pending Stock', href: '/pending-stock', icon: Archive },
   ];
 
-  // 2. Sub-Menu Links (Data Management & Settings)
+  // 2. Sub-Menu Links (Data Management)
+  // 🟢 CHANGE: Removed 'Print Settings' from here. It is now added conditionally below.
   const dataManagementLinks = [
-    // { name: 'Master Dashboard', href: '/master', icon: BarChart3 }, 
-    { name: 'Print Settings', href: '/settings', icon: Settings }, // 🟢 Added MainScreen link here
     { name: 'Consignors', href: '/master/consignors', icon: Truck },
     { name: 'Consignees', href: '/master/consignees', icon: Users },
     { name: 'Vehicles', href: '/master/vehicles', icon: Car },
@@ -71,8 +68,17 @@ export const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) => {
     { name: 'Contents', href: '/master/contents', icon: FileText },
   ];
 
-  // 3. Inject User Management into Data Management if Admin
+  // 3. Admin Only Links
   if (user?.role === 'admin') {
+    // 🟢 Added Print Settings for Admin only
+    // unshift adds it to the start of the list (to keep your previous order)
+    dataManagementLinks.unshift({ 
+      name: 'Print Settings', 
+      href: '/settings', 
+      icon: Settings 
+    });
+
+    // User Management for Admin only
     dataManagementLinks.push({ 
       name: 'User Management', 
       href: '/users', 
@@ -80,7 +86,6 @@ export const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) => {
     });
   }
 
-  // Helper to check if the Data Management section is active
   const isDataMgmtActive = location.pathname.startsWith('/master') || location.pathname === '/users' || location.pathname === '/settings';
 
   return (
@@ -117,7 +122,7 @@ export const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) => {
           {/* Navigation Links */}
           <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
             
-            {/* --- DAILY OPERATIONS (Top Level) --- */}
+            {/* --- DAILY OPERATIONS --- */}
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 pl-2 mt-2">
               Operations
             </div>
@@ -135,7 +140,7 @@ export const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) => {
               </NavLink>
             ))}
 
-            {/* --- DATA MANAGEMENT (Collapsible Sub-Menu) --- */}
+            {/* --- DATA MANAGEMENT --- */}
             <div className="pt-4">
               <button
                 onClick={() => setIsDataMgmtOpen(!isDataMgmtOpen)}
@@ -152,7 +157,6 @@ export const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) => {
                 {isDataMgmtOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
               </button>
 
-              {/* Sub-Menu Items */}
               <div className={`space-y-1 overflow-hidden transition-all duration-300 ${isDataMgmtOpen ? 'max-h-[600px] opacity-100 mt-1' : 'max-h-0 opacity-0'}`}>
                 {dataManagementLinks.map((item) => (
                   <NavLink 
@@ -177,7 +181,7 @@ export const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) => {
 
           </nav>
           
-          {/* Sidebar Footer with User Info */}
+          {/* Footer */}
           <div className="p-4 border-t border-muted text-center bg-muted/20">
             <div className="flex items-center gap-3">
               <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm ${user?.role === 'admin' ? 'bg-purple-600' : 'bg-blue-600'}`}>

@@ -194,6 +194,7 @@ export interface TripSheetEntry {
   createdBy?: string;
   updatedBy?: string;
 }
+
 export type LoadingSheetLabels = {
   companyName: string;
   mainHeader: string;
@@ -220,6 +221,7 @@ export type GcEntryLabels = {
   tableHeaderPackages: string,
   tableHeaderDescription: string,
   tableHeaderWeight: string,
+  paymentTypeToPay: string
   tableHeaderRate: string,
   tableHeaderFreight: string,
   labelFreight: string,
@@ -261,7 +263,6 @@ export type StockLabels = {
   totalLabel: string,
 };
 
-
 export type TripReportLabels = {
   title: string,
   companyName: string,
@@ -279,7 +280,6 @@ export type TripReportLabels = {
   totalLabel: string,
 };
 
-
 export type TripPrintLabels = {
   // Header/Company Details
   title: string;
@@ -290,17 +290,14 @@ export type TripPrintLabels = {
   companyName: string;
   companyAddress: string;
 
-
   // Meta Details
   mfNoLabel: string;
   carriersLabel: string;
-
 
   // Trip Details
   fromLabel: string;
   toLabel: string;
   dateLabel: string;
-
 
   // Table Headers
   cnNoHeader: string;
@@ -310,7 +307,6 @@ export type TripPrintLabels = {
   consigneeHeader: string;
   toPayHeader: string;
 
-
   // Footer Text
   footerNote0: string;
   footerNote1: string;
@@ -318,7 +314,6 @@ export type TripPrintLabels = {
   footerNote3: string; // The "on receiving the goods..." part
   totalPackagesLabel: string;
   lorryHireLabel: string;
-
 
   // Driver/Owner/Lorry Details Labels
   driverNameLabel: string;
@@ -335,3 +330,12 @@ export type TripPrintLabels = {
   signatureClerkLabel: string;
 };
 
+// Aggregated Interface for all templates
+export interface PrintTemplateData {
+  gc: GcEntryLabels;
+  tripSheet: TripPrintLabels;
+  loadingSheet: LoadingSheetLabels;
+  stockReport: StockLabels;
+  tripReport: TripReportLabels;
+  updatedBy?: string;
+}

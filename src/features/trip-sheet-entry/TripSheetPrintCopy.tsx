@@ -1,12 +1,16 @@
 import React from "react";
 import type { TripSheetEntry, TripSheetGCItem } from "../../types";
 import { numberToWordsInRupees } from "../../utils/toWords";
+import { useDataContext } from "../../contexts/DataContext"; // 🟢 Import DataContext
 
 interface Props {
   sheet: TripSheetEntry;
 }
 
 export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
+  const { printSettings } = useDataContext(); // 🟢 Get print settings
+  const label = printSettings.tripSheet; // 🟢 Alias for cleaner access
+
   const fmtDate = (d?: string) => {
     if (!d) return "";
     const dt = new Date(d);
@@ -27,13 +31,12 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
   const totalPackages = items.reduce((acc, it) => acc + (it.qty || 0), 0);
 
   return (
-    // CHANGE 1: Added padding: "10mm" here to maintain alignment after removing page margin
     <div style={{ fontFamily: "Arial, Helvetica, sans-serif", color: "#000", padding: "10mm" }}>
       <style>
         {`
         @page {
           size: A4;
-          margin: 0; /* CHANGE 2: Removes the browser header/footer text */
+          margin: 0;
         }
         @media print {
           body, html {
@@ -175,7 +178,7 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
       `}
       </style>
 
-      <div className="page-heading">TRIP SHEET</div>
+      <div className="page-heading uppercase">{label.title}</div> {/* 🟢 Dynamic Title */}
 
       <div className="box">
         {/* Header */}
@@ -184,33 +187,36 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
             <div style={{  }}>
 
               <div style={{ fontSize: 11 }}>
-                <div>GSTIN: 33ABLPV5082H3Z8 </div> <div>Mobile: 9787718433</div>
+                {/* 🟢 Dynamic GSTIN & Mobile */}
+                <div>{label.fixedGstinLabel} {label.fixedGstinValue} </div> 
+                <div>{label.mobileLabel} {label.mobileNumberValue}</div>
               </div>
-              <div className="company-title">UNITED TRANSPORT COMPANY</div>
-              <div className="company-sub">
-                164-A, Arumugam Road, Near A.V.T. School, SIVAKASI - 626123
+              <div className="company-title uppercase">{label.companyName}</div> {/* 🟢 Dynamic Name */}
+              <div className="company-sub whitespace-pre-wrap">
+                {label.companyAddress} {/* 🟢 Dynamic Address */}
               </div>
             </div>
           </div>
 
           <div className="meta-block">
-            <div><strong>M.F. No.:</strong> {sheet.mfNo}</div>
-            <div><strong>Carriers:</strong> {(sheet.carriers ?? "").toUpperCase()}</div>
+            {/* 🟢 Dynamic Labels */}
+            <div><strong>{label.mfNoLabel}</strong> {sheet.mfNo}</div>
+            <div><strong>{label.carriersLabel}</strong> {(sheet.carriers ?? "").toUpperCase()}</div>
           </div>
         </div>
 
         {/* From / To / Date */}
         <div className="fromto">
           <div>
-            <span className="w-10">From: </span>
+            <span className="w-10">{label.fromLabel} </span> {/* 🟢 Dynamic */}
             <span className="font-bold">{sheet.fromPlace}</span>
           </div>
           <div>
-             <span className="w-10">To: </span>
+             <span className="w-10">{label.toLabel} </span> {/* 🟢 Dynamic */}
             <span className="font-bold">{sheet.toPlace}</span>
             </div>
           <div>
-            <span className="w-10">Date: </span>
+            <span className="w-10">{label.dateLabel} </span> {/* 🟢 Dynamic */}
             <span className="font-bold">{fmtDate(sheet.tsDate)}</span>
           </div>
         </div>
@@ -219,12 +225,13 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
         <table className="ts-table">
           <thead>
             <tr>
-              <th style={{ width: "12%" }}>C.N.No.</th>
-              <th style={{ width: "18%" }}>No. of Packages</th>
-              <th style={{ width: "15%" }}>Contents</th>
-              <th style={{ width: "22%" }}>Consignor</th>
-              <th style={{ width: "27%" }}>Consignee</th>
-              <th style={{ width: "12%" }}>To Pay</th>
+              {/* 🟢 Dynamic Table Headers */}
+              <th style={{ width: "12%" }}>{label.cnNoHeader}</th>
+              <th style={{ width: "18%" }}>{label.packagesHeader}</th>
+              <th style={{ width: "15%" }}>{label.contentsHeader}</th>
+              <th style={{ width: "22%" }}>{label.consignorHeader}</th>
+              <th style={{ width: "27%" }}>{label.consigneeHeader}</th>
+              <th style={{ width: "12%" }}>{label.toPayHeader}</th>
             </tr>
           </thead>
 
@@ -250,10 +257,10 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
               </tr>
             ))}
 
-            {/* TOTAL ROW (OPTION A) */}
+            {/* TOTAL ROW */}
             <tr className="total-row">
               <td colSpan={5} className="total-left">
-                TOTAL PACKAGES: {totalPackages}
+                {label.totalPackagesLabel} {totalPackages} {/* 🟢 Dynamic */}
               </td>
               <td className="total-right">
                 ₹{total.toLocaleString("en-IN")}
@@ -262,38 +269,39 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
           </tbody>
         </table>
 
-        {/* Footer */}
+        {/* Footer with Dynamic parts mixed with data */}
          <div className="footer no-gap">
-          Goods have been loaded in good condition. All Checkpost papers have been handed over to the truck driver.
-          Goods to be unloaded at<span className="dash bold font-semibold">{sheet.unloadPlace     ?? sheet.toPlace}</span>
-          &nbsp;&nbsp; Please pay lorry hire Rs. <span className="dash bold font-bold">₹{total.toLocaleString("en-IN")}</span>,
-          &nbsp;&nbsp; <strong className="dash bold">{totalWords}</strong> on receiving the goods in sound condition.
+          {label.footerNote0}
+          &nbsp;{label.footerNote1}<span className="dash bold font-semibold">{sheet.unloadPlace ?? sheet.toPlace}</span>
+          &nbsp;&nbsp; {label.footerNote2} <span className="dash bold font-bold">₹{total.toLocaleString("en-IN")}</span>,
+          &nbsp;&nbsp; <strong className="dash bold">{totalWords}</strong> {label.footerNote3}
         </div>
 
         {/* Driver / Owner / Lorry */}
         <div style={{ borderTop: "1px solid #000", marginTop: 8, paddingTop: 8 }}>
           <div className="trip-footer-grid font-thin">
           <div>
-            <div><strong>Driver Name</strong> <span className="col-line font-semibold">{(sheet.driverName    ?? "").toUpperCase()}</span></div>
+            {/* 🟢 Dynamic Labels */}
+            <div><strong>{label.driverNameLabel}</strong> <span className="col-line font-semibold">{(sheet.driverName    ?? "").toUpperCase()}</span></div>
             <div style={{ marginTop: 6 }}>
-              <strong>D.L.No.</strong> <span className="col-line font-semibold">{(sheet.dlNo ?? "").toUpperCase()}</span>
+              <strong>{label.dlNoLabel}</strong> <span className="col-line font-semibold">{(sheet.dlNo ?? "").toUpperCase()}</span>
             </div>
             <div style={{ marginTop: 6 }}>
-              <strong>Driver number</strong> <span className="col-line font-semibold">{(sheet.driverMobile ?? "").toUpperCase()}</span>
-            </div>
-          </div>
-
-          <div>
-            <div><strong>Owner Name</strong> <span className="col-line font-semibold">{(sheet.ownerName ?? "").toUpperCase()}</span></div>
-            <div style={{ marginTop: 6 }}>
-              <strong>Owner number</strong> <span className="col-line font-semibold">{(sheet.ownerMobile ?? "").toUpperCase()}</span>
+              <strong>{label.driverMobileLabel}</strong> <span className="col-line font-semibold">{(sheet.driverMobile ?? "").toUpperCase()}</span>
             </div>
           </div>
 
           <div>
-            <div><strong>Lorry No.</strong> <span className="col-line font-semibold">{(sheet.lorryNo ?? "").toUpperCase()}</span></div>
+            <div><strong>{label.ownerNameLabel}</strong> <span className="col-line font-semibold">{(sheet.ownerName ?? "").toUpperCase()}</span></div>
             <div style={{ marginTop: 6 }}>
-              <strong>Lorry Name</strong> <span className="col-line font-semibold">{(sheet.lorryName ?? "").toUpperCase()}</span>
+              <strong>{label.ownerMobileLabel}</strong> <span className="col-line font-semibold">{(sheet.ownerMobile ?? "").toUpperCase()}</span>
+            </div>
+          </div>
+
+          <div>
+            <div><strong>{label.lorryNoLabel}</strong> <span className="col-line font-semibold">{(sheet.lorryNo ?? "").toUpperCase()}</span></div>
+            <div style={{ marginTop: 6 }}>
+              <strong>{label.lorryNameLabel}</strong> <span className="col-line font-semibold">{(sheet.lorryName ?? "").toUpperCase()}</span>
             </div>
           </div>
         </div>
@@ -301,10 +309,8 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
 
         {/* Legal + Signature */}
         <div style={{ borderTop: "1px solid #000", marginTop: 8, paddingTop: 8 }}>
-          <div className="legal mb-3">
-            I have received the goods noted above in good and condition along with the documents. I am responsible for the safe delivery at the destination.
-            All risks and expenses EN ROUTE will be of the driver. Transit risks are covered by driver/owner.
-            Received all the related documents & goods intact. We will not be responsible for the unloading on holidays.      
+          <div className="legal mb-3 whitespace-pre-wrap">
+            {label.legalNote} {/* 🟢 Dynamic */}
           </div>
 
           <div style={{ height: "25px" }}></div>
@@ -312,11 +318,11 @@ export const TripSheetPrintCopy: React.FC<Props> = ({ sheet }) => {
           <div className="sigs">
             <div className="sig-box">
               <span className="sig-line" />
-              Signature of the Owner/Driver/Broker
+              {label.signatureDriverLabel} {/* 🟢 Dynamic */}
             </div>
             <div className="sig-box">
               <span className="sig-line" />
-              Signature of the Booking Clerk
+              {label.signatureClerkLabel} {/* 🟢 Dynamic */}
             </div>
           </div>
         </div>

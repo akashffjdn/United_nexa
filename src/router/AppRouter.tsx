@@ -4,13 +4,8 @@ import { Layout } from '../components/layout/Layout';
 import { useAuth } from '../hooks/useAuth';
 import { DataProvider } from '../contexts/DataContext'; 
 import { LoadingScreen } from '../components/shared/LoadingScreen';
-
-// 🟢 CRITICAL CHANGE: Import OfflinePage DIRECTLY (Not Lazy)
-// This ensures the code is already available when the network cuts out,
-// preventing the Suspense "Loading..." spinner from showing.
 import { OfflinePage } from '../features/misc/OfflinePage';
 
-// Helper to load named exports lazily
 const load = (importPromise: Promise<any>, componentName: string) => 
   importPromise.then(module => ({ default: module[componentName] }));
 
@@ -40,7 +35,6 @@ const VehicleList = lazy(() => load(import('../features/vehicle-details/VehicleL
 const DriverList = lazy(() => load(import('../features/driver-details copy/DriverList'), 'DriverList'));
 
 // Features -> Templates (Settings)
-// 🟢 Using load helper with 'default' because MainScreen is a default export
 const MainScreen = lazy(() => load(import('../features/templates/MainScreen'), 'default'));
 
 // Features -> Admin
@@ -84,10 +78,9 @@ const AppRouter = () => {
     <Routes>
       <Route path="/login" element={<LoginRoute />} />
       <Route path="/logout" element={<Navigate to="/login" replace />} />
-      
-      {/* 🟢 CHANGE: Use the direct component, NO Suspense fallback here */}
       <Route path="/offline" element={<OfflinePage />} />
 
+      {/* General Protected Routes (User & Admin) */}
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/gc-entry" element={<GcEntryList />} />
@@ -99,9 +92,7 @@ const AppRouter = () => {
         <Route path="/tripsheet/new" element={<TripSheetForm />} />
         <Route path="/tripsheet/edit/:id" element={<TripSheetForm />} />
         
-        {/* 🟢 Added Route for MainScreen (Settings) */}
-        <Route path="/settings" element={<MainScreen />} />
-
+        {/* Master Data Routes */}
         <Route path="/master" element={<MasterDashboardPage />} />
         <Route path="/master/consignors" element={<ConsignorList />} />
         <Route path="/master/consignees" element={<ConsigneeList />} />
@@ -113,7 +104,10 @@ const AppRouter = () => {
         <Route path="/master/drivers" element={<DriverList />} />
       </Route>
 
+      {/* 🟢 Admin Only Routes */}
       <Route element={<ProtectedRoute requireAdmin={true} />}>
+        {/* Moved Settings here */}
+        <Route path="/settings" element={<MainScreen />} />
         <Route path="/users" element={<UserList />} />
       </Route>
 

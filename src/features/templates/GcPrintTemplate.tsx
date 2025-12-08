@@ -1,70 +1,20 @@
 import React, { useCallback, useEffect, useState } from "react";
 import type { GcEntryLabels } from "../../types";
 
-// --- TYPE DEFINITIONS ---
 type Change = {
     field: keyof GcEntryLabels;
     oldValue: string;
 };
 
-export type GcPrintTemplateProps = Partial<{
+// 🟢 UPDATE: Props now accept data and save callback
+export type GcPrintTemplateProps = {
+    initialData: GcEntryLabels;
+    onSave: (data: GcEntryLabels) => void;
     onEdit: (hasChanges: boolean, saveHandler: () => void, resetHandler: () => void, undoHandler: () => void) => void;
-}>;
-
-// --- MOCK CONTEXT HOOK (Fix for missing export) ---
-const useGcContext = () => {
-    // Default initial labels based on GcEntryLabels type
-    const defaultLabels: GcEntryLabels = {
-        fixedGstinLabel: "GSTIN",
-        fixedGstinValue: "33ABLPV5082H3Z8",
-        mobileLabel: "Mobile",
-        mobileNumberValue: "9787718433",
-        gcNoLabel: "G.C. No.",
-        dateLabel: "Date",
-        companyName: "UNITED TRANSPORT COMPANY",
-        tagLine: "TRANSPORT CONTRACTORS & GOODS, FORWARDERS",
-        companyAddress: "164-A, Arumugam Road, Near A.V.T. School, SIVAKASI - 626123",
-        fromLabel: "FROM",
-        toLabel: "TO",
-        ownerRiskText: "AT OWNER'S RISK",
-        consignorLabel: "Consignor :",
-        consigneeLabel: "Consignee :",
-        tableHeaderPackages: "No. of Packages",
-        tableHeaderDescription: "DESCRIPTION (said to Contain - Contents not known)",
-        tableHeaderWeight: "WEIGHT (APPROX)",
-        tableHeaderRate: "RATE",
-        tableHeaderFreight: "FREIGHT",
-        labelFreight: "Freight",
-        labelGodownCharge: "Godown Charge",
-        labelStatisticalCharge: "Statistical Charge",
-        labelTollFee: "Toll Fee",
-        labelTotal: "Total",
-        labelAdvancePaid: "Advance Paid",
-        labelBalanceToPay: "Balance To Pay",
-        invoiceNoLabel: "INVOICE No.",
-        invoiceDateLabel: "Dated",
-        marksLabel: "Identification Marks",
-        labelValueGoods: "Value of the goods",
-        deliveryAtLabel: "Delivery at",
-        toPayRsLabel: "To pay Rs.",
-        scanLabel: "Scan for Terms",
-        freightFixedUptoLabel: "Freight fixed upto",
-        footerSignatureLine: "For UNITED TRANSPORT COMPANY",
-        footerNote: "Consignment booked subject to the terms & conditions printed overleaf.",
-        footerUnloadingNote: "Unloading charges payable by party"
-    };
-
-    const [staticLabels, setStaticLabels] = useState<GcEntryLabels>(defaultLabels);
-
-    const updateStaticLabels = (newLabels: GcEntryLabels) => {
-        setStaticLabels(newLabels);
-        console.log("Labels updated (Local Mock):", newLabels);
-    };
-
-    return { staticLabels, updateStaticLabels };
 };
 
-// --- EditableText Component (Unchanged) ---
+// 🟢 REMOVED: useGcContext (Logic moved to DataContext and passed via props)
+
 const EditableText: React.FC<{
     value: string;
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -76,13 +26,11 @@ const EditableText: React.FC<{
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        // MODIFIED: Increased default width and made it more flexible
-        className={`border border-dashed border-gray-400 p-0.5 w-full appearance-none focus:border-solid focus:bg-white ${className}`}
+        className={`border border-dashed border-gray-400 p-0.5 w-full appearance-none focus:border-solid focus:bg-white bg-transparent ${className}`}
         style={{ minWidth: '30px' }}
     />
 );
 
-// --- EditableTextArea Component (Unchanged) ---
 const EditableTextArea: React.FC<{
     value: string;
     onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
@@ -95,86 +43,65 @@ const EditableTextArea: React.FC<{
         onChange={onChange}
         placeholder={placeholder}
         rows={rows}
-        className={`border border-dashed border-gray-400 p-0.5 w-full focus:border-solid focus:bg-white ${className}`}
-        style={{ minHeight: `${rows * 1.5}rem`}}
+        className={`border border-dashed border-gray-400 p-0.5 w-full focus:border-solid focus:bg-white bg-transparent ${className}`}
+        style={{ minHeight: `${rows * 1.2}rem`}}
     />
 );
 
-// --- Core Template Component with Action Logic ---
-const GcCoreTemplate: React.FC<GcPrintTemplateProps> = ({ onEdit }) => {
+const GcCoreTemplate: React.FC<GcPrintTemplateProps> = ({ initialData, onSave, onEdit }) => {
 
-    const { staticLabels: originalLabels, updateStaticLabels } = useGcContext();
-   
-    // Local state for editing and history stack for undo
-    const [localLabels, setLocalLabels] = useState<GcEntryLabels>(originalLabels);
+    // 🟢 Use props.initialData instead of local context
+    const [localLabels, setLocalLabels] = useState<GcEntryLabels>(initialData);
     const [historyStack, setHistoryStack] = useState<Change[]>([]);
     const hasChanges = historyStack.length > 0;
 
     type StaticChangeElement = HTMLInputElement | HTMLTextAreaElement;
 
-    // --- Action Handlers ---
-
+    // 🟢 Update handler to call prop function
     const saveHandler = useCallback(() => {
-        updateStaticLabels(localLabels);
+        onSave(localLabels);
         setHistoryStack([]);
-    }, [localLabels, updateStaticLabels]);
+    }, [localLabels, onSave]);
 
     const resetHandler = useCallback(() => {
-        setLocalLabels(originalLabels);
+        setLocalLabels(initialData);
         setHistoryStack([]);
-    }, [originalLabels]);
+    }, [initialData]);
 
     const undoHandler = useCallback(() => {
         setHistoryStack(prevStack => {
             if (prevStack.length === 0) return prevStack;
-
             const lastChange = prevStack[prevStack.length - 1];
-           
-            // Revert the specific field to its old value
-            // 🟢 FIX: Explicitly type prevLabels to GcEntryLabels
             setLocalLabels((prevLabels: GcEntryLabels) => ({
                 ...prevLabels,
                 [lastChange.field]: lastChange.oldValue || ''
             }));
-
-            // Remove the change from the stack
             return prevStack.slice(0, -1);
         });
     }, []);
 
-    // --- Effects ---
-
-    // 1. Sync local state when originalLabels change from context (e.g., initial load, external save)
+    // 🟢 Sync local state when incoming data changes (e.g. initial fetch)
     useEffect(() => {
-        if (JSON.stringify(localLabels) !== JSON.stringify(originalLabels)) {
-            setLocalLabels(originalLabels);
-            setHistoryStack([]);
+        if (JSON.stringify(localLabels) !== JSON.stringify(initialData) && historyStack.length === 0) {
+            setLocalLabels(initialData);
         }
-    }, [originalLabels]);
+    }, [initialData]);
 
-    // 2. Report current status and handlers to the parent component
     useEffect(() => {
         if (onEdit) {
             onEdit(hasChanges, saveHandler, resetHandler, undoHandler);
         }
     }, [hasChanges, onEdit, saveHandler, resetHandler, undoHandler]);
    
-   
-    // --- Change Handler with History Recording ---
     const handleLabelChange = (field: keyof GcEntryLabels) => (
         e: React.ChangeEvent<StaticChangeElement>
     ) => {
         const newValue = e.target.value;
         const currentValue = localLabels[field];
-
-        // 1. Update local state immediately
-        // 🟢 FIX: Explicitly type prevLabels to GcEntryLabels
         setLocalLabels((prevLabels: GcEntryLabels) => ({
             ...prevLabels,
             [field]: newValue
         }));
-
-        // 2. Record change for history/undo only if the value actually changes
         if (newValue !== currentValue) {
             setHistoryStack(prevStack => {
                 return [
@@ -185,113 +112,103 @@ const GcCoreTemplate: React.FC<GcPrintTemplateProps> = ({ onEdit }) => {
         }
     };
 
-    // --- Render Markup (using localLabels) ---
     return (
         <div
             className="print-page font-sans text-black bg-white shadow-2xl mx-auto"
             style={{
-                // MODIFIED: Changed from fixed 210mm to 100% max-width for screens
-                // Max width set to A4 size equivalent for large screens
                 maxWidth: "210mm",
-                // MODIFIED: Removed minHeight
-                padding: "5mm",
+                padding: "3mm", 
                 boxSizing: "border-box",
-                // MODIFIED: Added flexible width for screen viewing
-                width: "95%",
+                width: "100%",
             }}
         >
             {/* --- 1. HEADER ROW (GSTIN & Mobile) --- */}
-            {/* MODIFIED: Changed flex to flex-col on small screens, then back to row on medium screens (md:flex-row) */}
-            <div className="flex flex-col md:flex-row mb-2 font-bold text-sm">
-               
-                {/* MODIFIED: Now full width on small screens, wraps content */}
-                <div className="flex flex-col md:flex-row gap-2 md:gap-4 w-full">
-                    <div className="flex justify-between gap-4 w-full">
+            <div className="flex flex-row mb-1 font-bold text-[10px] md:text-sm">
+                <div className="flex flex-row gap-2 w-full justify-between items-center">
+                    
+                    {/* LEFT: GSTIN (Modified to prevent cutoff) */}
+                    <div className="flex gap-1 items-center">
                         <EditableText
                             value={localLabels.fixedGstinLabel}
                             onChange={handleLabelChange("fixedGstinLabel")}
-                            className="w-1/3 text-right font-bold" // MODIFIED: Adjusted width for better label alignment
-                            placeholder="GSTIN Label"
+                            className="w-12 text-left font-bold"
+                            placeholder="GSTIN"
                         />
                         <EditableText
                             value={localLabels.fixedGstinValue}
                             onChange={handleLabelChange("fixedGstinValue")}
-                            className="w-2/3 ml-1" // MODIFIED: Adjusted width
+                            className="w-24 font-bold" // Fixed width to ensure visibility
                             placeholder="GSTIN Value"
                         />
                     </div>
-                    {/* MODIFIED: Added margin top for stacking on mobile */}
-                    <div className="flex justify-between gap-4 w-full mt-1 md:mt-0">
+
+                    {/* RIGHT: Mobile */}
+                    <div className="flex gap-1 items-center justify-end">
                         <EditableText
                             value={localLabels.mobileLabel}
                             onChange={handleLabelChange("mobileLabel")}
-                            className="w-1/3 text-right font-bold" // MODIFIED: Adjusted width
-                            placeholder="Mobile Label"
+                            className="w-12 text-left font-bold"
+                            placeholder="Mobile"
                         />
                         <EditableText
                             value={localLabels.mobileNumberValue}
                             onChange={handleLabelChange("mobileNumberValue")}
-                            className="w-2/3" // MODIFIED: Adjusted width
-                            placeholder="Mobile No."
+                            className="w-24 font-bold"
+                            placeholder="Number"
                         />
                     </div>
                 </div>
             </div>
 
             {/* --- 2. MAIN HEADER (GC No., Date, Company Info) --- */}
-            {/* MODIFIED: Changed flex to flex-col on small screens, then back to row on medium screens (md:flex-row) */}
-            <div className="flex flex-col md:flex-row justify-between items-start mb-1">
-                {/* MODIFIED: Full width on small screens, then back to 1/4 on medium screens */}
-                <div className="font-bold text-sm leading-relaxed w-full md:w-1/4 mb-2 md:mb-0">
-                    <div className="flex gap-2 border border-black p-1 mb-1"> {/* Added border */}
-                        <span className="flex-none w-20"> {/* Kept fixed width for labels */}
+            <div className="flex flex-row justify-between items-start mb-1 text-[10px] md:text-sm">
+                <div className="font-bold leading-tight w-1/3">
+                    <div className="flex gap-1 border border-black p-1 mb-1 items-center">
+                        <span className="flex-none w-12 md:w-20">
                             <EditableText
                                 value={localLabels.gcNoLabel}
                                 onChange={handleLabelChange("gcNoLabel")}
                                 className="w-full text-left font-bold"
-                                placeholder="GC No. Label"
+                                placeholder="G.C. No."
                             />
                         </span>
-                        <span className="flex-1">
-                        </span>
+                        <span className="flex-1"></span>
                     </div>
-                    <div className="flex gap-2 border border-black p-1"> {/* Added border */}
-                        <span className="flex-none w-20"> {/* Kept fixed width for labels */}
+                    <div className="flex gap-1 border border-black p-1 items-center">
+                        <span className="flex-none w-12 md:w-20">
                             <EditableText
                                 value={localLabels.dateLabel}
                                 onChange={handleLabelChange("dateLabel")}
                                 className="w-full text-left font-bold"
-                                placeholder="Date Label"
+                                placeholder="Date"
                             />
                         </span>
-                        <span className="flex-1">
-                        </span>
+                        <span className="flex-1"></span>
                     </div>
                 </div>
 
-                {/* MODIFIED: Full width on small screens, margins adjusted */}
-                <div className="text-right flex-1 md:ml-4 border border-black p-2 w-full"> {/* Added border and padding */}
-                    <h1 className="text-xl md:text-3xl font-bold uppercase tracking-tight"> {/* MODIFIED: Smaller text on mobile */}
+                <div className="text-right flex-1 ml-2 border border-black p-2 w-2/3">
+                    <h1 className="font-bold uppercase tracking-tight">
                         <EditableText
                             value={localLabels.companyName}
                             onChange={handleLabelChange("companyName")}
-                            className="text-xl md:text-3xl font-bold text-right uppercase mb-2"
+                            className="text-base md:text-3xl font-bold text-right uppercase mb-1 md:mb-2"
                             placeholder="Company Name"
                         />
                     </h1>
-                    <div className="font-bold text-sm uppercase">
+                    <div className="font-bold uppercase">
                         <EditableText
                             value={localLabels.tagLine}
                             onChange={handleLabelChange("tagLine")}
-                            className="text-sm font-bold text-right uppercase  mb-2"
+                            className="text-[8px] md:text-sm font-bold text-right uppercase mb-1"
                             placeholder="Tag Line"
                         />
                     </div>
-                    <div className="font-bold text-xs mt-0.5">
+                    <div className="font-bold mt-0.5">
                         <EditableText
                             value={localLabels.companyAddress}
                             onChange={handleLabelChange("companyAddress")}
-                            className="text-xs font-bold text-right  mb-2"
+                            className="text-[8px] md:text-xs font-bold text-right"
                             placeholder="Company Address"
                         />
                     </div>
@@ -299,17 +216,16 @@ const GcCoreTemplate: React.FC<GcPrintTemplateProps> = ({ onEdit }) => {
             </div>
 
             {/* --- 3. ROUTE BOX --- */}
-            <div className="border border-black flex flex-col md:flex-row font-bold text-base md:text-lg uppercase mb-2"> {/* MODIFIED: Stacks on mobile */}
-                <div className="flex-none px-2 py-1 border-b md:border-b-0 md:border-r border-black w-full md:w-1/3 flex items-center justify-between md:justify-start"> {/* MODIFIED: Full width on mobile */}
+            <div className="border border-black flex flex-row font-bold text-[10px] md:text-lg uppercase mb-2">
+                <div className="flex-none px-1 md:px-2 py-1 border-r border-black w-1/3 flex items-center">
                     <EditableText
                         value={localLabels.fromLabel}
                         onChange={handleLabelChange("fromLabel")}
-                        className="w-16 font-bold text-left"
+                        className="w-full font-bold text-left"
                         placeholder="FROM"
                     />
-                    <span className="md:hidden">--</span> {/* Divider for mobile stacking */}
                 </div>
-                <div className="flex-1 text-center px-2 py-1 border-b md:border-b-0 md:border-r border-black w-full"> {/* MODIFIED: Full width on mobile */}
+                <div className="flex-1 text-center px-1 md:px-2 py-1 border-r border-black w-1/3 flex items-center justify-center">
                     <EditableText
                         value={localLabels.ownerRiskText}
                         onChange={handleLabelChange("ownerRiskText")}
@@ -317,198 +233,147 @@ const GcCoreTemplate: React.FC<GcPrintTemplateProps> = ({ onEdit }) => {
                         placeholder="AT OWNER'S RISK"
                     />
                 </div>
-                <div className="flex-none px-2 py-1 w-full md:w-1/3 text-right flex items-center justify-between"> {/* MODIFIED: Full width on mobile */}
-                    <span className="md:hidden">--</span> {/* Divider for mobile stacking */}
+                <div className="flex-none px-1 md:px-2 py-1 w-1/3 text-right flex items-center justify-end">
                     <EditableText
                         value={localLabels.toLabel}
                         onChange={handleLabelChange("toLabel")}
-                        className="w-1/4 font-bold text-center"
+                        className="w-full font-bold text-left"
                         placeholder="TO"
                     />
                 </div>
             </div>
 
             {/* --- 4. CONSIGNOR / CONSIGNEE --- */}
-            {/* MODIFIED: Stacks on mobile (flex-col) */}
-            <div className="flex flex-col md:flex-row mb-2">
-                {/* MODIFIED: Full width on mobile. Removed fixed h-32, used min-height instead. */}
-                <div className="w-full md:w-1/2 md:pr-2 border border-black p-1 min-h-32 flex flex-col justify-between mb-2 md:mb-0">
-                    <div className="text-xs mb-1 pl-1">
-                            <EditableText
-                                value={localLabels.consignorLabel}
-                                onChange={handleLabelChange("consignorLabel")}
-                                className="w-20 text-left  font-normal"
-                                placeholder="Consignor Label"
-                            />
-                        </div>
-                    <div className="pl-1 text-sm font-bold flex items-center">
+            <div className="flex flex-row mb-2 gap-0 text-[10px] md:text-sm">
+                <div className="w-1/2 border border-r-0 border-black p-1 min-h-[4rem] flex flex-col justify-between">
+                    <div className="mb-1">
+                        <EditableText
+                            value={localLabels.consignorLabel}
+                            onChange={handleLabelChange("consignorLabel")}
+                            className="w-24 text-left font-normal"
+                            placeholder="Consignor :"
+                        />
+                    </div>
+                    <div className="font-bold flex items-center">
                         <EditableText
                             value={localLabels.fixedGstinLabel}
                             onChange={handleLabelChange("fixedGstinLabel")}
-                            className="w-16 text-left  font-bold"
-                            placeholder="GSTIN Label"
+                            className="w-12 text-left font-bold"
+                            placeholder="GSTIN"
                         />
                     </div>
                 </div>
 
-                {/* MODIFIED: Full width on mobile. Removed fixed h-32, used min-height instead. */}
-                <div className="w-full md:w-1/2 md:pl-2 border border-black p-1 min-h-32">
-                    <div className="text-xs mb-1 pl-1">
-                            <EditableText
-                                value={localLabels.consigneeLabel}
-                                onChange={handleLabelChange("consigneeLabel")}
-                                className="w-20 text-left  font-normal"
-                                placeholder="Consignee Label"
-                            />
-                        </div>
-                    <div className="pl-4 font-bold text-sm uppercase">
+                <div className="w-1/2 border border-black p-1 min-h-[4rem] flex flex-col justify-between">
+                    <div className="mb-1">
+                        <EditableText
+                            value={localLabels.consigneeLabel}
+                            onChange={handleLabelChange("consigneeLabel")}
+                            className="w-24 text-left font-normal"
+                            placeholder="Consignee :"
+                        />
                     </div>
-                    <div className="pl-4 font-bold text-sm uppercase mb-1 mt-1">
-                    </div>
-                    <div className="pl-1 text-sm font-bold flex items-center">
+                    <div className="font-bold flex items-center">
+                        {/* Placeholder for Consignee Proof Label if needed */}
                     </div>
                 </div>
             </div>
 
-            {/* --- 5. MAIN TABLE (with enhanced borders) --- */}
-            {/* NOTE: Complex tables are hard to make fully responsive.
-               We'll wrap it in an overflow-x-auto to allow horizontal scrolling on small screens. */}
-            <div className="border border-black mb-0 overflow-x-auto">
-                <table className="w-full border-collapse min-w-[700px] md:min-w-full"> {/* MODIFIED: Added min-width for mobile */}
+            {/* --- 5. MAIN TABLE --- */}
+            <div className="border border-black mb-0 overflow-hidden">
+                <table className="w-full border-collapse text-[9px] md:text-sm">
                     <thead>
-                        <tr className="text-center text-xs font-normal border-b border-black">
-                            <th className="border-r border-black w-[10%] py-1 font-normal leading-tight">
+                        <tr className="text-center font-normal border-b border-black">
+                            <th className="border-r border-black w-[10%] py-1 leading-tight px-0.5">
                                 <EditableTextArea
                                     value={localLabels.tableHeaderPackages}
                                     onChange={handleLabelChange("tableHeaderPackages")}
                                     rows={2}
-                                    className="text-center "
+                                    className="text-center font-normal h-full"
                                 />
                             </th>
-                            <th className="border-r border-black w-[45%] py-1 font-normal leading-tight">
+                            <th className="border-r border-black w-[45%] py-1 leading-tight px-0.5">
                                 <EditableTextArea
                                     value={localLabels.tableHeaderDescription}
                                     onChange={handleLabelChange("tableHeaderDescription")}
                                     rows={2}
-                                    className="text-center "
+                                    className="text-center font-normal h-full"
                                 />
                             </th>
-                            <th className="border-r border-black w-[10%] py-1 font-normal leading-tight">
+                            <th className="border-r border-black w-[10%] py-1 leading-tight px-0.5">
                                 <EditableTextArea
                                     value={localLabels.tableHeaderWeight}
                                     onChange={handleLabelChange("tableHeaderWeight")}
                                     rows={2}
-                                    className="text-center "
+                                    className="text-center font-normal h-full"
                                 />
                             </th>
-                            <th className="border-r border-black w-[10%] py-1 font-normal leading-tight">
+                            <th className="border-r border-black w-[10%] py-1 leading-tight px-0.5">
                                 <EditableText
                                     value={localLabels.tableHeaderRate}
                                     onChange={handleLabelChange("tableHeaderRate")}
-                                    className="text-center "
+                                    className="text-center font-normal"
                                     placeholder="RATE"
                                 />
                             </th>
-                            <th className="w-[25%] py-1 font-normal">
+                            <th className="w-[25%] py-1 font-normal px-0.5">
                                 <EditableText
                                     value={localLabels.tableHeaderFreight}
                                     onChange={handleLabelChange("tableHeaderFreight")}
-                                    className="text-center "
+                                    className="text-center font-normal"
                                     placeholder="FREIGHT"
                                 />
                             </th>
                         </tr>
                     </thead>
 
-                    <tbody className="text-sm font-bold">
-                        {/* MODIFIED: Removed fixed h-32, using min-h-32 for content to dictate height */}
-                        <tr className="align-top min-h-32">
-                            <td className="border-r border-black text-center pt-2">
-                            </td>
-                            <td className="border-r border-black pl-2 pt-2 uppercase">
-                            </td>
-                            <td className="border-r border-black text-center pt-2">
-                            </td>
-                            <td className="border-r border-black text-center pt-2">
-                            </td>
+                    <tbody className="font-bold">
+                        <tr className="align-top h-32 md:h-48">
+                            <td className="border-r border-black text-center pt-2"></td>
+                            <td className="border-r border-black pl-1 pt-2 uppercase"></td>
+                            <td className="border-r border-black text-center pt-2"></td>
+                            <td className="border-r border-black text-center pt-2"></td>
 
-                            {/* FREIGHT PANEL (Spans 2 rows) */}
+                            {/* FREIGHT PANEL */}
                             <td rowSpan={2} className="relative align-top p-0">
                                 <div className="flex flex-col h-full">
-                                    {/* Charges Section */}
-                                    <div className="flex-1 px-2 pt-2 text-right text-xs leading-loose">
+                                    <div className="flex-1 px-1 pt-2 text-right leading-loose">
                                         <div className="flex justify-between items-center">
                                             <span className="font-normal w-3/4 text-left">
-                                                <EditableText
-                                                    value={localLabels.labelFreight}
-                                                    onChange={handleLabelChange("labelFreight")}
-                                                    className="text-left font-normal "
-                                                    placeholder="Freight Label"
-                                                />
+                                                <EditableText value={localLabels.labelFreight} onChange={handleLabelChange("labelFreight")} className="text-left font-normal" />
                                             </span>
                                         </div>
                                         <div className="flex justify-between items-center">
                                             <span className="font-normal w-3/4 text-left">
-                                                <EditableText
-                                                    value={localLabels.labelGodownCharge}
-                                                    onChange={handleLabelChange("labelGodownCharge")}
-                                                    className="text-left font-normal "
-                                                    placeholder="Godown Charge Label"
-                                                />
+                                                <EditableText value={localLabels.labelGodownCharge} onChange={handleLabelChange("labelGodownCharge")} className="text-left font-normal" />
                                             </span>
                                         </div>
                                         <div className="flex justify-between items-center">
                                             <span className="font-normal w-3/4 text-left">
-                                                <EditableText
-                                                    value={localLabels.labelStatisticalCharge}
-                                                    onChange={handleLabelChange("labelStatisticalCharge")}
-                                                    className="text-left font-normal "
-                                                    placeholder="Statistical Charge Label"
-                                                />
+                                                <EditableText value={localLabels.labelStatisticalCharge} onChange={handleLabelChange("labelStatisticalCharge")} className="text-left font-normal" />
                                             </span>
                                         </div>
                                         <div className="flex justify-between items-center">
                                             <span className="font-normal w-3/4 text-left">
-                                                <EditableText
-                                                    value={localLabels.labelTollFee}
-                                                    onChange={handleLabelChange("labelTollFee")}
-                                                    className="text-left font-normal "
-                                                    placeholder="Toll Fee Label"
-                                                />
+                                                <EditableText value={localLabels.labelTollFee} onChange={handleLabelChange("labelTollFee")} className="text-left font-normal" />
                                             </span>
                                         </div>
                                         <div className="flex justify-between border-t border-black mt-1 pt-1 font-bold items-center">
                                             <span className="font-normal w-3/4 text-left">
-                                                <EditableText
-                                                    value={localLabels.labelTotal}
-                                                    onChange={handleLabelChange("labelTotal")}
-                                                    className="text-left font-normal "
-                                                    placeholder="Total Label"
-                                                />
+                                                <EditableText value={localLabels.labelTotal} onChange={handleLabelChange("labelTotal")} className="text-left font-normal" />
                                             </span>
                                         </div>
                                     </div>
 
-                                    {/* Balance Section */}
-                                    <div className="mt-auto text-right text-xs px-2 pb-1">
+                                    <div className="mt-auto text-right px-1 pb-1">
                                         <div className="flex justify-between items-center mb-1">
-                                            <span className="font-normal">
-                                                <EditableText
-                                                    value={localLabels.labelAdvancePaid}
-                                                    onChange={handleLabelChange("labelAdvancePaid")}
-                                                    className="text-left font-normal "
-                                                    placeholder="Advance Paid Label"
-                                                />
+                                            <span className="font-normal w-2/3 text-left">
+                                                <EditableText value={localLabels.labelAdvancePaid} onChange={handleLabelChange("labelAdvancePaid")} className="text-left font-normal" />
                                             </span>
                                         </div>
                                         <div className="flex justify-between items-center">
-                                            <span className="font-normal">
-                                                <EditableText
-                                                    value={localLabels.labelBalanceToPay}
-                                                    onChange={handleLabelChange("labelBalanceToPay")}
-                                                    className="text-left font-normal "
-                                                    placeholder="Balance To Pay Label"
-                                                />
+                                            <span className="font-normal w-2/3 text-left">
+                                                <EditableText value={localLabels.labelBalanceToPay} onChange={handleLabelChange("labelBalanceToPay")} className="text-left font-normal" />
                                             </span>
                                         </div>
                                     </div>
@@ -516,145 +381,107 @@ const GcCoreTemplate: React.FC<GcPrintTemplateProps> = ({ onEdit }) => {
                             </td>
                         </tr>
 
-                        {/* Row 2: Invoice & Value Info */}
-                        {/* MODIFIED: Removed fixed h-16, using min-h-16 */}
-                        <tr className="border-t border-black min-h-16">
+                        {/* Row 2: Invoice & Value */}
+                        <tr className="border-t border-black h-12 md:h-16">
                             <td colSpan={2} className="border-r border-black align-top p-1">
-                                <div className="flex justify-between text-xs font-bold mb-2">
-                                    <span className="flex items-center">
-                                        <EditableText
-                                            value={localLabels.invoiceNoLabel}
-                                            onChange={handleLabelChange("invoiceNoLabel")}
-                                            className="w-20 text-left  font-bold"
-                                            placeholder="Invoice No. Label"
-                                        />
+                                <div className="flex justify-between mb-1">
+                                    <span className="flex items-center w-1/2">
+                                        <EditableText value={localLabels.invoiceNoLabel} onChange={handleLabelChange("invoiceNoLabel")} className="w-full text-left font-bold" />
                                     </span>
-                                    <span className="flex items-center">
-                                        <EditableText
-                                            value={localLabels.invoiceDateLabel}
-                                            onChange={handleLabelChange("invoiceDateLabel")}
-                                            className="w-16 text-right  font-bold"
-                                            placeholder="Dated Label"
-                                        />
+                                    <span className="flex items-center w-1/2">
+                                        <EditableText value={localLabels.invoiceDateLabel} onChange={handleLabelChange("invoiceDateLabel")} className="w-full text-left font-bold" />
                                     </span>
                                 </div>
-                                <div className="text-xs font-bold flex items-center">
-                                    <EditableText
-                                        value={localLabels.marksLabel}
-                                        onChange={handleLabelChange("marksLabel")}
-                                        className="w-48 text-left  font-bold"
-                                        placeholder="Marks Label"
-                                    />
+                                <div className="flex items-center">
+                                    <EditableText value={localLabels.marksLabel} onChange={handleLabelChange("marksLabel")} className="w-full text-left font-bold" />
                                 </div>
                             </td>
 
                             <td colSpan={2} className="border-r border-black align-top p-1">
-                                <div className="text-xs font-normal mb-1">
-                                    <EditableText
-                                        value={localLabels.labelValueGoods}
-                                        onChange={handleLabelChange("labelValueGoods")}
-                                        className="text-xs font-normal "
-                                        placeholder="Value of the goods"
-                                    />
+                                <div className="font-normal mb-1">
+                                    <EditableText value={localLabels.labelValueGoods} onChange={handleLabelChange("labelValueGoods")} className="font-normal" />
                                 </div>
-                                <div className="text-sm font-bold flex items-center">
-                                    Rs.
-                                </div>
+                                <div className="font-bold flex items-center">Rs.</div>
                             </td>
                         </tr>
 
                         {/* Row 3: To Pay Words */}
                         <tr className="border-t border-black">
-                            {/* MODIFIED: Removed fixed h-10, using min-h-10 */}
-                            <td colSpan={2} className="border-r border-black p-1 min-h-10 align-top">
-                                <span className="font-normal text-xs mr-2">
-                                    <EditableText
-                                        value={localLabels.deliveryAtLabel}
-                                        onChange={handleLabelChange("deliveryAtLabel")}
-                                        className="w-20  font-normal"
-                                        placeholder="Delivery At Label"
-                                    />
+                            <td colSpan={2} className="border-r border-black p-1 h-8 align-top">
+                                <span className="font-normal mr-1 inline-block">
+                                    <EditableText value={localLabels.deliveryAtLabel} onChange={handleLabelChange("deliveryAtLabel")} className="w-20 font-normal" />
                                 </span>
                             </td>
 
                             <td colSpan={3} className="p-1 align-top">
-                                <div className="flex items-baseline gap-2">
-                                    <span className="text-xs font-normal whitespace-nowrap">
-                                        <EditableText
-                                            value={localLabels.toPayRsLabel}
-                                            onChange={handleLabelChange("toPayRsLabel")}
-                                            className="w-16  font-normal text-xs text-left"
-                                            placeholder="To pay Rs. Label"
-                                        />
+                                <div className="flex items-baseline gap-1">
+                                    <span className="font-normal whitespace-nowrap">
+                                        <EditableText value={localLabels.toPayRsLabel} onChange={handleLabelChange("toPayRsLabel")} className="w-16 font-normal text-left" />
                                     </span>
                                 </div>
                             </td>
                         </tr>
-
                     </tbody>
                 </table>
             </div>
 
-            {/* --- 6. FOOTER AREA --- */}
-            {/* MODIFIED: Uses flex-col on mobile, flex-row on medium screens. Min-height adjusted. */}
-            <div className="border-x border-b  border-black p-3 flex flex-col md:flex-row justify-between items-end min-h-[6rem] relative">
-
-                <div className="flex flex-row md:flex-col lg:flex-row items-start md:items-end gap-3 w-full md:w-1/3 mb-4 md:mb-0"> {/* MODIFIED: Full width on mobile */}
-                    <div className="flex flex-col items-center flex-shrink-0">
-                        <input
-                            placeholder="QR Code"
-                            className="w-20 h-20 border border-black text-center" disabled // Added border
-                        />
-                        <span className="text-[9px] font-bold mt-0.5 uppercase tracking-wide">
+            {/* --- 6. FOOTER AREA (FIXED ALIGNMENT) --- */}
+            {/* Added proper height constraints and vertical alignment spacing */}
+            <div className="border-x border-b border-black p-1 flex flex-row h-[6rem] relative text-[9px] md:text-xs">
+                
+                {/* LEFT COLUMN: QR & Freight */}
+                <div className="w-1/3 flex flex-col justify-between items-start h-full pl-1 pb-1">
+                     {/* QR Placeholder - Fixed Size */}
+                    <div className="flex flex-col items-center">
+                        <div className="w-12 h-12 border border-black flex items-center justify-center text-[7px] mb-1">QR</div>
                         <EditableText
                                 value={localLabels.scanLabel}
                                 onChange={handleLabelChange("scanLabel")}
-                                className="w-32  font-normal text-[10px] text-left"
+                                className="w-20 font-normal text-[7px] text-center"
                                 placeholder="Scan Label"
-                            />
-                        </span>
+                        />
                     </div>
-
-                    <div className="text-xs font-bold mb-3 leading-tight w-full">
-                        <span className="font-normal block text-[10px] text-gray-600 mb-0.5">
-                                <EditableText
-                                    value={localLabels.freightFixedUptoLabel}
-                                    onChange={handleLabelChange("freightFixedUptoLabel")}
-                                    className="w-32  font-normal text-[10px] text-left"
-                                    placeholder="Freight Fixed Upto Label"
-                                />
-                            </span>
+                    {/* Freight Fixed Label */}
+                    <div className="w-full mt-1">
+                         <EditableText 
+                            value={localLabels.freightFixedUptoLabel} 
+                            onChange={handleLabelChange("freightFixedUptoLabel")} 
+                            className="w-full font-normal text-left text-[8px]" 
+                            placeholder="Freight fixed upto..."
+                        />
                     </div>
                 </div>
 
-                {/* MODIFIED: Positioning adjusted for mobile. No longer absolutely positioned from the left/center on mobile. */}
-                <div className="static md:absolute md:left-1/2 md:-translate-x-1/2 md:bottom-4 text-center text-xs leading-tight w-full md:w-1/4 p-1 mb-4 md:mb-0">
+                {/* CENTER COLUMN: Unloading Note */}
+                <div className="w-1/3 flex flex-col justify-end items-center h-full pb-2 px-1">
                     <EditableTextArea
                         value={localLabels.footerUnloadingNote}
                         onChange={handleLabelChange("footerUnloadingNote")}
                         rows={2}
-                        className="text-center text-xs  font-normal h-10"
+                        className="text-center font-normal w-full text-[8px] leading-tight"
                         placeholder="Unloading Note"
                     />
                 </div>
 
-                <div className="text-xs mb-1 flex flex-col items-center w-full md:w-1/3 text-center md:text-right"> {/* MODIFIED: Full width on mobile, text alignment adjusted */}
-                    <span className="italic font-bold text-[10px] flex items-center gap-1 w-full">
-                            <EditableText
-                            value={localLabels.footerSignatureLine}
-                            onChange={handleLabelChange("footerSignatureLine")}
-                            className="italic font-bold w-60 text-center "
-                            placeholder="Company Name"
+                {/* RIGHT COLUMN: Signature */}
+                <div className="w-1/3 flex flex-col justify-end items-end h-full pr-1 pb-1">
+                    <div className="w-full text-right">
+                        <div className="h-8"></div> {/* Spacer for signature area */}
+                        <EditableText 
+                            value={localLabels.footerSignatureLine} 
+                            onChange={handleLabelChange("footerSignatureLine")} 
+                            className="italic font-bold w-full text-right text-[8px]" 
+                            placeholder="Authorized Signatory" 
                         />
-                    </span>
+                    </div>
                 </div>
             </div>
 
-            <div className="text-center text-[10px] mt-1">
+            <div className="text-center text-[8px] mt-1">
                 <EditableText
                     value={localLabels.footerNote}
                     onChange={handleLabelChange("footerNote")}
-                    className="text-center text-[10px] "
+                    className="text-center w-full"
                     placeholder="Footer Note"
                 />
             </div>
@@ -669,9 +496,9 @@ export const GcPrintTemplate: React.FC<GcPrintTemplateProps> = (props) => {
         <div className="gc-print-screen-wrapper bg-gray-100 min-h-screen dark:bg-black">
              <style>{`
                 .print-page {
-                    // MODIFIED: Removed fixed width for screen viewing, kept shadow/margin
+                    // MODIFIED: Removed fixed width for screen viewing
                     box-shadow: 0 0 10px rgba(0,0,0,0.1);
-                    margin: 20px auto;
+                    margin: 10px auto;
                     border: 1px solid #ccc;
                     // Ensure editable text fields don't cause overflow
                     word-break: break-word; 
@@ -693,30 +520,6 @@ export const GcPrintTemplate: React.FC<GcPrintTemplateProps> = (props) => {
                         max-width: none !important;
                     }
                     @page { size: A4; margin: 0; }
-                    
-                    // Force print layout to be row-based (undo responsive screen styles)
-                    .print-page .flex-col, .print-page .md\\:flex-col {
-                        display: flex !important;
-                        flex-direction: row !important;
-                    }
-                    .print-page .w-full, .print-page .md\\:w-full {
-                        width: auto !important;
-                    }
-                    .print-page .md\\:w-1\\/4 {
-                         width: 25% !important;
-                    }
-                    .print-page .md\\:w-1\\/3 {
-                         width: 33.333333% !important;
-                    }
-                    .print-page .md\\:w-1\\/2 {
-                         width: 50% !important;
-                    }
-                    .print-page .md\\:ml-4 {
-                         margin-left: 1rem !important;
-                    }
-                    .print-page .mb-4, .print-page .mt-1 {
-                         margin: 0 !important;
-                    }
                 }
             `}</style>
             {/* Pass all props (including onEdit) to the core component */}
