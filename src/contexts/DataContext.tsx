@@ -1,7 +1,7 @@
 import React, { createContext, useState, useMemo, useCallback } from 'react';
-import type { 
-  Consignor, Consignee, GcEntry, FromPlace, ToPlace, PackingEntry, 
-  ContentEntry, TripSheetEntry, VehicleEntry, DriverEntry 
+import type {
+  Consignor, Consignee, GcEntry, FromPlace, ToPlace, PackingEntry,
+  ContentEntry, TripSheetEntry, VehicleEntry, DriverEntry
 } from '../types';
 import api from '../utils/api';
 import { useAuth } from '../hooks/useAuth';
@@ -11,15 +11,15 @@ interface DataContextType {
   // --- Existing State Arrays ---
   consignors: Consignor[];
   consignees: Consignee[];
-  gcEntries: GcEntry[]; 
-  tripSheets: TripSheetEntry[]; 
+  gcEntries: GcEntry[];
+  tripSheets: TripSheetEntry[];
   fromPlaces: FromPlace[];
   toPlaces: ToPlace[];
   packingEntries: PackingEntry[];
   contentEntries: ContentEntry[];
   vehicleEntries: VehicleEntry[];
   driverEntries: DriverEntry[];
-  
+
   // --- Existing CRUD Actions ---
   addConsignor: (consignor: Consignor) => Promise<void>;
   updateConsignor: (consignor: Consignor) => Promise<void>;
@@ -62,10 +62,10 @@ interface DataContextType {
   addContentEntry: (entry: ContentEntry) => Promise<void>;
   updateContentEntry: (entry: ContentEntry) => Promise<void>;
   deleteContentEntry: (id: string) => Promise<void>;
-  
+
   addTripSheet: (sheet: TripSheetEntry) => Promise<any>;
   updateTripSheet: (sheet: TripSheetEntry) => Promise<any>;
-  
+
   deleteTripSheet: (id: string) => Promise<void>;
   addVehicleEntry: (entry: VehicleEntry) => Promise<void>;
   updateVehicleEntry: (entry: VehicleEntry) => Promise<void>;
@@ -76,7 +76,7 @@ interface DataContextType {
   getUniqueDests: () => { value: string, label: string }[];
   getPackingTypes: () => { value: string, label: string }[];
   getContentsTypes: () => { value: string, label: string }[];
-  
+
   // --- Individual Fetchers ---
   fetchConsignors: () => Promise<void>;
   fetchConsignees: () => Promise<void>;
@@ -97,49 +97,50 @@ interface DataContextType {
   searchToPlaces: (search: string, page: number) => Promise<any>;
   searchPackings: (search: string, page: number) => Promise<any>;
   searchContents: (search: string, page: number) => Promise<any>;
+  searchGodowns: (search: string, page: number) => Promise<any>;
 }
 export const useDataContext = () => {
-    const context = React.useContext(DataContext);
-    if (context === undefined) {
-        throw new Error('useDataContext must be used within a DataProvider');
-    }
-    return context;
+  const context = React.useContext(DataContext);
+  if (context === undefined) {
+    throw new Error('useDataContext must be used within a DataProvider');
+  }
+  return context;
 };
 
 
 export const useGcContext = () => {
-    const context = React.useContext(DataContext);
-    if (context === undefined) {
-        throw new Error('useGcContext must be used within a DataProvider');
-    }
-    return context;
+  const context = React.useContext(DataContext);
+  if (context === undefined) {
+    throw new Error('useGcContext must be used within a DataProvider');
+  }
+  return context;
 };
 
 
 export const useStockContext = () => {
-    const context = React.useContext(DataContext);
-    if (context === undefined) {
-        throw new Error('useStockContext must be used within a DataProvider');
-    }
-    return context;
+  const context = React.useContext(DataContext);
+  if (context === undefined) {
+    throw new Error('useStockContext must be used within a DataProvider');
+  }
+  return context;
 };
 
 
 export const useReportContext = () => {
-    const context = React.useContext(DataContext);
-    if (context === undefined) {
-        throw new Error('useReportContext must be used within a DataProvider');
-    }
-    return context;
+  const context = React.useContext(DataContext);
+  if (context === undefined) {
+    throw new Error('useReportContext must be used within a DataProvider');
+  }
+  return context;
 };
 
 
 export const useTripPrintContext = () => {
-    const context = React.useContext(DataContext);
-    if (context === undefined) {
-        throw new Error('useTripPrintContext must be used within a DataProvider');
-    }
-    return context;
+  const context = React.useContext(DataContext);
+  if (context === undefined) {
+    throw new Error('useTripPrintContext must be used within a DataProvider');
+  }
+  return context;
 };
 
 
@@ -197,68 +198,75 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   }, [user, fetchConsignors, fetchConsignees, fetchFromPlaces, fetchToPlaces, fetchPackingEntries, fetchContentEntries, fetchVehicleEntries, fetchDriverEntries]);
 
   // --- Search Functions ---
-  const searchConsignors = async (search: string, page: number) => { 
-    try { 
-      const { data } = await api.get('/master/consignors', { params: { search, page }, skipLoader: true } as any); 
-      return data; 
-    } catch (e) { return { data: [], hasMore: false }; } 
+  const searchConsignors = async (search: string, page: number) => {
+    try {
+      const { data } = await api.get('/master/consignors', { params: { search, page }, skipLoader: true } as any);
+      return data;
+    } catch (e) { return { data: [], hasMore: false }; }
   };
-  
-  const searchConsignees = async (search: string, page: number) => { 
-    try { 
-      const { data } = await api.get('/master/consignees', { params: { search, page }, skipLoader: true } as any); 
-      return data; 
-    } catch (e) { return { data: [], hasMore: false }; } 
+
+  const searchConsignees = async (search: string, page: number) => {
+    try {
+      const { data } = await api.get('/master/consignees', { params: { search, page }, skipLoader: true } as any);
+      return data;
+    } catch (e) { return { data: [], hasMore: false }; }
   };
-  
-  const searchVehicles = async (search: string, page: number) => { 
-    try { 
-      const { data } = await api.get('/master/vehicles', { params: { search, page }, skipLoader: true } as any); 
-      return data; 
-    } catch (e) { return { data: [], hasMore: false }; } 
+
+  const searchVehicles = async (search: string, page: number) => {
+    try {
+      const { data } = await api.get('/master/vehicles', { params: { search, page }, skipLoader: true } as any);
+      return data;
+    } catch (e) { return { data: [], hasMore: false }; }
   };
-  
-  const searchDrivers = async (search: string, page: number) => { 
-    try { 
-      const { data } = await api.get('/master/drivers', { params: { search, page }, skipLoader: true } as any); 
-      return data; 
-    } catch (e) { return { data: [], hasMore: false }; } 
+
+  const searchDrivers = async (search: string, page: number) => {
+    try {
+      const { data } = await api.get('/master/drivers', { params: { search, page }, skipLoader: true } as any);
+      return data;
+    } catch (e) { return { data: [], hasMore: false }; }
   };
-  
-  const searchFromPlaces = async (search: string, page: number) => { 
-    try { 
-      const { data } = await api.get('/master/from-places', { params: { search, page }, skipLoader: true } as any); 
-      return data; 
-    } catch (e) { return { data: [], hasMore: false }; } 
+
+  const searchFromPlaces = async (search: string, page: number) => {
+    try {
+      const { data } = await api.get('/master/from-places', { params: { search, page }, skipLoader: true } as any);
+      return data;
+    } catch (e) { return { data: [], hasMore: false }; }
   };
-  
-  const searchToPlaces = async (search: string, page: number) => { 
-    try { 
-      const { data } = await api.get('/master/to-places', { params: { search, page }, skipLoader: true } as any); 
-      return data; 
-    } catch (e) { return { data: [], hasMore: false }; } 
+
+  const searchToPlaces = async (search: string, page: number) => {
+    try {
+      const { data } = await api.get('/master/to-places', { params: { search, page }, skipLoader: true } as any);
+      return data;
+    } catch (e) { return { data: [], hasMore: false }; }
   };
-  
-  const searchPackings = async (search: string, page: number) => { 
-    try { 
-      const { data } = await api.get('/master/packings', { params: { search, page }, skipLoader: true } as any); 
-      return data; 
-    } catch (e) { return { data: [], hasMore: false }; } 
+
+  const searchPackings = async (search: string, page: number) => {
+    try {
+      const { data } = await api.get('/master/packings', { params: { search, page }, skipLoader: true } as any);
+      return data;
+    } catch (e) { return { data: [], hasMore: false }; }
   };
-  
-  const searchContents = async (search: string, page: number) => { 
-    try { 
-      const { data } = await api.get('/master/contents', { params: { search, page }, skipLoader: true } as any); 
-      return data; 
-    } catch (e) { return { data: [], hasMore: false }; } 
+
+  const searchContents = async (search: string, page: number) => {
+    try {
+      const { data } = await api.get('/master/contents', { params: { search, page }, skipLoader: true } as any);
+      return data;
+    } catch (e) { return { data: [], hasMore: false }; }
+  };
+
+  const searchGodowns = async (search: string, page: number) => {
+    try {
+      const { data } = await api.get('/master/godowns', { params: { search, page }, skipLoader: true } as any);
+      return data;
+    } catch (e) { return { data: [], hasMore: false }; }
   };
 
   // GC Actions
   const getNextGcNo = async () => { try { const { data } = await api.get('/operations/gc/next-no'); return data.nextGcNo; } catch (e) { return "Error"; } };
   const fetchGcById = async (id: string) => { try { const { data } = await api.get(`/operations/gc/${id}`); return data; } catch (e) { return null; } };
-  
+
   const fetchGcDetailsForTripSheet = async (gcNo: string) => {
-    try { const { data } = await api.get(`/operations/gc/details/${gcNo}`); return data; } 
+    try { const { data } = await api.get(`/operations/gc/details/${gcNo}`); return data; }
     catch (e: any) { toast.error(e.response?.data?.message || "Error fetching GC details"); return null; }
   };
 
@@ -268,36 +276,36 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   const fetchPendingStockReport = async (filters: any) => { try { const { data } = await api.get('/operations/pending-stock/report', { params: filters }); return data; } catch (e) { handleError(e, "Error fetching report"); return []; } };
   const fetchTripSheetReport = async (filters: any) => { try { const { data } = await api.get('/operations/tripsheet/report', { params: filters }); return data; } catch (e) { handleError(e, "Error fetching report"); return []; } };
 
-  const addGcEntry = async (data: GcEntry) => { 
-    try { const response = await api.post('/operations/gc', data); toast.success("GC Entry created successfully"); return response.data; } 
+  const addGcEntry = async (data: GcEntry) => {
+    try { const response = await api.post('/operations/gc', data); toast.success("GC Entry created successfully"); return response.data; }
     catch (e) { handleError(e, "Failed to create GC"); }
   };
-  const updateGcEntry = async (data: GcEntry) => { 
-    try { const response = await api.put(`/operations/gc/${data.gcNo}`, data); toast.success("GC Entry updated successfully"); return response.data; } 
+  const updateGcEntry = async (data: GcEntry) => {
+    try { const response = await api.put(`/operations/gc/${data.gcNo}`, data); toast.success("GC Entry updated successfully"); return response.data; }
     catch (e) { handleError(e, "Failed to update GC"); }
   };
-  const deleteGcEntry = async (identifier: string) => { 
-    try { await api.delete(`/operations/gc/${identifier}`); toast.success("GC Entry deleted successfully"); } 
+  const deleteGcEntry = async (identifier: string) => {
+    try { await api.delete(`/operations/gc/${identifier}`); toast.success("GC Entry deleted successfully"); }
     catch (e) { handleError(e, "Failed to delete GC"); }
   };
-  const saveLoadingProgress = async (gcId: string, selectedQuantities: number[]) => { 
-    try { await api.put('/operations/loading/save', { gcId, selectedQuantities }); toast.success("Loading progress saved"); } 
+  const saveLoadingProgress = async (gcId: string, selectedQuantities: number[]) => {
+    try { await api.put('/operations/loading/save', { gcId, selectedQuantities }); toast.success("Loading progress saved"); }
     catch (e) { handleError(e, "Failed to save loading progress"); }
   };
 
   const fetchTripSheetById = async (id: string) => { try { const { data } = await api.get(`/operations/tripsheet/${id}`); return data; } catch (e) { return null; } };
 
-  const addTripSheet = async (data: TripSheetEntry) => { 
+  const addTripSheet = async (data: TripSheetEntry) => {
     try {
-      const response = await api.post('/operations/tripsheet', data); 
+      const response = await api.post('/operations/tripsheet', data);
       toast.success("Trip Sheet created successfully");
-      return response.data; 
+      return response.data;
     } catch (e) { handleError(e, "Failed to create Trip Sheet"); }
   };
 
-  const updateTripSheet = async (data: TripSheetEntry) => { 
+  const updateTripSheet = async (data: TripSheetEntry) => {
     try {
-      const response = await api.put(`/operations/tripsheet/${data.mfNo}`, data); 
+      const response = await api.put(`/operations/tripsheet/${data.mfNo}`, data);
       toast.success("Trip Sheet updated successfully");
       return response.data;
     } catch (e) { handleError(e, "Failed to update Trip Sheet"); }
@@ -335,31 +343,31 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   const addConsignor = async (d: Consignor) => { try { const res = await api.post('/master/consignors', d); setConsignors(p => [res.data, ...p]); toast.success("Consignor added"); } catch (e) { handleError(e, "Failed to add consignor"); } };
   const updateConsignor = async (d: Consignor) => { try { const res = await api.put(`/master/consignors/${d.id}`, d); setConsignors(p => p.map(i => i.id === d.id ? res.data : i)); toast.success("Consignor updated"); } catch (e) { handleError(e, "Failed to update consignor"); } };
   const deleteConsignor = async (id: string) => { try { await api.delete(`/master/consignors/${id}`); setConsignors(p => p.filter(i => i.id !== id)); toast.success("Consignor deleted"); } catch (e) { handleError(e, "Failed to delete consignor"); } };
-  
+
   const addConsignee = async (d: Consignee) => { try { const res = await api.post('/master/consignees', d); setConsignees(p => [res.data, ...p]); toast.success("Consignee added"); } catch (e) { handleError(e, "Failed to add consignee"); } };
   const updateConsignee = async (d: Consignee) => { try { const res = await api.put(`/master/consignees/${d.id}`, d); setConsignees(p => p.map(i => i.id === d.id ? res.data : i)); toast.success("Consignee updated"); } catch (e) { handleError(e, "Failed to update consignee"); } };
   const deleteConsignee = async (id: string) => { try { await api.delete(`/master/consignees/${id}`); setConsignees(p => p.filter(i => i.id !== id)); toast.success("Consignee deleted"); } catch (e) { handleError(e, "Failed to delete consignee"); } };
-  
+
   const addFromPlace = async (d: FromPlace) => { try { const res = await api.post('/master/from-places', d); setFromPlaces(p => [res.data, ...p]); toast.success("From Place added"); } catch (e) { handleError(e, "Failed to add"); } };
   const updateFromPlace = async (d: FromPlace) => { try { const res = await api.put(`/master/from-places/${d.id}`, d); setFromPlaces(p => p.map(i => i.id === d.id ? res.data : i)); toast.success("From Place updated"); } catch (e) { handleError(e, "Failed to update"); } };
   const deleteFromPlace = async (id: string) => { try { await api.delete(`/master/from-places/${id}`); setFromPlaces(p => p.filter(i => i.id !== id)); toast.success("From Place deleted"); } catch (e) { handleError(e, "Failed to delete"); } };
-  
+
   const addToPlace = async (d: ToPlace) => { try { const res = await api.post('/master/to-places', d); setToPlaces(p => [res.data, ...p]); toast.success("To Place added"); } catch (e) { handleError(e, "Failed to add"); } };
   const updateToPlace = async (d: ToPlace) => { try { const res = await api.put(`/master/to-places/${d.id}`, d); setToPlaces(p => p.map(i => i.id === d.id ? res.data : i)); toast.success("To Place updated"); } catch (e) { handleError(e, "Failed to update"); } };
   const deleteToPlace = async (id: string) => { try { await api.delete(`/master/to-places/${id}`); setToPlaces(p => p.filter(i => i.id !== id)); toast.success("To Place deleted"); } catch (e) { handleError(e, "Failed to delete"); } };
-  
+
   const addPackingEntry = async (d: PackingEntry) => { try { const res = await api.post('/master/packings', d); setPackingEntries(p => [res.data, ...p]); toast.success("Packing added"); } catch (e) { handleError(e, "Failed to add"); } };
   const updatePackingEntry = async (d: PackingEntry) => { try { const res = await api.put(`/master/packings/${d.id}`, d); setPackingEntries(p => p.map(i => i.id === d.id ? res.data : i)); toast.success("Packing updated"); } catch (e) { handleError(e, "Failed to update"); } };
   const deletePackingEntry = async (id: string) => { try { await api.delete(`/master/packings/${id}`); setPackingEntries(p => p.filter(i => i.id !== id)); toast.success("Packing deleted"); } catch (e) { handleError(e, "Failed to delete"); } };
-  
+
   const addContentEntry = async (d: ContentEntry) => { try { const res = await api.post('/master/contents', d); setContentEntries(p => [res.data, ...p]); toast.success("Content added"); } catch (e) { handleError(e, "Failed to add"); } };
   const updateContentEntry = async (d: ContentEntry) => { try { const res = await api.put(`/master/contents/${d.id}`, d); setContentEntries(p => p.map(i => i.id === d.id ? res.data : i)); toast.success("Content updated"); } catch (e) { handleError(e, "Failed to update"); } };
   const deleteContentEntry = async (id: string) => { try { await api.delete(`/master/contents/${id}`); setContentEntries(p => p.filter(i => i.id !== id)); toast.success("Content deleted"); } catch (e) { handleError(e, "Failed to delete"); } };
-  
+
   const addVehicleEntry = async (d: VehicleEntry) => { try { const res = await api.post('/master/vehicles', d); setVehicleEntries(p => [res.data, ...p]); toast.success("Vehicle added"); } catch (e) { handleError(e, "Failed to add"); } };
   const updateVehicleEntry = async (d: VehicleEntry) => { try { const res = await api.put(`/master/vehicles/${d.id}`, d); setVehicleEntries(p => p.map(i => i.id === d.id ? res.data : i)); toast.success("Vehicle updated"); } catch (e) { handleError(e, "Failed to update"); } };
   const deleteVehicleEntry = async (id: string) => { try { await api.delete(`/master/vehicles/${id}`); setVehicleEntries(p => p.filter(i => i.id !== id)); toast.success("Vehicle deleted"); } catch (e) { handleError(e, "Failed to delete"); } };
-  
+
   const addDriverEntry = async (d: DriverEntry) => { try { const res = await api.post('/master/drivers', d); setDriverEntries(p => [res.data, ...p]); toast.success("Driver added"); } catch (e) { handleError(e, "Failed to add"); } };
   const updateDriverEntry = async (d: DriverEntry) => { try { const res = await api.put(`/master/drivers/${d.id}`, d); setDriverEntries(p => p.map(i => i.id === d.id ? res.data : i)); toast.success("Driver updated"); } catch (e) { handleError(e, "Failed to update"); } };
   const deleteDriverEntry = async (id: string) => { try { await api.delete(`/master/drivers/${id}`); setDriverEntries(p => p.filter(i => i.id !== id)); toast.success("Driver deleted"); } catch (e) { handleError(e, "Failed to delete"); } };
@@ -382,7 +390,7 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     addDriverEntry, updateDriverEntry, deleteDriverEntry, getUniqueDests, getPackingTypes, getContentsTypes,
     refreshData: fetchAllData,
     fetchConsignors, fetchConsignees, fetchFromPlaces, fetchToPlaces, fetchPackingEntries, fetchContentEntries, fetchVehicleEntries, fetchDriverEntries,
-    searchConsignors, searchConsignees, searchVehicles, searchDrivers, searchFromPlaces, searchToPlaces, searchPackings, searchContents,
+    searchConsignors, searchConsignees, searchVehicles, searchDrivers, searchFromPlaces, searchToPlaces, searchPackings, searchContents, searchGodowns,
     // 🟢 Exporting new bulk import functions
     importConsignors, importConsignees, importFromPlaces, importToPlaces, importPackings, importContents, importVehicles, importDrivers
   }), [consignors, consignees, fromPlaces, toPlaces, packingEntries, contentEntries, vehicleEntries, driverEntries, fetchAllData, fetchConsignors, fetchConsignees, fetchFromPlaces, fetchToPlaces, fetchPackingEntries, fetchContentEntries, fetchVehicleEntries, fetchDriverEntries]);

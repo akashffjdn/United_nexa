@@ -22,19 +22,20 @@ type ReportJob = {
 };
 
 export const LoadingSheetEntry = () => {
-  const { 
-    deleteGcEntry, 
-    saveLoadingProgress, 
-    fetchGcById, 
+  const {
+    deleteGcEntry,
+    saveLoadingProgress,
+    fetchGcById,
     fetchLoadingSheetPrintData,
     // 🟢 NEW: Destructure search functions
     searchConsignors,
     searchConsignees,
-    searchToPlaces
+    searchToPlaces,
+    searchGodowns
   } = useData();
-  
+
   const toast = useToast();
-  
+
   // --- SERVER-SIDE PAGINATION HOOK ---
   const {
     data: paginatedData,
@@ -48,18 +49,19 @@ export const LoadingSheetEntry = () => {
     setFilters,
     filters,
     refresh
-  } = useServerPagination<GcEntry & { loadedCount?: number }>({ 
+  } = useServerPagination<GcEntry & { loadedCount?: number }>({
     endpoint: '/operations/loading-sheet',
     initialFilters: { search: '', filterType: 'all' },
-    initialItemsPerPage: 5
+    initialItemsPerPage: 10
   });
 
   // --- UI State ---
   const [showFilters, setShowFilters] = useState(false);
-  
+
   // 🟢 NEW: Local state for dropdown option objects
   const [destinationOption, setDestinationOption] = useState<any>(null);
   const [consignorOption, setConsignorOption] = useState<any>(null);
+  const [godownOption, setGodownOption] = useState<any>(null);
   const [consigneeOptions, setConsigneeOptions] = useState<any[]>([]);
 
   // --- Selection and Delete State ---
@@ -87,37 +89,37 @@ export const LoadingSheetEntry = () => {
   const handleFilterTypeChange = (type: string) => {
     let start = '';
     let end = '';
-    
+
     if (type === 'today') {
-        start = getTodayDate();
-        end = getTodayDate();
+      start = getTodayDate();
+      end = getTodayDate();
     } else if (type === 'yesterday') {
-        start = getYesterdayDate();
-        end = getYesterdayDate();
+      start = getYesterdayDate();
+      end = getYesterdayDate();
     } else if (type === 'week') {
-        const d = new Date();
-        d.setDate(d.getDate() - 7);
-        start = d.toISOString().split('T')[0];
-        end = getTodayDate();
+      const d = new Date();
+      d.setDate(d.getDate() - 7);
+      start = d.toISOString().split('T')[0];
+      end = getTodayDate();
     }
 
-    setFilters({ 
-        filterType: type, 
-        startDate: start, 
-        endDate: end,
-        customStart: '', 
-        customEnd: ''
+    setFilters({
+      filterType: type,
+      startDate: start,
+      endDate: end,
+      customStart: '',
+      customEnd: ''
     });
   };
 
   const handleCustomDateChange = (start: string, end: string) => {
-      setFilters({ 
-          filterType: 'custom', 
-          customStart: start, 
-          customEnd: end,
-          startDate: start,
-          endDate: end
-      });
+    setFilters({
+      filterType: 'custom',
+      customStart: start,
+      customEnd: end,
+      startDate: start,
+      endDate: end
+    });
   };
 
   const clearAllFilters = () => {
@@ -125,15 +127,17 @@ export const LoadingSheetEntry = () => {
     setDestinationOption(null);
     setConsignorOption(null);
     setConsigneeOptions([]);
+    setGodownOption(null);
 
-    setFilters({ 
-        search: '', 
-        filterType: 'all', 
-        startDate: '', 
-        endDate: '', 
-        destination: '', 
-        consignor: '', 
-        consignee: [] 
+    setFilters({
+      search: '',
+      filterType: 'all',
+      startDate: '',
+      endDate: '',
+      destination: '',
+      consignor: '',
+      consignee: [],
+      godown: ''
     });
   };
 
@@ -165,6 +169,15 @@ export const LoadingSheetEntry = () => {
     };
   };
 
+  const loadGodownOptions = async (search: string, _prevOptions: any, { page }: any) => {
+    const result = await searchGodowns(search, page);
+    return {
+      options: result.data.map((g: any) => ({ value: g.godownName || g.name, label: g.godownName || g.name })),
+      hasMore: result.hasMore,
+      additional: { page: page + 1 },
+    };
+  };
+
   // --- ACTIONS ---
 
   const handleDelete = (gcNo: string) => {
@@ -184,23 +197,23 @@ export const LoadingSheetEntry = () => {
 
   const handlePrintSingle = async (gcNo: string) => {
     try {
-        const printData = await fetchLoadingSheetPrintData([gcNo]);
-        
-        if (printData && printData.length > 0) {
-            const item = printData[0];
-            const { consignor, consignee, ...gcData } = item;
-            
-            setLoadListPrintingJobs([{
-                gc: gcData as GcEntry,
-                consignor: { ...consignor, id: consignor.id || consignor._id || 'unknown' } as Consignor,
-                consignee: { ...consignee, id: consignee.id || consignee._id || 'unknown' } as Consignee
-            }]);
-        } else {
-            toast.error("Failed to fetch GC details.");
-        }
+      const printData = await fetchLoadingSheetPrintData([gcNo]);
+
+      if (printData && printData.length > 0) {
+        const item = printData[0];
+        const { consignor, consignee, ...gcData } = item;
+
+        setLoadListPrintingJobs([{
+          gc: gcData as GcEntry,
+          consignor: { ...consignor, id: consignor.id || consignor._id || 'unknown' } as Consignor,
+          consignee: { ...consignee, id: consignee.id || consignee._id || 'unknown' } as Consignee
+        }]);
+      } else {
+        toast.error("Failed to fetch GC details.");
+      }
     } catch (error) {
-        console.error("Print error:", error);
-        toast.error("An error occurred while fetching print data.");
+      console.error("Print error:", error);
+      toast.error("An error occurred while fetching print data.");
     }
   };
 
@@ -209,73 +222,73 @@ export const LoadingSheetEntry = () => {
     if (selectedGcIds.length === 0 && !selectAllMode) return;
 
     try {
-        let results = [];
-        
-        if (selectAllMode) {
-            // Fetch ALL matching data based on filters
-            results = await fetchLoadingSheetPrintData([], true, filters);
-        } else {
-            // Fetch specifically selected IDs
-            results = await fetchLoadingSheetPrintData(selectedGcIds);
-        }
+      let results = [];
 
-        if (!results || results.length === 0) {
-            toast.error("No data received for selected GCs.");
-            return;
-        }
+      if (selectAllMode) {
+        // Fetch ALL matching data based on filters
+        results = await fetchLoadingSheetPrintData([], true, filters);
+      } else {
+        // Fetch specifically selected IDs
+        results = await fetchLoadingSheetPrintData(selectedGcIds);
+      }
 
-        // Map backend response to LoadListJob format
-        const jobs: LoadListJob[] = results.map((item: any) => {
-            const { consignor, consignee, ...gcData } = item;
-            
-            return {
-                gc: gcData as GcEntry,
-                consignor: { 
-                    ...consignor, 
-                    id: consignor.id || consignor._id 
-                } as Consignor,
-                consignee: { 
-                    ...consignee, 
-                    id: consignee.id || consignee._id 
-                } as Consignee
-            };
-        });
+      if (!results || results.length === 0) {
+        toast.error("No data received for selected GCs.");
+        return;
+      }
 
-        if (jobs.length > 0) {
-            setLoadListPrintingJobs(jobs);
-            if (!selectAllMode) setSelectedGcIds([]);
-            setSelectAllMode(false);
-        }
+      // Map backend response to LoadListJob format
+      const jobs: LoadListJob[] = results.map((item: any) => {
+        const { consignor, consignee, ...gcData } = item;
+
+        return {
+          gc: gcData as GcEntry,
+          consignor: {
+            ...consignor,
+            id: consignor.id || consignor._id
+          } as Consignor,
+          consignee: {
+            ...consignee,
+            id: consignee.id || consignee._id
+          } as Consignee
+        };
+      });
+
+      if (jobs.length > 0) {
+        setLoadListPrintingJobs(jobs);
+        if (!selectAllMode) setSelectedGcIds([]);
+        setSelectAllMode(false);
+      }
     } catch (error) {
-        console.error("Bulk print failed", error);
-        toast.error("Failed to prepare print jobs.");
+      console.error("Bulk print failed", error);
+      toast.error("Failed to prepare print jobs.");
     }
   };
 
   const handleOpenQtySelect = async (gc: GcEntry) => {
     const fullGc = await fetchGcById(gc.gcNo);
-    
-    if (fullGc) {
-        const maxQty = parseInt(fullGc.quantity.toString()) || 1;
-        const startNo = parseInt(fullGc.fromNo) || 1;
-        const currentLoaded = fullGc.loadedPackages || [];
 
-        setCurrentQtySelection({ 
-            gcId: fullGc.gcNo, 
-            maxQty: maxQty, 
-            startNo: startNo,
-            loadedPackages: currentLoaded
-        });
-        setIsQtySelectOpen(true);
+    if (fullGc) {
+      const maxQty = parseInt(fullGc.quantity.toString()) || 1;
+      const startNo = parseInt(fullGc.fromNo) || 1;
+      const currentLoaded = fullGc.loadedPackages || [];
+
+      setCurrentQtySelection({
+        gcId: fullGc.gcNo,
+        maxQty: maxQty,
+        startNo: startNo,
+        loadedPackages: currentLoaded
+      });
+      setIsQtySelectOpen(true);
     } else {
-        toast.error("Failed to load GC details.");
+      toast.error("Failed to load GC details.");
     }
   };
 
   const handleSaveSelectedQty = async (qtyArray: number[]) => {
     if (currentQtySelection) {
       await saveLoadingProgress(currentQtySelection.gcId, qtyArray);
-      refresh(); 
+      refresh();
     }
     setIsQtySelectOpen(false);
     setCurrentQtySelection(null);
@@ -288,40 +301,40 @@ export const LoadingSheetEntry = () => {
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-        setSelectAllMode(true);
-        setSelectedGcIds(paginatedData.map(gc => gc.gcNo));
+      setSelectAllMode(true);
+      setSelectedGcIds(paginatedData.map(gc => gc.gcNo));
     } else {
-        setSelectAllMode(false);
-        setSelectedGcIds([]);
+      setSelectAllMode(false);
+      setSelectedGcIds([]);
     }
   };
-  
+
   // Keep visual selection in sync if Select All is active
   useEffect(() => {
     if (selectAllMode) {
-        setSelectedGcIds(paginatedData.map(gc => gc.gcNo));
+      setSelectedGcIds(paginatedData.map(gc => gc.gcNo));
     }
   }, [paginatedData, selectAllMode]);
 
   const handleSelectRow = (e: React.ChangeEvent<HTMLInputElement>, id: string) => {
     if (selectAllMode) {
-        setSelectAllMode(false);
-        if (!e.target.checked) {
-            setSelectedGcIds(prev => prev.filter(gcId => gcId !== id));
-        }
+      setSelectAllMode(false);
+      if (!e.target.checked) {
+        setSelectedGcIds(prev => prev.filter(gcId => gcId !== id));
+      }
     } else {
-        if (e.target.checked) setSelectedGcIds(prev => [...prev, id]);
-        else setSelectedGcIds(prev => prev.filter(gcId => gcId !== id));
+      if (e.target.checked) setSelectedGcIds(prev => [...prev, id]);
+      else setSelectedGcIds(prev => prev.filter(gcId => gcId !== id));
     }
   };
 
   const isAllSelected = selectAllMode || (paginatedData.length > 0 && paginatedData.every(gc => selectedGcIds.includes(gc.gcNo)));
-  const hasActiveFilters = !!filters.destination || !!filters.consignor || (filters.consignee && filters.consignee.length > 0) || filters.filterType !== 'all' || !!filters.search;
+  const hasActiveFilters = !!filters.destination || !!filters.consignor || (filters.consignee && filters.consignee.length > 0) || !!filters.godown || filters.filterType !== 'all' || !!filters.search;
   const responsiveBtnClass = "flex-1 md:flex-none text-[10px] xs:text-xs sm:text-sm h-8 sm:h-10 px-1 sm:px-4 whitespace-nowrap";
 
   // Calculate display count
-  const printButtonText = selectAllMode 
-    ? `Print All (${totalItems})` 
+  const printButtonText = selectAllMode
+    ? `Print All (${totalItems})`
     : `Print (${selectedGcIds.length})`;
 
   return (
@@ -386,8 +399,20 @@ export const LoadingSheetEntry = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+
+            {/* 🟢 Godown Filter */}
+            <AsyncAutocomplete
+              label="Filter by Godown"
+              loadOptions={loadGodownOptions}
+              value={godownOption}
+              onChange={(val: any) => {
+                setGodownOption(val);
+                setFilters({ godown: val?.value || '' });
+              }}
+              placeholder="Type to search godown..."
+              defaultOptions
+            />
             {/* 🟢 Destination Filter */}
             <AsyncAutocomplete
               label="Filter by Destination"
@@ -413,7 +438,7 @@ export const LoadingSheetEntry = () => {
               placeholder="Type to search consignor..."
               defaultOptions
             />
-            
+
             {/* 🟢 Consignee Filter (Multi-select) */}
             <div>
               <AsyncAutocomplete
@@ -431,15 +456,16 @@ export const LoadingSheetEntry = () => {
                 defaultOptions
               />
             </div>
+
           </div>
 
           <DateFilterButtons
-            filterType={filters.filterType || 'all'} 
-            setFilterType={handleFilterTypeChange} 
-            customStart={filters.customStart || ''} 
-            setCustomStart={(val) => handleCustomDateChange(val, filters.customEnd)} 
-            customEnd={filters.customEnd || ''} 
-            setCustomEnd={(val) => handleCustomDateChange(filters.customStart, val)} 
+            filterType={filters.filterType || 'all'}
+            setFilterType={handleFilterTypeChange}
+            customStart={filters.customStart || ''}
+            setCustomStart={(val) => handleCustomDateChange(val, filters.customEnd)}
+            customEnd={filters.customEnd || ''}
+            setCustomEnd={(val) => handleCustomDateChange(filters.customStart, val)}
           />
         </div>
       )}
@@ -471,13 +497,13 @@ export const LoadingSheetEntry = () => {
             </thead>
             <tbody className="divide-y divide-muted">
               {loading ? (
-                 <tr><td colSpan={9} className="px-6 py-12 text-center">Loading data...</td></tr>
+                <tr><td colSpan={9} className="px-6 py-12 text-center">Loading data...</td></tr>
               ) : paginatedData.length > 0 ? (
                 paginatedData.map((gc) => {
                   // 🟢 FIX: Use names returned directly from the backend
                   const consignorName = (gc as any).consignorName || 'N/A';
                   const consigneeName = (gc as any).consigneeName || 'N/A';
-                  
+
                   const loadedCount = gc.loadedCount || 0;
                   const totalCount = parseInt(gc.quantity.toString()) || 0;
                   const pendingCount = totalCount - loadedCount;
@@ -533,10 +559,10 @@ export const LoadingSheetEntry = () => {
         <div className="block md:hidden divide-y divide-muted">
           {paginatedData.length > 0 ? (
             paginatedData.map((gc) => {
-               // 🟢 FIX: Mobile view using backend names
+              // 🟢 FIX: Mobile view using backend names
               const consignorName = (gc as any).consignorName || 'N/A';
               const consigneeName = (gc as any).consigneeName || 'N/A';
-              
+
               const loadedCount = gc.loadedCount || 0;
               const totalCount = parseInt(gc.quantity.toString()) || 0;
               const pendingCount = totalCount - loadedCount;
@@ -606,7 +632,7 @@ export const LoadingSheetEntry = () => {
         onClose={() => setIsConfirmOpen(false)}
         onConfirm={handleConfirmDelete}
         title="Delete GC Entry"
-        description={deleteMessage} 
+        description={deleteMessage}
       />
 
       {reportPrintingJobs && (
