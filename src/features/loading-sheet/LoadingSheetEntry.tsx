@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Trash2, Search, Printer, PackageCheck, Filter, RotateCcw, XCircle } from 'lucide-react';
+import { Trash2, Search, Printer, PackageCheck, Filter, XCircle, FilterX, ChevronUp } from 'lucide-react';
 import { DateFilterButtons, getTodayDate, getYesterdayDate } from '../../components/shared/DateFilterButtons';
 import { ConfirmationDialog } from '../../components/shared/ConfirmationDialog';
 import { useData } from '../../hooks/useData';
@@ -514,10 +514,10 @@ export const LoadingSheetEntry = () => {
                 onClick={clearAllFilters}
                 className="text-xs flex items-center text-primary hover:text-primary/80 font-medium"
               >
-                <RotateCcw size={14} className="mr-1" /> Clear All
+                <FilterX size={14} className="mr-1" /> Clear All
               </button>
               <button onClick={() => setShowFilters(false)} className="text-muted-foreground hover:text-foreground ml-2">
-                <XCircle size={18} />
+                <ChevronUp size={20} />
               </button>
             </div>
           </div>
@@ -533,7 +533,7 @@ export const LoadingSheetEntry = () => {
                 setGodownOption(val);
                 setFilters({ godown: val?.value || '' });
               }}
-              placeholder="Type to search godown..."
+              placeholder="Search godown..."
               defaultOptions
             />
             {/* 🟢 Destination Filter */}
@@ -545,7 +545,7 @@ export const LoadingSheetEntry = () => {
                 setDestinationOption(val);
                 setFilters({ destination: val?.value || '' });
               }}
-              placeholder="Type to search destination..."
+              placeholder="Search destination..."
               defaultOptions
             />
 
@@ -558,7 +558,7 @@ export const LoadingSheetEntry = () => {
                 setConsignorOption(val);
                 setFilters({ consignor: val?.value || '' });
               }}
-              placeholder="Type to search consignor..."
+              placeholder="Search consignor..."
               defaultOptions
             />
 
