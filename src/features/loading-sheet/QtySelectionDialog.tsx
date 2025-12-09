@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '../../components/shared/Button';
 import { Upload, X, Check, CheckCircle2 } from 'lucide-react';
 import { processImageForSelection } from '../../utils/imageProcessor';
@@ -33,7 +33,9 @@ export const QtySelectionDialog = ({
     contentItems = []
 }: QtySelectionDialogProps) => {
     // --- STATE MANAGEMENT ---
-    const [selectedSet, setSelectedSet] = useState(new Set<number>(currentSelected));
+    // Use a Map to store selections per tab index instead of a single global Set
+    const [selectionMap, setSelectionMap] = useState<Record<number, Set<number>>>({});
+    
     const [activeItemIndex, setActiveItemIndex] = useState(0);
     const [fromQty, setFromQty] = useState('');
     const [toQty, setToQty] = useState('');
@@ -70,22 +72,64 @@ export const QtySelectionDialog = ({
         return Array.from({ length: currentMaxQty }, (_, i) => currentStartNo + i);
     }, [currentMaxQty, currentStartNo]);
 
+    // 🟢 HELPER: Get the Set for the currently active tab
+    const getCurrentSet = useCallback(() => {
+        return selectionMap[activeItemIndex] || new Set<number>();
+    }, [selectionMap, activeItemIndex]);
+
+    // 🟢 HELPER: Update the Set for the currently active tab
+    const updateCurrentSet = (newSet: Set<number>) => {
+        setSelectionMap(prev => ({
+            ...prev,
+            [activeItemIndex]: newSet
+        }));
+    };
+
     // Sync state on open
     useEffect(() => {
         if (open) {
-            setSelectedSet(new Set<number>(currentSelected));
+            const newMap: Record<number, Set<number>> = {};
+            
+            if (hasMultipleItems) {
+                // Initialize map for each item
+                contentItems.forEach((item, idx) => {
+                    const itemStart = parseInt(item.fromNo?.toString() || '1') || 1;
+                    const itemQty = parseInt(item.qty?.toString() || '0') || 0;
+                    const itemEnd = itemStart + itemQty - 1;
+                    
+                    const itemSet = new Set<number>();
+                    
+                    // Distribute currentSelected into the correct buckets
+                    // If a number appears in currentSelected and fits in this item's range, add it.
+                    currentSelected.forEach(sel => {
+                        if (sel >= itemStart && sel <= itemEnd) {
+                            itemSet.add(sel);
+                        }
+                    });
+                    newMap[idx] = itemSet;
+                });
+            } else {
+                // Legacy single-item mode
+                newMap[0] = new Set(currentSelected);
+            }
+
+            setSelectionMap(newMap);
             setImageError(null);
             setRangeError(null);
             setFromQty('');
             setToQty('');
             setActiveItemIndex(0);
         }
-    }, [open, currentSelected]);
+    }, [open, currentSelected, hasMultipleItems, contentItems]);
 
     if (!open) return null;
 
-    const finalSelections = Array.from(selectedSet).sort((a, b) => a - b);
-    const isCurrentViewAllSelected = currentRange.length > 0 && currentRange.every(qty => selectedSet.has(qty));
+    // Calculate total selections across ALL tabs for the "Total" display
+    const totalSelectedCount = Object.values(selectionMap).reduce((acc, set) => acc + set.size, 0);
+
+    // Check if all items *in the current view* are selected
+    const currentSet = getCurrentSet();
+    const isCurrentViewAllSelected = currentRange.length > 0 && currentRange.every(qty => currentSet.has(qty));
 
     // --- LOGIC HANDLERS ---
     const getDraggedRange = (start: number, end: number): number[] => {
@@ -98,21 +142,20 @@ export const QtySelectionDialog = ({
         const newSet = new Set(qtySet);
         targetQuantities.forEach(q => action === 'SELECT' ? newSet.add(q) : newSet.delete(q));
         return newSet;
-    }
+    };
 
     const handleToggleSelection = (qty: number) => {
-        setSelectedSet(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(qty)) newSet.delete(qty);
-            else newSet.add(qty);
-            return newSet;
-        });
+        const newSet = new Set(getCurrentSet());
+        if (newSet.has(qty)) newSet.delete(qty);
+        else newSet.add(qty);
+        updateCurrentSet(newSet);
     };
 
     const handleMouseDown = (e: React.MouseEvent, qty: number) => {
         e.preventDefault();
         const additive = e.ctrlKey || e.metaKey;
-        const isCurrentlySelected = selectedSet.has(qty);
+        const currentSet = getCurrentSet();
+        const isCurrentlySelected = currentSet.has(qty);
 
         if (!additive && e.buttons === 1) handleToggleSelection(qty);
 
@@ -121,13 +164,15 @@ export const QtySelectionDialog = ({
         setIsDragging(true);
         setDragStartQty(qty);
         setDragAction(action);
-        setPreDragSet(new Set(selectedSet));
+        setPreDragSet(new Set(currentSet));
     };
 
     const handleMouseMove = (qty: number) => {
         if (!isDragging || dragStartQty === null || dragAction === null) return;
         const draggedRange = getDraggedRange(dragStartQty, qty);
-        setSelectedSet(() => applyAction(preDragSet, dragAction, draggedRange));
+        // Apply action to the pre-drag snapshot, not the live state, to prevent flip-flopping
+        const result = applyAction(preDragSet, dragAction, draggedRange);
+        updateCurrentSet(result);
     };
 
     const handleMouseUpOrLeave = () => {
@@ -140,19 +185,15 @@ export const QtySelectionDialog = ({
     };
 
     const handleSelectAllCurrent = () => {
-        setSelectedSet(prev => {
-            const newSet = new Set(prev);
-            currentRange.forEach(q => newSet.add(q));
-            return newSet;
-        });
+        const newSet = new Set(getCurrentSet());
+        currentRange.forEach(q => newSet.add(q));
+        updateCurrentSet(newSet);
     };
 
     const handleDeselectAllCurrent = () => {
-        setSelectedSet(prev => {
-            const newSet = new Set(prev);
-            currentRange.forEach(q => newSet.delete(q));
-            return newSet;
-        });
+        const newSet = new Set(getCurrentSet());
+        currentRange.forEach(q => newSet.delete(q));
+        updateCurrentSet(newSet);
     };
 
     const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -162,13 +203,11 @@ export const QtySelectionDialog = ({
         setImageError(null);
         try {
             const scannedQuantities = await processImageForSelection(file, currentMaxQty);
-            setSelectedSet(prevSet => {
-                const newSet = new Set(prevSet);
-                scannedQuantities.forEach(qty => {
-                    if (currentRange.includes(qty)) newSet.add(qty);
-                });
-                return newSet;
+            const newSet = new Set(getCurrentSet());
+            scannedQuantities.forEach(qty => {
+                if (currentRange.includes(qty)) newSet.add(qty);
             });
+            updateCurrentSet(newSet);
         } catch (error) {
             setImageError('Failed to process image.');
         } finally {
@@ -191,21 +230,34 @@ export const QtySelectionDialog = ({
             return setRangeError(`Must be between ${currentStartNo} - ${viewEndNo}`);
         }
 
-        setSelectedSet(prevSet => {
-            const newSet = new Set(prevSet);
-            for (let i = start; i <= end; i++) newSet.add(i);
-            return newSet;
-        });
+        const newSet = new Set(getCurrentSet());
+        for (let i = start; i <= end; i++) newSet.add(i);
+        updateCurrentSet(newSet);
+        
         setFromQty('');
         setToQty('');
     };
 
     const handleSave = () => {
-        onSelect(finalSelections);
+        // Flatten all sets into a single array for saving
+        const allSelections: number[] = [];
+        
+        // Sort keys to maintain order
+        const sortedIndices = Object.keys(selectionMap).map(Number).sort((a, b) => a - b);
+        
+        sortedIndices.forEach(idx => {
+            const set = selectionMap[idx];
+            if (set) {
+                const sortedValues = Array.from(set).sort((a, b) => a - b);
+                allSelections.push(...sortedValues);
+            }
+        });
+
+        onSelect(allSelections);
         onClose();
     };
 
-    const isSelected = (qty: number) => selectedSet.has(qty);
+    const isSelected = (qty: number) => getCurrentSet().has(qty);
 
     return (
         <div
@@ -213,13 +265,7 @@ export const QtySelectionDialog = ({
             onMouseUp={handleMouseUpOrLeave}
             onMouseLeave={handleMouseUpOrLeave}
         >
-            {/* 🟢 MODAL CONTAINER
-                Mobile: w-full h-[100dvh] (Full Screen)
-                Desktop: sm:max-w-4xl sm:h-[600px] (FIXED HEIGHT) 
-                
-                I replaced sm:h-auto with sm:h-[600px] to strictly enforce height
-                so it doesn't wobble when changing tabs.
-            */}
+            {/* 🟢 MODAL CONTAINER */}
             <div className="bg-white dark:bg-gray-900 w-full h-[100dvh] sm:h-[600px] sm:max-h-[90vh] sm:max-w-4xl sm:rounded-xl shadow-2xl flex flex-col border-t sm:border border-gray-200 dark:border-gray-800 overflow-hidden relative transition-all">
                 
                 {/* --- HEADER --- */}
@@ -228,7 +274,7 @@ export const QtySelectionDialog = ({
                         <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                             GC #{gcId}
                             <span className="sm:hidden text-xs font-normal text-muted-foreground bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">
-                                {finalSelections.length} Selected
+                                {totalSelectedCount} Selected
                             </span>
                         </h2>
                         <p className="hidden sm:block text-sm text-muted-foreground mt-0.5">
@@ -240,7 +286,7 @@ export const QtySelectionDialog = ({
                         <div className="hidden sm:flex flex-col items-end">
                              <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Total</span>
                              <span className="bg-primary/10 text-primary px-3 py-0.5 rounded-full text-sm font-bold border border-primary/20">
-                                {finalSelections.length}
+                                {totalSelectedCount}
                             </span>
                         </div>
                         <button 
@@ -258,10 +304,12 @@ export const QtySelectionDialog = ({
                         <div className="flex overflow-x-auto hide-scrollbar scroll-smooth px-2 sm:px-6">
                             {contentItems.map((item, idx) => {
                                 const isActive = idx === activeItemIndex;
-                                const itemStart = parseInt(item.fromNo?.toString() || '1') || 1;
+                                // 🟢 REMOVED UNUSED 'itemStart' HERE
                                 const itemQty = parseInt(item.qty?.toString() || '0') || 0;
-                                const itemRange = Array.from({ length: itemQty }, (_, i) => itemStart + i);
-                                const selectedCount = itemRange.filter(q => selectedSet.has(q)).length;
+                                
+                                // Calculate selection count for THIS tab specifically
+                                const tabSet = selectionMap[idx] || new Set();
+                                const selectedCount = tabSet.size;
                                 const isFullySelected = selectedCount === itemQty && itemQty > 0;
 
                                 return (
@@ -294,9 +342,6 @@ export const QtySelectionDialog = ({
                 )}
 
                 {/* --- MAIN CONTENT WRAPPER --- */}
-                {/* flex-1: Ensures this fills the rest of the 600px height.
-                    min-h-0: Critical for scrolling to work inside a flex child.
-                */}
                 <div className="flex-1 flex flex-col p-3 sm:p-6 min-h-0 bg-gray-50/30 dark:bg-black/20">
                     
                     {/* TOOLBAR */}
@@ -372,10 +417,6 @@ export const QtySelectionDialog = ({
                     )}
 
                     {/* GRID CONTAINER */}
-                    {/* flex-1: Takes up all remaining vertical space.
-                        min-h-0: Allows internal scrolling.
-                        This combination guarantees the box size doesn't wobble.
-                    */}
                     <div className="flex-1 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 overflow-hidden flex flex-col shadow-inner relative min-h-0">
                         <div className="p-2 border-b border-gray-100 dark:border-gray-700 text-[10px] sm:text-xs text-gray-400 bg-gray-50 dark:bg-gray-900/50 flex justify-between items-center sticky top-0 z-10 shrink-0">
                             <span>Range: {currentStartNo} - {currentStartNo + currentMaxQty - 1}</span>
@@ -398,7 +439,6 @@ export const QtySelectionDialog = ({
                                                 onMouseEnter={() => handleMouseMove(qty)}
                                                 onMouseUp={handleMouseUpOrLeave}
                                                 disabled={isProcessingImage}
-                                                // Added tabular-nums to prevent slight font-width jitter
                                                 className={`
                                                     h-10 sm:h-9 flex items-center justify-center rounded text-sm font-medium transition-all select-none duration-75 touch-manipulation tabular-nums
                                                     ${active
@@ -433,7 +473,7 @@ export const QtySelectionDialog = ({
                         className="w-full sm:w-auto h-11 sm:h-10 text-base sm:text-sm shadow-lg shadow-primary/20 order-1 sm:order-2 flex items-center justify-center gap-2"
                     >
                         <Check className="w-4 h-4" />
-                        Save ({finalSelections.length})
+                        Save ({totalSelectedCount})
                     </Button>
                 </div>
             </div>
