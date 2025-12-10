@@ -339,3 +339,19 @@ export interface PrintTemplateData {
   tripReport: TripReportLabels;
   updatedBy?: string;
 }
+
+// 🟢 NEW: History Log Interface
+export interface HistoryLog {
+  _id: string;
+  collectionName: string;
+  documentId: string;
+  action: 'CREATE' | 'UPDATE' | 'DELETE';
+  changedBy: string;
+  changes: Array<{
+    field: string;
+    oldValue: any;
+    newValue: any;
+  }>;
+  snapshot?: any;
+  timestamp: string;
+}

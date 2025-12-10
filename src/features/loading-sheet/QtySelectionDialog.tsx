@@ -5,20 +5,29 @@ import { processImageForSelection } from '../../utils/imageProcessor';
 
 // Define the shape of a content item based on your backend
 type ContentItem = {
+    id: string; // Ensure ID is present
     packing: string;
     contents: string;
     qty: string | number;
     fromNo: string | number;
 };
 
+// 🟢 NEW: Type for the structured selection
+type LoadedItem = {
+    itemId: string;
+    packages: number[];
+};
+
 type QtySelectionDialogProps = {
     open: boolean;
     onClose: () => void;
-    onSelect: (selectedQuantities: number[]) => void;
+    // 🟢 UPDATED: Callback now accepts structured data
+    onSelect: (selectedQuantities: LoadedItem[]) => void;
     gcId: string;
     startNo: number;
     maxQty: number;
-    currentSelected: number[];
+    // 🟢 UPDATED: Input prop now expects structured data
+    currentSelected: LoadedItem[];
     contentItems?: ContentItem[];
 };
 
@@ -33,7 +42,6 @@ export const QtySelectionDialog = ({
     contentItems = []
 }: QtySelectionDialogProps) => {
     // --- STATE MANAGEMENT ---
-    // Use a Map to store selections per tab index instead of a single global Set
     const [selectionMap, setSelectionMap] = useState<Record<number, Set<number>>>({});
     
     const [activeItemIndex, setActiveItemIndex] = useState(0);
@@ -72,12 +80,12 @@ export const QtySelectionDialog = ({
         return Array.from({ length: currentMaxQty }, (_, i) => currentStartNo + i);
     }, [currentMaxQty, currentStartNo]);
 
-    // 🟢 HELPER: Get the Set for the currently active tab
+    // HELPER: Get the Set for the currently active tab
     const getCurrentSet = useCallback(() => {
         return selectionMap[activeItemIndex] || new Set<number>();
     }, [selectionMap, activeItemIndex]);
 
-    // 🟢 HELPER: Update the Set for the currently active tab
+    // HELPER: Update the Set for the currently active tab
     const updateCurrentSet = (newSet: Set<number>) => {
         setSelectionMap(prev => ({
             ...prev,
@@ -85,32 +93,29 @@ export const QtySelectionDialog = ({
         }));
     };
 
-    // Sync state on open
+    // 🟢 UPDATED: Sync state on open using Item IDs
     useEffect(() => {
         if (open) {
             const newMap: Record<number, Set<number>> = {};
             
             if (hasMultipleItems) {
-                // Initialize map for each item
+                // Initialize map by matching Item ID
                 contentItems.forEach((item, idx) => {
-                    const itemStart = parseInt(item.fromNo?.toString() || '1') || 1;
-                    const itemQty = parseInt(item.qty?.toString() || '0') || 0;
-                    const itemEnd = itemStart + itemQty - 1;
+                    // Find if there is saved data for this specific item ID
+                    // currentSelected is now expected to be [{itemId: 'xxx', packages: [...]}]
+                    const savedData = currentSelected.find(s => s.itemId === item.id);
                     
-                    const itemSet = new Set<number>();
-                    
-                    // Distribute currentSelected into the correct buckets
-                    // If a number appears in currentSelected and fits in this item's range, add it.
-                    currentSelected.forEach(sel => {
-                        if (sel >= itemStart && sel <= itemEnd) {
-                            itemSet.add(sel);
-                        }
-                    });
-                    newMap[idx] = itemSet;
+                    if (savedData && Array.isArray(savedData.packages)) {
+                        newMap[idx] = new Set(savedData.packages);
+                    } else {
+                        newMap[idx] = new Set();
+                    }
                 });
             } else {
-                // Legacy single-item mode
-                newMap[0] = new Set(currentSelected);
+                // Legacy fallback (if data is somehow flat or single item)
+                // If currentSelected is passed as flat array (legacy data), handle it carefully or reset
+                // For safety, avoiding auto-fill if format mismatch to prevent reflection
+                newMap[0] = new Set(); 
             }
 
             setSelectionMap(newMap);
@@ -124,10 +129,7 @@ export const QtySelectionDialog = ({
 
     if (!open) return null;
 
-    // Calculate total selections across ALL tabs for the "Total" display
     const totalSelectedCount = Object.values(selectionMap).reduce((acc, set) => acc + set.size, 0);
-
-    // Check if all items *in the current view* are selected
     const currentSet = getCurrentSet();
     const isCurrentViewAllSelected = currentRange.length > 0 && currentRange.every(qty => currentSet.has(qty));
 
@@ -158,7 +160,6 @@ export const QtySelectionDialog = ({
         const isCurrentlySelected = currentSet.has(qty);
 
         if (!additive && e.buttons === 1) handleToggleSelection(qty);
-
         const action = (additive && isCurrentlySelected) || (!additive && isCurrentlySelected) ? 'DESELECT' : 'SELECT';
 
         setIsDragging(true);
@@ -170,7 +171,6 @@ export const QtySelectionDialog = ({
     const handleMouseMove = (qty: number) => {
         if (!isDragging || dragStartQty === null || dragAction === null) return;
         const draggedRange = getDraggedRange(dragStartQty, qty);
-        // Apply action to the pre-drag snapshot, not the live state, to prevent flip-flopping
         const result = applyAction(preDragSet, dragAction, draggedRange);
         updateCurrentSet(result);
     };
@@ -238,22 +238,23 @@ export const QtySelectionDialog = ({
         setToQty('');
     };
 
+    // 🟢 UPDATED: Save as Structure
     const handleSave = () => {
-        // Flatten all sets into a single array for saving
-        const allSelections: number[] = [];
+        const result: LoadedItem[] = [];
         
-        // Sort keys to maintain order
-        const sortedIndices = Object.keys(selectionMap).map(Number).sort((a, b) => a - b);
-        
-        sortedIndices.forEach(idx => {
+        // Iterate through all content items to ensure we capture all selections
+        contentItems.forEach((item, idx) => {
             const set = selectionMap[idx];
-            if (set) {
-                const sortedValues = Array.from(set).sort((a, b) => a - b);
-                allSelections.push(...sortedValues);
+            // Even if empty, we can push it to ensure backend gets the update
+            if (set && set.size > 0) {
+                result.push({
+                    itemId: item.id,
+                    packages: Array.from(set).sort((a, b) => a - b)
+                });
             }
         });
 
-        onSelect(allSelections);
+        onSelect(result);
         onClose();
     };
 
@@ -265,7 +266,6 @@ export const QtySelectionDialog = ({
             onMouseUp={handleMouseUpOrLeave}
             onMouseLeave={handleMouseUpOrLeave}
         >
-            {/* 🟢 MODAL CONTAINER */}
             <div className="bg-white dark:bg-gray-900 w-full h-[100dvh] sm:h-[600px] sm:max-h-[90vh] sm:max-w-4xl sm:rounded-xl shadow-2xl flex flex-col border-t sm:border border-gray-200 dark:border-gray-800 overflow-hidden relative transition-all">
                 
                 {/* --- HEADER --- */}
@@ -289,10 +289,7 @@ export const QtySelectionDialog = ({
                                 {totalSelectedCount}
                             </span>
                         </div>
-                        <button 
-                            onClick={onClose} 
-                            className="p-2 -mr-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 active:bg-gray-100 rounded-full transition-colors"
-                        >
+                        <button onClick={onClose} className="p-2 -mr-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 active:bg-gray-100 rounded-full transition-colors">
                             <X className="w-6 h-6" />
                         </button>
                     </div>
@@ -304,10 +301,7 @@ export const QtySelectionDialog = ({
                         <div className="flex overflow-x-auto hide-scrollbar scroll-smooth px-2 sm:px-6">
                             {contentItems.map((item, idx) => {
                                 const isActive = idx === activeItemIndex;
-                                // 🟢 REMOVED UNUSED 'itemStart' HERE
                                 const itemQty = parseInt(item.qty?.toString() || '0') || 0;
-                                
-                                // Calculate selection count for THIS tab specifically
                                 const tabSet = selectionMap[idx] || new Set();
                                 const selectedCount = tabSet.size;
                                 const isFullySelected = selectedCount === itemQty && itemQty > 0;
@@ -346,7 +340,6 @@ export const QtySelectionDialog = ({
                     
                     {/* TOOLBAR */}
                     <div className='flex flex-col lg:flex-row justify-between gap-3 sm:gap-4 mb-4 shrink-0'>
-                        {/* Range Inputs */}
                         <div className="flex flex-col gap-1 w-full lg:w-auto order-2 lg:order-1">
                             <label className="hidden sm:block text-[10px] uppercase font-bold text-gray-400 tracking-wider">Quick Range</label>
                             <div className="flex items-center gap-2 w-full">
@@ -376,7 +369,6 @@ export const QtySelectionDialog = ({
                             {rangeError && <span className="text-xs text-red-500 font-medium">{rangeError}</span>}
                         </div>
 
-                        {/* Actions */}
                         <div className="flex items-end gap-2 w-full lg:w-auto order-1 lg:order-2">
                              <div className="flex gap-2 w-full lg:w-auto">
                                 <Button
@@ -388,23 +380,13 @@ export const QtySelectionDialog = ({
                                 >
                                     {isCurrentViewAllSelected ? 'Uncheck All' : 'Check All'}
                                 </Button>
-
                                 <label htmlFor="image-upload" className={`
                                     flex-1 lg:flex-none inline-flex items-center justify-center rounded-md text-xs sm:text-sm font-medium transition-colors h-[42px] sm:h-[38px] px-4 shadow-sm border border-gray-200
-                                    ${isProcessingImage 
-                                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                                        : 'bg-white text-gray-700 hover:bg-gray-50 active:bg-gray-100 cursor-pointer'}
+                                    ${isProcessingImage ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50 active:bg-gray-100 cursor-pointer'}
                                 `}>
                                     <Upload className={`mr-2 h-4 w-4 ${isProcessingImage ? 'animate-bounce' : ''}`} />
                                     {isProcessingImage ? 'Scanning' : 'Scan'}
-                                    <input
-                                        id="image-upload"
-                                        type="file"
-                                        accept="image/*"
-                                        className="hidden"
-                                        onChange={handleImageUpload}
-                                        disabled={isProcessingImage}
-                                    />
+                                    <input id="image-upload" type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={isProcessingImage} />
                                 </label>
                             </div>
                         </div>
@@ -457,21 +439,11 @@ export const QtySelectionDialog = ({
                     </div>
                 </div>
 
-                {/* --- FOOTER --- */}
                 <div className="p-3 sm:p-4 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col sm:flex-row justify-end gap-3 shrink-0 safe-area-bottom">
-                    <Button 
-                        variant="outline" 
-                        onClick={onClose} 
-                        disabled={isProcessingImage} 
-                        className="w-full sm:w-auto h-11 sm:h-10 text-base sm:text-sm order-2 sm:order-1"
-                    >
+                    <Button variant="outline" onClick={onClose} disabled={isProcessingImage} className="w-full sm:w-auto h-11 sm:h-10 text-base sm:text-sm order-2 sm:order-1">
                         Cancel
                     </Button>
-                    <Button 
-                        onClick={handleSave} 
-                        disabled={isProcessingImage} 
-                        className="w-full sm:w-auto h-11 sm:h-10 text-base sm:text-sm shadow-lg shadow-primary/20 order-1 sm:order-2 flex items-center justify-center gap-2"
-                    >
+                    <Button onClick={handleSave} disabled={isProcessingImage} className="w-full sm:w-auto h-11 sm:h-10 text-base sm:text-sm shadow-lg shadow-primary/20 order-1 sm:order-2 flex items-center justify-center gap-2">
                         <Check className="w-4 h-4" />
                         Save ({totalSelectedCount})
                     </Button>

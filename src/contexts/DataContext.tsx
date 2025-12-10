@@ -171,6 +171,9 @@ interface DataContextType {
   fetchTripSheetPrintData: (mfNos: string[], selectAll?: boolean, filters?: any) => Promise<TripSheetEntry[]>;
   fetchPendingStockReport: (filters: any) => Promise<any[]>;
   fetchTripSheetReport: (filters: any) => Promise<any[]>;
+  // 🟢 NEW: Fetch Audit Logs
+  fetchHistoryLogs: (filters: any) => Promise<any>;
+  
   fetchGcDetailsForTripSheet: (gcNo: string) => Promise<any>;
   addFromPlace: (fromPlace: FromPlace) => Promise<void>;
   updateFromPlace: (fromPlace: FromPlace) => Promise<void>;
@@ -326,7 +329,7 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   // NEW: Fetch Print Settings
   const fetchPrintSettings = useCallback(async () => {
     try {
-      // 🟢 Add a timestamp to the request to bypass browser caching if necessary
+      // 泙 Add a timestamp to the request to bypass browser caching if necessary
       const { data } = await api.get(`/master/templates?_=${new Date().getTime()}`);
 
       // Merge with defaults to ensure all fields exist even if DB is partial
@@ -360,11 +363,11 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     // We execute these in parallel for speed
     await Promise.all([
 
-      fetchPrintSettings() // 🟢 This fetches the latest labels from DB
+      fetchPrintSettings() // 泙 This fetches the latest labels from DB
     ]);
   }, [user, fetchConsignors, fetchConsignees, fetchFromPlaces, fetchToPlaces, fetchPackingEntries, fetchContentEntries, fetchVehicleEntries, fetchDriverEntries, fetchPrintSettings]);
 
-  // 🟢🟢 FIX: The missing trigger! This ensures fetchAllData runs on login/load. 🟢🟢
+  // 泙泙 FIX: The missing trigger! This ensures fetchAllData runs on login/load. 泙泙
   useEffect(() => {
     if (user) {
       fetchAllData();
@@ -439,7 +442,7 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchGcDetailsForTripSheet = async (gcNo: string) => {
     try { 
-      // 🟢 Update: Added { skipLoader: true } to the config object
+      // 泙 Update: Added { skipLoader: true } to the config object
       const { data } = await api.get(`/operations/gc/details/${gcNo}`, { 
         skipLoader: true 
       } as any); 
@@ -469,6 +472,17 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchTripSheetReport = async (filters: any) => {
     try { const { data } = await api.get('/operations/tripsheet/report', { params: filters }); return data; } catch (e) { handleError(e, "Error fetching report"); return []; }
+  };
+
+  // 🟢 NEW: History Log Fetcher
+  const fetchHistoryLogs = async (params: any) => {
+    try {
+      const { data } = await api.get('/users/history', { params });
+      return data;
+    } catch (e) {
+      handleError(e, "Error fetching audit logs");
+      return { data: [], total: 0, page: 1, pages: 0 };
+    }
   };
 
   const addGcEntry = async (data: GcEntry) => {
@@ -597,7 +611,8 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     refreshData: fetchAllData,searchGodowns,
     fetchConsignors, fetchConsignees, fetchFromPlaces, fetchToPlaces, fetchPackingEntries, fetchContentEntries, fetchVehicleEntries, fetchDriverEntries,
     searchConsignors, searchConsignees, searchVehicles, searchDrivers, searchFromPlaces, searchToPlaces, searchPackings, searchContents,
-    importConsignors, importConsignees, importFromPlaces, importToPlaces, importPackings, importContents, importVehicles, importDrivers
+    importConsignors, importConsignees, importFromPlaces, importToPlaces, importPackings, importContents, importVehicles, importDrivers,
+    fetchHistoryLogs // 🟢 ADDED TO EXPORT
   }), [consignors, consignees, fromPlaces, toPlaces, packingEntries, contentEntries, vehicleEntries, driverEntries, printSettings, fetchAllData, fetchConsignors, fetchConsignees, fetchFromPlaces, fetchToPlaces, fetchPackingEntries, fetchContentEntries, fetchVehicleEntries, fetchDriverEntries, fetchPrintSettings]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

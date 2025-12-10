@@ -39,6 +39,8 @@ const MainScreen = lazy(() => load(import('../features/templates/MainScreen'), '
 
 // Features -> Admin
 const UserList = lazy(() => load(import('../features/users/UserList'), 'UserList'));
+// 🟢 NEW: Audit Logs
+const AuditLogPage = lazy(() => load(import('../features/audit-logs/AuditLogPage'), 'default'));
 
 const ProtectedRoute = ({ requireAdmin = false }: { requireAdmin?: boolean }) => {
   const { user, loading } = useAuth();
@@ -109,6 +111,8 @@ const AppRouter = () => {
         {/* Moved Settings here */}
         <Route path="/settings" element={<MainScreen />} />
         <Route path="/users" element={<UserList />} />
+        {/* 🟢 NEW: Audit Log Route */}
+        <Route path="/audit-logs" element={<AuditLogPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -16,7 +16,8 @@ import {
   Database,
   Car, 
   UserCircle, 
-  Settings 
+  Settings,
+  History // 🟢 Imported History icon
 } from 'lucide-react'; 
 import { useAuth } from '../../hooks/useAuth';
 
@@ -32,7 +33,7 @@ export const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) => {
   const [isDataMgmtOpen, setIsDataMgmtOpen] = useState(false);
 
   useEffect(() => {
-    if (location.pathname.startsWith('/master') || location.pathname === '/users' || location.pathname === '/settings') {
+    if (location.pathname.startsWith('/master') || location.pathname === '/users' || location.pathname === '/settings' || location.pathname === '/audit-logs') {
       setIsDataMgmtOpen(true);
     }
   }, [location.pathname]);
@@ -56,7 +57,6 @@ export const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) => {
   ];
 
   // 2. Sub-Menu Links (Data Management)
-  // 🟢 CHANGE: Removed 'Print Settings' from here. It is now added conditionally below.
   const dataManagementLinks = [
     { name: 'Consignors', href: '/master/consignors', icon: Store },
     { name: 'Consignees', href: '/master/consignees', icon: Users },
@@ -70,15 +70,21 @@ export const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) => {
 
   // 3. Admin Only Links
   if (user?.role === 'admin') {
-    // 🟢 Added Print Settings for Admin only
-    // unshift adds it to the start of the list (to keep your previous order)
+    // 🟢 Print Settings
     dataManagementLinks.unshift({ 
       name: 'Print Settings', 
       href: '/settings', 
       icon: Settings 
     });
 
-    // User Management for Admin only
+    // 🟢 NEW: Audit Logs
+    dataManagementLinks.push({ 
+      name: 'Audit Logs', 
+      href: '/audit-logs', 
+      icon: History 
+    });
+
+    // User Management
     dataManagementLinks.push({ 
       name: 'User Management', 
       href: '/users', 
@@ -86,7 +92,7 @@ export const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) => {
     });
   }
 
-  const isDataMgmtActive = location.pathname.startsWith('/master') || location.pathname === '/users' || location.pathname === '/settings';
+  const isDataMgmtActive = location.pathname.startsWith('/master') || location.pathname === '/users' || location.pathname === '/settings' || location.pathname === '/audit-logs';
 
   return (
     <>

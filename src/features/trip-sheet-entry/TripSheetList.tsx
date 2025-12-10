@@ -1,33 +1,49 @@
-import { useState, useEffect } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { FilePenLine, Trash2, Search, Printer, FileText, Filter, FilterX, ChevronUp } from "lucide-react";
+import { FilePenLine, Trash2, Search, Printer, FileText, Filter, XCircle, RotateCcw, PackageCheck } from "lucide-react";
 import { DateFilterButtons, getTodayDate, getYesterdayDate } from "../../components/shared/DateFilterButtons";
 import { ConfirmationDialog } from "../../components/shared/ConfirmationDialog";
 import { Button } from "../../components/shared/Button";
-import { AsyncAutocomplete } from "../../components/shared/AsyncAutocomplete"; // 🟢 Updated Import
+import { AsyncAutocomplete } from "../../components/shared/AsyncAutocomplete";
 import { useData } from "../../hooks/useData";
 import { useServerPagination } from "../../hooks/useServerPagination";
-import type { TripSheetEntry } from "../../types"; 
+import type { TripSheetEntry, ToPlace, Consignor, Consignee } from "../../types";
 import { Pagination } from "../../components/shared/Pagination";
 import { TripSheetPrintManager } from "./TripSheetPrintManager";
 import { TripSheetReportPrint } from "./TripSheetReportView";
 import { useToast } from "../../contexts/ToastContext";
 
+type TripSheetFilter = {
+  search?: string;
+  filterType?: string;
+  startDate?: string;
+  endDate?: string;
+  customStart?: string;
+  customEnd?: string;
+  toPlace?: string;
+  consignor?: string;
+  consignee?: string[];
+  excludeIds?: string[];
+};
+
+type ExclusionFilterState = {
+  isActive: boolean;
+  filterKey?: string;
+};
+
 export const TripSheetList = () => {
   const navigate = useNavigate();
-  const { 
-    deleteTripSheet, 
-    fetchTripSheetPrintData, 
+  const {
+    deleteTripSheet,
+    fetchTripSheetPrintData,
     fetchTripSheetReport,
-    // 🟢 NEW: Destructure search functions
     searchConsignors,
     searchConsignees,
-    searchToPlaces 
-  } = useData(); 
-  
+    searchToPlaces
+  } = useData();
+
   const toast = useToast();
 
-  // --- SERVER PAGINATION ---
   const {
     data: paginatedData,
     loading,
@@ -40,271 +56,424 @@ export const TripSheetList = () => {
     setFilters,
     filters,
     refresh
-  } = useServerPagination<TripSheetEntry>({ 
-    endpoint: '/operations/tripsheet',
-    initialFilters: { search: '', filterType: 'all' },
-    initialItemsPerPage: 5
+  } = useServerPagination<TripSheetEntry>({
+    endpoint: "/operations/tripsheet",
+    initialFilters: { search: "", filterType: "all", consignee: [] } as TripSheetFilter,
+   
   });
 
   const [showFilters, setShowFilters] = useState(false);
-  
-  // 🟢 NEW: Local state for dropdown option objects
   const [destinationOption, setDestinationOption] = useState<any>(null);
   const [consignorOption, setConsignorOption] = useState<any>(null);
   const [consigneeOptions, setConsigneeOptions] = useState<any[]>([]);
 
-  // Changed state to hold actual data instead of just IDs
+  // selection state
+  const [selectedMfNos, setSelectedMfNos] = useState<string[]>([]);
+  const [selectAllMode, setSelectAllMode] = useState(false);
+  const [excludedMfNos, setExcludedMfNos] = useState<string[]>([]);
+
+  // exclusion filter banner
+  const [exclusionFilter, setExclusionFilter] = useState<ExclusionFilterState>({
+    isActive: false,
+    filterKey: ""
+  });
+
   const [printingSheets, setPrintingSheets] = useState<TripSheetEntry[] | null>(null);
   const [reportPrintingJobs, setReportPrintingJobs] = useState<TripSheetEntry[] | null>(null);
-  const [selected, setSelected] = useState<string[]>([]);
-  
-  // Select All Mode
-  const [selectAllMode, setSelectAllMode] = useState(false);
-
   const [delId, setDelId] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteMessage, setDeleteMessage] = useState("");
 
-  // 🟢 NEW: Async Options Loaders
-  const loadDestinationOptions = async (search: string, _prevOptions: any, { page }: any) => {
-    const result = await searchToPlaces(search, page);
-    return {
-      options: result.data.map((p: any) => ({ value: p.placeName, label: p.placeName })),
-      hasMore: result.hasMore,
-      additional: { page: page + 1 },
-    };
-  };
+  // async loaders
+  const loadDestinationOptions = useCallback(
+    async (search: string, _prevOptions: any, { page }: any) => {
+      const result = await searchToPlaces(search, page);
+      return {
+        options: result.data.map((p: ToPlace) => ({ value: p.placeName, label: p.placeName })),
+        hasMore: result.hasMore,
+        additional: { page: page + 1 }
+      };
+    },
+    [searchToPlaces]
+  );
 
-  const loadConsignorOptions = async (search: string, _prevOptions: any, { page }: any) => {
-    const result = await searchConsignors(search, page);
-    return {
-      options: result.data.map((c: any) => ({ value: c.id, label: c.name })),
-      hasMore: result.hasMore,
-      additional: { page: page + 1 },
-    };
-  };
+  const loadConsignorOptions = useCallback(
+    async (search: string, _prevOptions: any, { page }: any) => {
+      const result = await searchConsignors(search, page);
+      return {
+        options: result.data.map((c: Consignor) => ({ value: c.id, label: c.name })),
+        hasMore: result.hasMore,
+        additional: { page: page + 1 }
+      };
+    },
+    [searchConsignors]
+  );
 
-  const loadConsigneeOptions = async (search: string, _prevOptions: any, { page }: any) => {
-    const result = await searchConsignees(search, page);
-    return {
-      options: result.data.map((c: any) => ({ value: c.id, label: c.name })),
-      hasMore: result.hasMore,
-      additional: { page: page + 1 },
-    };
-  };
+  const loadConsigneeOptions = useCallback(
+    async (search: string, _prevOptions: any, { page }: any) => {
+      const result = await searchConsignees(search, page);
+      return {
+        options: result.data.map((c: Consignee) => ({ value: c.id, label: c.name })),
+        hasMore: result.hasMore,
+        additional: { page: page + 1 }
+      };
+    },
+    [searchConsignees]
+  );
 
-  // --- Filter Handlers ---
+  // filters
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFilters({ search: e.target.value });
   };
 
   const handleFilterTypeChange = (type: string) => {
-    let start = '';
-    let end = '';
-    
-    if (type === 'today') {
-        start = getTodayDate();
-        end = getTodayDate();
-    } else if (type === 'yesterday') {
-        start = getYesterdayDate();
-        end = getYesterdayDate();
-    } else if (type === 'week') {
-        const d = new Date();
-        d.setDate(d.getDate() - 7);
-        start = d.toISOString().split('T')[0];
-        end = getTodayDate();
+    let start = "";
+    let end = "";
+
+    if (type === "today") {
+      start = getTodayDate();
+      end = getTodayDate();
+    } else if (type === "yesterday") {
+      start = getYesterdayDate();
+      end = getYesterdayDate();
+    } else if (type === "week") {
+      const d = new Date();
+      d.setDate(d.getDate() - 7);
+      start = d.toISOString().split("T")[0];
+      end = getTodayDate();
     }
 
-    setFilters({ 
-        filterType: type, 
-        startDate: start, 
-        endDate: end,
-        customStart: '', 
-        customEnd: ''
+    setFilters({
+      filterType: type,
+      startDate: start,
+      endDate: end,
+      customStart: "",
+      customEnd: ""
     });
   };
 
   const handleCustomDateChange = (start: string, end: string) => {
-      setFilters({ 
-          filterType: 'custom', 
-          customStart: start, 
-          customEnd: end,
-          startDate: start,
-          endDate: end
-      });
+    setFilters({
+      filterType: "custom",
+      customStart: start,
+      customEnd: end,
+      startDate: start,
+      endDate: end
+    });
   };
 
   const clearAllFilters = () => {
-    // Reset local dropdown states
     setDestinationOption(null);
     setConsignorOption(null);
     setConsigneeOptions([]);
 
-    // Reset API filters
-    setFilters({ 
-        search: '', 
-        filterType: 'all', 
-        startDate: '', 
-        endDate: '', 
-        toPlace: '', 
-        consignor: '', 
-        consignee: [] 
+    setFilters({
+      search: "",
+      filterType: "all",
+      startDate: "",
+      endDate: "",
+      toPlace: "",
+      consignor: "",
+      consignee: []
     });
+
+    // clear selection + exclusion state
+    setSelectAllMode(false);
+    setSelectedMfNos([]);
+    setExcludedMfNos([]);
+    setExclusionFilter({ isActive: false, filterKey: "" });
   };
 
-  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.checked) {
-        setSelectAllMode(true);
-        setSelected(paginatedData.map(t => t.mfNo));
+  const isRowSelected = (mfNo: string): boolean => {
+    if (selectAllMode) {
+      return !excludedMfNos.includes(mfNo);
+    }
+    return selectedMfNos.includes(mfNo);
+  };
+
+  const isAllVisibleSelected =
+    paginatedData.length > 0 && paginatedData.every((ts) => isRowSelected(ts.mfNo));
+
+  const isIndeterminate = useMemo(() => {
+    if (paginatedData.length === 0) return false;
+    const selectedCount = paginatedData.filter((ts) => isRowSelected(ts.mfNo)).length;
+    return selectedCount > 0 && selectedCount < paginatedData.length;
+  }, [paginatedData, selectAllMode, excludedMfNos, selectedMfNos]);
+
+  // header checkbox
+  const handleSelectAllVisible = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const visibleMfNos = paginatedData.map((ts) => ts.mfNo);
+    const checked = e.target.checked;
+
+    if (checked) {
+      if (selectAllMode) {
+        setExcludedMfNos((prev) => prev.filter((mfNo) => !visibleMfNos.includes(mfNo)));
+      } else {
+        setSelectedMfNos((prev) => Array.from(new Set([...prev, ...visibleMfNos])));
+      }
     } else {
-        setSelectAllMode(false);
-        setSelected([]);
+      if (selectAllMode) {
+        setExcludedMfNos((prev) => Array.from(new Set([...prev, ...visibleMfNos])));
+      } else {
+        setSelectedMfNos((prev) => prev.filter((id) => !visibleMfNos.includes(id)));
+      }
     }
   };
-  
-  // Sync visual selection if Select All Mode is active
-  useEffect(() => {
+
+  // row checkbox
+  const handleSelectRow = (id: string, checked: boolean) => {
     if (selectAllMode) {
-        setSelected(paginatedData.map(t => t.mfNo));
-    }
-  }, [paginatedData, selectAllMode]);
-  
-  const handleSelectRow = (mfNo: string) => {
-    if (selectAllMode) {
-        setSelectAllMode(false);
-        setSelected(prev => prev.filter(x => x !== mfNo));
+      if (checked) {
+        setExcludedMfNos((prev) => prev.filter((mfNo) => mfNo !== id));
+      } else {
+        setExcludedMfNos((prev) => Array.from(new Set([...prev, id])));
+      }
     } else {
-        setSelected(prev => prev.includes(mfNo) ? prev.filter(x => x !== mfNo) : [...prev, mfNo]);
+      if (checked) {
+        setSelectedMfNos((prev) => Array.from(new Set([...prev, id])));
+      } else {
+        setSelectedMfNos((prev) => prev.filter((mfNo) => mfNo !== id));
+      }
     }
   };
-  
-  const onDelete = (mfNo: string) => { 
-    setDelId(mfNo); 
+
+  const handleCombinedBulkDeselect = () => {
+    setSelectAllMode(false);
+    setExcludedMfNos([]);
+    setSelectedMfNos([]);
+    setExclusionFilter({ isActive: false, filterKey: "" });
+  };
+
+  const handleCombinedBulkSelect = async () => {
+    if (totalItems === 0) {
+      toast.error("No items found to select based on current filters.");
+      return;
+    }
+
+    setSelectAllMode(true);
+    setExcludedMfNos([]);
+    setSelectedMfNos([]);
+    setExclusionFilter({ isActive: false, filterKey: "" });
+
+  };
+
+  const handleExcludeFilteredData = () => {
+    if (!selectAllMode) {
+      toast.error("You must first click 'Select All' to use the exclusion feature.");
+      return;
+    }
+
+    const visibleMfNos = paginatedData.map((ts) => ts.mfNo);
+
+    setExcludedMfNos((prev) => Array.from(new Set([...prev, ...visibleMfNos])));
+
+    // determine which filter to display
+    let filterKey: string | undefined;
+    if (filters.consignor) filterKey = "Consignor";
+    else if (filters.toPlace) filterKey = "Destination";
+    else if (filters.consignee && filters.consignee.length > 0) filterKey = "Consignee";
+
+    setExclusionFilter({
+      isActive: true,
+      filterKey
+    });
+
+  };
+
+  const onDelete = (mfNo: string) => {
+    setDelId(mfNo);
     setDeleteMessage(`Are you sure you want to delete Trip Sheet #${mfNo}?`);
-    setConfirmOpen(true); 
+    setConfirmOpen(true);
   };
-  
-  const confirmDelete = async () => { 
-    if (delId) {
-      await deleteTripSheet(delId); 
-      refresh(); 
-    }
-    setConfirmOpen(false); 
-    setDelId(null); 
-  };
-  
-  // --- OPTIMIZED BULK PRINT LOGIC ---
-  const handlePrintSelected = async () => { 
-    if (selected.length === 0 && !selectAllMode) return;
+
+  const confirmDelete = async () => {
+    if (!delId) return;
+    setConfirmOpen(false);
     try {
-        let sheets = [];
-        if (selectAllMode) {
-            // Fetch ALL matching data
-            sheets = await fetchTripSheetPrintData([], true, filters);
-        } else {
-            // Fetch specific IDs
-            sheets = await fetchTripSheetPrintData(selected);
-        }
-
-        if (sheets && sheets.length > 0) {
-            setPrintingSheets(sheets);
-            if (!selectAllMode) setSelected([]);
-            setSelectAllMode(false);
-        } else {
-            toast.error("Failed to load data for printing.");
-        }
-    } catch (e) {
-        console.error(e);
-        toast.error("Error loading print data.");
+      await deleteTripSheet(delId);
+      toast.success(`Trip Sheet #${delId} deleted successfully.`);
+      refresh();
+      setSelectedMfNos((prev) => prev.filter((id) => id !== delId));
+      setExcludedMfNos((prev) => prev.filter((id) => id !== delId));
+    } catch (error) {
+      console.error("Deletion failed:", error);
+      toast.error(`Failed to delete Trip Sheet #${delId}.`);
+    } finally {
+      setDelId(null);
     }
   };
 
-  const handlePrintSingle = async (id: string) => { 
+  const handlePrintSelected = async () => {
+    const finalCount = selectAllMode
+      ? Math.max(0, totalItems - excludedMfNos.length)
+      : selectedMfNos.length;
+
+    if (finalCount === 0) {
+      toast.error("No Trip Sheets selected for printing.");
+      return;
+    }
+
     try {
-        const sheets = await fetchTripSheetPrintData([id]);
-        if (sheets && sheets.length > 0) {
-            setPrintingSheets(sheets);
-        } else {
-            toast.error("Failed to load data for printing.");
-        }
+      let sheets: TripSheetEntry[] = [];
+      if (selectAllMode) {
+        sheets = await fetchTripSheetPrintData([], true, {
+          ...filters,
+          excludeIds: excludedMfNos
+        });
+      } else {
+        sheets = await fetchTripSheetPrintData(selectedMfNos);
+      }
+
+      if (sheets && sheets.length > 0) {
+        setPrintingSheets(sheets);
+        setSelectedMfNos([]);
+        setSelectAllMode(false);
+        setExcludedMfNos([]);
+        setExclusionFilter({ isActive: false, filterKey: "" });
+        toast.success(`Prepared ${sheets.length} print job(s).`);
+      } else {
+        toast.error("Failed to load data for printing.");
+      }
     } catch (e) {
-        console.error(e);
-        toast.error("Error loading print data.");
+      console.error(e);
+      toast.error("Error loading print data.");
     }
   };
-  
-  const handleShowReport = async () => { 
+
+  const handlePrintSingle = async (id: string) => {
     try {
-        // Call new API with current filters
-        const reportData = await fetchTripSheetReport(filters);
-        
-        if (reportData && reportData.length > 0) {
-            setReportPrintingJobs(reportData as TripSheetEntry[]); 
-        } else {
-            toast.error("No data found for report."); 
-        }
+      const sheets = await fetchTripSheetPrintData([id]);
+      if (sheets && sheets.length > 0) {
+        setPrintingSheets(sheets);
+      } else {
+        toast.error("Failed to load data for printing.");
+      }
     } catch (e) {
-        console.error("Report generation error:", e);
-        toast.error("Error generating report.");
+      console.error(e);
+      toast.error("Error loading print data.");
     }
   };
 
-  const hasActiveFilters = !!filters.toPlace || !!filters.consignor || (filters.consignee && filters.consignee.length > 0) || filters.filterType !== 'all' || !!filters.search;
-  const isAllSelected = selectAllMode || (paginatedData.length > 0 && selected.length === paginatedData.length);
-  const responsiveBtnClass = "flex-1 md:flex-none text-[10px] xs:text-xs sm:text-sm h-8 sm:h-10 px-1 sm:px-4 whitespace-nowrap";
+  const handleShowReport = async () => {
+    try {
+      const reportData = await fetchTripSheetReport(filters);
 
-  // Calculate display count
-  const printButtonText = selectAllMode 
-    ? `Print All (${totalItems})` 
-    : `Print (${selected.length})`;
+      if (reportData && reportData.length > 0) {
+        setReportPrintingJobs(reportData as TripSheetEntry[]);
+        toast.success(`Found ${reportData.length} items for the report.`);
+      } else {
+        toast.error("No data found for report based on current filters.");
+      }
+    } catch (e) {
+      console.error("Report generation error:", e);
+      toast.error("Error generating report.");
+    }
+  };
+
+  const hasActiveFilters =
+    !!filters.toPlace ||
+    !!filters.consignor ||
+    (filters.consignee && filters.consignee.length > 0) ||
+    filters.filterType !== "all" ||
+    !!filters.search;
+
+  // counts
+  const finalCount = selectAllMode
+    ? Math.max(0, totalItems - excludedMfNos.length)
+    : selectedMfNos.length;
+  const printButtonText = `Print (${finalCount})`;
+
+  // NEW: determine if everything is selected
+// determine if *everything* is selected
+const isAllSelected =
+  (selectAllMode && excludedMfNos.length === 0) ||           // bulk mode and nothing excluded
+  (!selectAllMode && totalItems > 0 && selectedMfNos.length === totalItems); // normal mode
+
+  // bulk button logic (updated)
+  const bulkButtonText = isAllSelected ? "Clear Selection" : "Select All";
+  const bulkButtonIcon = isAllSelected ? XCircle : PackageCheck;
+  const handleBulkAction = isAllSelected ? handleCombinedBulkDeselect : handleCombinedBulkSelect;
+  const bulkButtonVariant = isAllSelected ? "destructive" : "primary";
+  const BulkIconComponent = bulkButtonIcon;
+
+  // used to show exclude button when multiple are selected
+  const multipleSelected = finalCount > 1;
+
+  // responsive btn class: full width on mobile, normal on md+
+const responsiveBtnClass =
+  "w-full md:w-auto text-[10px] xs:text-xs sm:text-sm h-8 sm:h-10 mb-1 px-1 sm:px-4 whitespace-nowrap";
 
   return (
     <div className="space-y-6">
-      
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-background p-4 rounded-lg shadow border border-muted">
+      {/* 1. Top Control Bar */}
+      <div className="flex flex-col md:flex-row gap-2 sm:gap-4 items-center justify-between bg-background p-4 rounded-lg shadow border border-muted">
+        {/* LEFT */}
         <div className="flex items-center gap-2 w-full md:w-1/2">
-           <div className="relative flex-1">
+          <div className="relative flex-1">
             <input
               type="text"
-              placeholder="Search all data..."
-              value={filters.search || ''} 
+              placeholder="Search TS No, Place, Driver..."
+              value={filters.search || ""}
               onChange={handleSearchChange}
               className="w-full pl-10 pr-4 py-2 bg-background text-foreground border border-muted-foreground/30 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
             />
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+              size={18}
+            />
           </div>
-          <Button 
-             variant={hasActiveFilters ? 'primary' : 'outline'} 
-             onClick={() => setShowFilters(!showFilters)} 
-             className="h-10 px-3 shrink-0"
-             title="Toggle Filters"
+
+          <Button
+            variant={hasActiveFilters ? "primary" : "outline"}
+            onClick={() => setShowFilters(!showFilters)}
+            className="h-10 px-3 shrink-0"
+            title="Toggle Filters"
           >
             <Filter size={18} className={hasActiveFilters ? "mr-2" : ""} />
             {hasActiveFilters && "Active"}
           </Button>
         </div>
 
-        <div className="flex gap-2 w-full md:w-auto justify-between md:justify-end">
-          <Button 
-            variant="secondary" 
-            onClick={handleShowReport}
-            className={responsiveBtnClass}
-          >
+        {/* RIGHT: Actions */}
+        {/* MOBILE: grid 2x2, DESKTOP: flex row */}
+        <div className="w-full md:w-auto mt-2 md:mt-0 grid grid-cols-2 gap-2 md:flex md:flex-row md:gap-2 md:justify-stretch">
+          
+
+          {/* REPORT BUTTON */}
+          <Button variant="secondary" onClick={handleShowReport} className={responsiveBtnClass}>
             <FileText size={14} className="mr-1 sm:mr-2" /> Report
           </Button>
-          
-          <Button 
-            variant="secondary" 
-            onClick={handlePrintSelected} 
-            disabled={selected.length === 0 && !selectAllMode}
+
+          {/* PRINT BUTTON */}
+          <Button
+            variant="secondary"
+            onClick={handlePrintSelected}
+            disabled={finalCount === 0}
             className={responsiveBtnClass}
           >
-            <Printer size={14} className="mr-1 sm:mr-2" /> 
+            <Printer size={14} className="mr-1 sm:mr-2" />
             {printButtonText}
           </Button>
-          
-          <Button 
-            variant="primary" 
+
+          {/* BULK BUTTON */}
+          <Button
+            variant={bulkButtonVariant}
+            onClick={handleBulkAction}
+            className={responsiveBtnClass}
+            disabled={!selectAllMode && selectedMfNos.length === 0 && totalItems === 0}
+            title={
+              bulkButtonText === "Clear Selection"
+                ? "Click to remove all items from selection"
+                : "Select all filtered items"
+            }
+          >
+            <BulkIconComponent size={14} className="mr-1 sm:mr-2" />
+            {bulkButtonText}
+          </Button>
+
+          {/* ADD NEW BUTTON */}
+          <Button
+            variant="primary"
             onClick={() => navigate("/tripsheet/new")}
             className={responsiveBtnClass}
           >
@@ -313,169 +482,322 @@ export const TripSheetList = () => {
         </div>
       </div>
 
+      {/* 2. Collapsible Filters */}
       {showFilters && (
         <div className="p-4 bg-muted/20 rounded-lg border border-muted animate-in fade-in slide-in-from-top-2">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Advanced Filters</h3>
-            <div className="flex gap-2">
-              <button 
-                onClick={clearAllFilters} 
+            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">
+              Advanced Filters
+            </h3>
+            <div className="flex gap-4">
+              {/* EXCLUDE BUTTON visible when MULTIPLE selected */}
+              {multipleSelected && (
+                <button
+                  onClick={handleExcludeFilteredData}
+                  className="text-xs flex items-center text-destructive hover:text-destructive/80 font-medium"
+                  disabled={paginatedData.length === 0}
+                  title="Exclude all visible items from the current bulk selection"
+                >
+                  <XCircle size={14} className="mr-1 sm:mr-2" />
+                  Exclude
+                </button>
+              )}
+
+              <button
+                onClick={clearAllFilters}
                 className="text-xs flex items-center text-primary hover:text-primary/80 font-medium"
               >
-                <FilterX size={14} className="mr-1" /> Clear All
+                <RotateCcw size={14} className="mr-1" /> Clear All
               </button>
-              <button onClick={() => setShowFilters(false)} className="text-muted-foreground hover:text-foreground ml-2"><ChevronUp size={20} /></button>
             </div>
           </div>
-          
+
+          {/* EXCLUSION BANNER */}
+          {exclusionFilter.isActive && selectAllMode && (
+            <div className="mb-4 p-3 bg-yellow-100 text-yellow-800 border border-yellow-300 rounded text-sm">
+              <strong>Exclusion Active:</strong> {excludedMfNos.length} Trip Sheets are currently
+              excluded from the bulk selection{" "}
+              {exclusionFilter.filterKey && (
+                <>
+                  (e.g., those matching{" "}
+                  <strong>
+                    {exclusionFilter.filterKey}:{" "}
+                    {consignorOption?.label ||
+                      destinationOption?.label ||
+                      (consigneeOptions[0]?.label as string) ||
+                      "Filter Value"}
+                  </strong>
+                  ).
+                </>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-             
-             {/* 🟢 Destination Filter */}
-             <AsyncAutocomplete 
-                label="Filter by Destination" 
-                loadOptions={loadDestinationOptions}
-                value={destinationOption} 
+            <AsyncAutocomplete
+              label="Filter by Destination"
+              loadOptions={loadDestinationOptions}
+              value={destinationOption}
+              onChange={(val: any) => {
+                setDestinationOption(val);
+                setFilters({ toPlace: val?.value || "" });
+              }}
+              placeholder="Select destination..."
+              defaultOptions
+            />
+
+            <AsyncAutocomplete
+              label="Filter by Consignor"
+              loadOptions={loadConsignorOptions}
+              value={consignorOption}
+              onChange={(val: any) => {
+                setConsignorOption(val);
+                setFilters({ consignor: val?.value || "" });
+              }}
+              placeholder="Select consignor..."
+              defaultOptions
+            />
+
+            <div>
+              <AsyncAutocomplete
+                label="Filter by Consignee (Multi-select)"
+                loadOptions={loadConsigneeOptions}
+                value={consigneeOptions}
                 onChange={(val: any) => {
-                    setDestinationOption(val);
-                    setFilters({ toPlace: val?.value || '' });
-                }} 
-                placeholder="Select destination..." 
+                  const arr = Array.isArray(val) ? val : val ? [val] : [];
+                  setConsigneeOptions(arr);
+                  const ids = arr.map((v: any) => v.value);
+                  setFilters({ consignee: ids });
+                }}
+                placeholder="Select consignees..."
+                isMulti={true}
                 defaultOptions
-             />
-             
-             {/* 🟢 Consignor Filter */}
-             <AsyncAutocomplete 
-                label="Filter by Consignor" 
-                loadOptions={loadConsignorOptions}
-                value={consignorOption} 
-                onChange={(val: any) => {
-                    setConsignorOption(val);
-                    setFilters({ consignor: val?.value || '' });
-                }} 
-                placeholder="Select consignor..." 
-                defaultOptions
-             />
-             
-             {/* 🟢 Consignee Filter (Multi-select) */}
-             <div>
-               <AsyncAutocomplete 
-                  label="Filter by Consignee (Multi-select)" 
-                  loadOptions={loadConsigneeOptions}
-                  value={consigneeOptions} 
-                  onChange={(val: any) => {
-                    const arr = Array.isArray(val) ? val : (val ? [val] : []);
-                    setConsigneeOptions(arr);
-                    const ids = arr.map((v: any) => v.value);
-                    setFilters({ consignee: ids });
-                  }} 
-                  placeholder="Select consignees..." 
-                  isMulti={true}
-                  defaultOptions
-               />
-             </div>
+              />
+            </div>
           </div>
-          
-          <DateFilterButtons 
-            filterType={filters.filterType || 'all'} 
-            setFilterType={handleFilterTypeChange} 
-            customStart={filters.customStart || ''} 
-            setCustomStart={(val) => handleCustomDateChange(val, filters.customEnd)} 
-            customEnd={filters.customEnd || ''} 
-            setCustomEnd={(val) => handleCustomDateChange(filters.customStart, val)} 
+
+          <DateFilterButtons
+            filterType={filters.filterType || "all"}
+            setFilterType={handleFilterTypeChange}
+            customStart={filters.customStart || ""}
+            setCustomStart={(val) => handleCustomDateChange(val, filters.customEnd)}
+            customEnd={filters.customEnd || ""}
+            setCustomEnd={(val) => handleCustomDateChange(filters.customStart, val)}
           />
         </div>
       )}
 
+      {/* 3. Data Table */}
       <div className="bg-background rounded-lg shadow border border-muted overflow-hidden">
-        
         <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-muted">
             <thead className="bg-muted/50">
               <tr>
-                <th className="px-6 py-3 text-left"><input type="checkbox" className="h-4 w-4 accent-primary" checked={isAllSelected} onChange={handleSelectAll} /></th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">TS No</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">From</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">To</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Amount</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Actions</th>
+                <th className="px-4 py-3 text-left w-12" title="Select/Deselect all visible items">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-primary border-muted-foreground/30 rounded focus:ring-primary"
+                    checked={isAllVisibleSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = isIndeterminate;
+                    }}
+                    onChange={handleSelectAllVisible}
+                  />
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  TS No
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  From
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  To
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  Date
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  Amount
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-muted">
               {loading ? (
-                  <tr><td colSpan={7} className="px-6 py-12 text-center">Loading data...</td></tr>
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center">
+                    Loading data...
+                  </td>
+                </tr>
               ) : paginatedData.length > 0 ? (
-                  paginatedData.map((ts) => (
-                    <tr key={ts.id} className="hover:bg-muted/30">
-                      <td className="px-6 py-4"><input type="checkbox" className="h-4 w-4 accent-primary" checked={selected.includes(ts.mfNo)} onChange={() => handleSelectRow(ts.mfNo)} /></td>
-                      <td className="px-6 py-4 font-bold text-primary">{ts.mfNo}</td>
+                paginatedData.map((ts) => {
+                  const isSelected = isRowSelected(ts.mfNo);
+                  return (
+                    <tr key={ts.id}>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 accent-primary"
+                          checked={isSelected}
+                          onChange={(e) => handleSelectRow(ts.mfNo, e.target.checked)}
+                        />
+                      </td>
+                      <td className="px-6 py-4 font-semibold text-primary">{ts.mfNo}</td>
                       <td className="px-6 py-4 text-sm">{ts.fromPlace}</td>
                       <td className="px-6 py-4 text-sm">{ts.toPlace}</td>
                       <td className="px-6 py-4 text-sm">{ts.tsDate}</td>
-                      <td className="px-6 py-4 text-sm">₹{ts.totalAmount.toLocaleString("en-IN")}</td>
+                      <td className="px-6 py-4 text-sm">
+                        ₹{ts.totalAmount.toLocaleString("en-IN")}
+                      </td>
                       <td className="px-6 py-4 space-x-3">
-                        <button onClick={() => navigate(`/tripsheet/edit/${ts.mfNo}`)} className="text-blue-600 hover:text-blue-800"><FilePenLine size={18} /></button>
-                        <button onClick={() => handlePrintSingle(ts.mfNo)} className="text-green-600 hover:text-green-800"><Printer size={18} /></button>
-                        <button onClick={() => onDelete(ts.mfNo)} className="text-destructive hover:text-destructive/80"><Trash2 size={18} /></button>
+                        <button
+                          onClick={() => navigate(`/tripsheet/edit/${ts.mfNo}`)}
+                          className="text-blue-600 hover:text-blue-800"
+                          title="Edit Trip Sheet"
+                        >
+                          <FilePenLine size={18} />
+                        </button>
+                        <button
+                          onClick={() => handlePrintSingle(ts.mfNo)}
+                          className="text-green-600 hover:text-green-800"
+                          title="Print Trip Sheet"
+                        >
+                          <Printer size={18} />
+                        </button>
+                        <button
+                          onClick={() => onDelete(ts.mfNo)}
+                          className="text-destructive hover:text-destructive/80"
+                          title="Delete Trip Sheet"
+                        >
+                          <Trash2 size={18} />
+                        </button>
                       </td>
                     </tr>
-                  ))
+                  );
+                })
               ) : (
-                  <tr><td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">No Trip Sheets found.</td></tr>
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="px-6 py-12 text-center text-muted-foreground"
+                  >
+                    No Trip Sheets found.
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
         </div>
 
+        {/* Mobile View */}
         <div className="block md:hidden divide-y divide-muted">
-          {paginatedData.map((ts) => (
-            <div key={ts.id} className="p-4 bg-background hover:bg-muted/10 transition-colors border-b border-muted last:border-0">
-               <div className="flex justify-between items-start">
+          {paginatedData.map((ts) => {
+            const isSelected = isRowSelected(ts.mfNo);
+            return (
+              <div
+                key={ts.id}
+                className={`p-4 hover:bg-muted/10 transition-colors border-b border-muted last:border-0 ${
+                  isSelected ? "" : ""
+                }`}
+              >
+                <div className="flex justify-between items-start">
                   <div className="flex gap-3">
-                     <div className="pt-1">
-                        <input 
-                          type="checkbox" 
-                          className="h-5 w-5 accent-primary" 
-                          checked={selected.includes(ts.mfNo)} 
-                          onChange={() => handleSelectRow(ts.mfNo)} 
-                        />
-                     </div>
-                     <div className="flex-1 space-y-1">
-                        <div className="font-bold text-blue-600 text-lg leading-tight mb-2">TS #{ts.mfNo}</div>
-                        <div className="text-sm text-muted-foreground space-y-0.5">
-                           <div><span className="font-medium text-foreground">Date:</span> {ts.tsDate}</div>
-                           <div><span className="font-medium text-foreground">From:</span> {ts.fromPlace}</div>
-                           <div><span className="font-medium text-foreground">To:</span> {ts.toPlace}</div>
+                    <div className="pt-1">
+                      <input
+                        type="checkbox"
+                        className="h-5 w-5 accent-primary"
+                        checked={isSelected}
+                        onChange={(e) => handleSelectRow(ts.mfNo, e.target.checked)}
+                      />
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <div className="font-bold text-blue-600 text-lg leading-tight mb-2">
+                        TS #{ts.mfNo}
+                      </div>
+                      <div className="text-sm text-muted-foreground space-y-0.5">
+                        <div>
+                          <span className="font-medium text-foreground">Date:</span> {ts.tsDate}
                         </div>
-                     </div>
+                        <div>
+                          <span className="font-medium text-foreground">From:</span>{" "}
+                          {ts.fromPlace}
+                        </div>
+                        <div>
+                          <span className="font-medium text-foreground">To:</span> {ts.toPlace}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   <div className="flex flex-col gap-3 pl-2">
-                     <button onClick={() => navigate(`/tripsheet/edit/${ts.mfNo}`)} className="text-blue-600 p-1 hover:bg-blue-50 rounded"><FilePenLine size={20} /></button>
-                     <button onClick={() => handlePrintSingle(ts.mfNo)} className="text-green-600 p-1 hover:bg-green-50 rounded"><Printer size={20} /></button>
-                     <button onClick={() => onDelete(ts.mfNo)} className="text-destructive p-1 hover:bg-red-50 rounded"><Trash2 size={20} /></button>
+                    <button
+                      onClick={() => navigate(`/tripsheet/edit/${ts.mfNo}`)}
+                      className="text-blue-600 p-1 hover:bg-blue-50 rounded"
+                      title="Edit"
+                    >
+                      <FilePenLine size={20} />
+                    </button>
+                    <button
+                      onClick={() => handlePrintSingle(ts.mfNo)}
+                      className="text-green-600 p-1 hover:bg-green-50 rounded"
+                      title="Print"
+                    >
+                      <Printer size={20} />
+                    </button>
+                    <button
+                      onClick={() => onDelete(ts.mfNo)}
+                      className="text-destructive p-1 hover:bg-red-50 rounded"
+                      title="Delete"
+                    >
+                      <Trash2 size={20} />
+                    </button>
                   </div>
-               </div>
-               <div className="mt-3 pt-2 text-sm font-medium text-foreground border-t border-dashed border-muted">
-                  Amount: ₹{ts.totalAmount.toLocaleString("en-IN")}
-               </div>
-            </div>
-          ))}
+                </div>
+                <div className="mt-3 pt-2 text-sm font-medium text-foreground border-t border-dashed border-muted">
+                  Amount:{" "}
+                  <span className="font-bold">
+                    ₹{ts.totalAmount.toLocaleString("en-IN")}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
         </div>
-        
+
         <div className="border-t border-muted p-4">
-            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={setItemsPerPage} totalItems={totalItems} />
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            itemsPerPage={itemsPerPage}
+            onItemsPerPageChange={setItemsPerPage}
+            totalItems={totalItems}
+          />
         </div>
       </div>
 
-      <ConfirmationDialog 
-        open={confirmOpen} 
-        onClose={() => setConfirmOpen(false)} 
-        onConfirm={confirmDelete} 
-        title="Delete Trip Sheet" 
-        description={deleteMessage} 
+      <ConfirmationDialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={confirmDelete}
+        title="Delete Trip Sheet"
+        description={deleteMessage}
       />
-      {printingSheets && <TripSheetPrintManager sheets={printingSheets} onClose={() => setPrintingSheets(null)} />}
-      {reportPrintingJobs && <TripSheetReportPrint sheets={reportPrintingJobs} onClose={() => setReportPrintingJobs(null)} />}
+
+      {printingSheets && (
+        <TripSheetPrintManager
+          sheets={printingSheets}
+          onClose={() => setPrintingSheets(null)}
+        />
+      )}
+      {reportPrintingJobs && (
+        <TripSheetReportPrint
+          sheets={reportPrintingJobs}
+          onClose={() => setReportPrintingJobs(null)}
+        />
+      )}
     </div>
   );
 };
+
