@@ -1,21 +1,30 @@
 import React from 'react';
+import { Calendar, CalendarDays, CalendarRange, Clock, ListFilter } from 'lucide-react';
 import { Input } from './Input';
 import { getTodayDate, getYesterdayDate, isDateInLast7Days } from '../../utils/dateHelpers';
 
 interface FilterButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   active: boolean;
+  icon?: React.ReactNode;
 }
 
-const FilterButton: React.FC<FilterButtonProps> = ({ active, children, ...props }) => {
-  const baseStyle = "px-3 py-1.5 text-sm font-medium rounded-md";
-  const activeStyle = "bg-primary text-primary-foreground";
-  const inactiveStyle = "bg-muted text-muted-foreground hover:bg-muted-foreground/20";
-  
+const FilterButton: React.FC<FilterButtonProps> = ({ active, icon, children, ...props }) => {
   return (
     <button
-      className={`${baseStyle} ${active ? activeStyle : inactiveStyle}`}
+      className={`
+        inline-flex items-center gap-2 px-4 py-2 
+        text-sm font-medium rounded-xl
+        transition-all duration-200
+        focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-1
+        active:scale-[0.98]
+        ${active 
+          ? 'bg-primary text-primary-foreground shadow-sm' 
+          : 'bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent hover:border-border'
+        }
+      `}
       {...props}
     >
+      {icon && <span className={`${active ? 'opacity-100' : 'opacity-60'}`}>{icon}</span>}
       {children}
     </button>
   );
@@ -41,16 +50,48 @@ export const DateFilterButtons = ({
 
   return (
     <div className="space-y-4">
+      {/* Filter Buttons */}
       <div className="flex flex-wrap gap-2">
-        <FilterButton active={filterType === 'all'} onClick={() => setFilterType('all')}>All</FilterButton>
-        <FilterButton active={filterType === 'today'} onClick={() => setFilterType('today')}>Today</FilterButton>
-        <FilterButton active={filterType === 'yesterday'} onClick={() => setFilterType('yesterday')}>Yesterday</FilterButton>
-        <FilterButton active={filterType === 'week'} onClick={() => setFilterType('week')}>Last 7 Days</FilterButton>
-        <FilterButton active={filterType === 'custom'} onClick={() => setFilterType('custom')}>Custom Range</FilterButton>
+        <FilterButton 
+          active={filterType === 'all'} 
+          onClick={() => setFilterType('all')}
+          icon={<ListFilter className="w-4 h-4" />}
+        >
+          All
+        </FilterButton>
+        <FilterButton 
+          active={filterType === 'today'} 
+          onClick={() => setFilterType('today')}
+          icon={<Calendar className="w-4 h-4" />}
+        >
+          Today
+        </FilterButton>
+        <FilterButton 
+          active={filterType === 'yesterday'} 
+          onClick={() => setFilterType('yesterday')}
+          icon={<Clock className="w-4 h-4" />}
+        >
+          Yesterday
+        </FilterButton>
+        <FilterButton 
+          active={filterType === 'week'} 
+          onClick={() => setFilterType('week')}
+          icon={<CalendarDays className="w-4 h-4" />}
+        >
+          Last 7 Days
+        </FilterButton>
+        <FilterButton 
+          active={filterType === 'custom'} 
+          onClick={() => setFilterType('custom')}
+          icon={<CalendarRange className="w-4 h-4" />}
+        >
+          Custom Range
+        </FilterButton>
       </div>
       
+      {/* Custom Date Range Panel */}
       {filterType === 'custom' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 border border-dashed border-muted-foreground/30 rounded-md">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-muted/30 border border-border rounded-xl animate-in slide-in-from-top-2 duration-200">
           <Input 
             label="Start Date" 
             id="customStart" 

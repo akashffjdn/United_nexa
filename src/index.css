@@ -9,18 +9,19 @@
    Change the @apply rule below to switch themes.
    
    Available Options:
-   @apply theme-blue;     (New: Royal Blue & Pure Black OLED)
-   @apply theme-luxury;   (Gold & Black)
-   @apply theme-emerald;  (Green & Dark Grey)
-   @apply theme-royal;    (Purple & Dark Slate)
-   @apply theme-platinum; (Silver & Minimalist)
-   @apply theme-rose;     (Rose Gold & Warm)
+   @apply theme-blue;     (Royal Blue & Pure Black OLED)
+   @apply theme-ocean;    (Deep Ocean Blue & Teal)
+   @apply theme-sunset;   (Warm Orange & Coral)
+   @apply theme-forest;   (Deep Green & Earth)
+   @apply theme-violet;   (Midnight Purple & Magenta)
+   @apply theme-desert;   (Sandy Beige & Terracotta)
+   @apply theme-arctic;   (Ice Blue & Cool Gray)
    ============================================ */
 
 @layer base {
   :root {
     /* ▼ ACTIVE THEME: Royal Blue & Pure Black ▼ */
-    @apply theme-blue; 
+    @apply theme-arctic; 
   }
 
   body {
@@ -44,24 +45,24 @@
      🚫 AUTOFILL FIX (Forces Theme Colors)
      ============================================ */
   
-  /* Light Mode Autofill - Matches Slate-50 (#f8fafc) */
+  /* Light Mode Autofill */
   input:-webkit-autofill,
   input:-webkit-autofill:hover, 
   input:-webkit-autofill:focus, 
   input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 30px #f8fafc inset !important;
-    -webkit-text-fill-color: #0f172a !important;
+    -webkit-box-shadow: 0 0 0 30px hsl(var(--background)) inset !important;
+    -webkit-text-fill-color: hsl(var(--foreground)) !important;
     transition: background-color 5000s ease-in-out 0s;
   }
 
-  /* Dark Mode Autofill - Matches Slate-900 (#0f172a) */
+  /* Dark Mode Autofill */
   .dark input:-webkit-autofill,
   .dark input:-webkit-autofill:hover, 
   .dark input:-webkit-autofill:focus, 
   .dark input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 30px #0f172a inset !important;
-    -webkit-text-fill-color: white !important;
-    caret-color: white;
+    -webkit-box-shadow: 0 0 0 30px hsl(var(--background)) inset !important;
+    -webkit-text-fill-color: hsl(var(--foreground)) !important;
+    caret-color: hsl(var(--foreground));
   }
 }
 
@@ -71,7 +72,7 @@
 
 @layer components {
 
-  /* ===== NEW THEME: ROYAL BLUE & PURE BLACK (OLED) ===== */
+  /* ===== THEME: ROYAL BLUE & PURE BLACK (OLED) ===== */
   .theme-blue {
     /* Light Mode: Platinum & Royal Blue */
     --background: 210 40% 98%;
@@ -116,226 +117,346 @@
     --ring: 217 100% 60%;
   }
 
-  /* ===== THEME 1: LUXURY GOLD ===== */
-  .theme-luxury {
-    --background: 220 30% 97%;
-    --foreground: 220 40% 10%;
+  /* ===== THEME 1: OCEAN DEPTHS (Deep Blue & Teal) ===== */
+  .theme-ocean {
+    /* Light Mode: Soft Aqua & Deep Teal */
+    --background: 195 50% 98%;
+    --foreground: 200 80% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 220 40% 10%;
-    --primary: 43 96% 56%;
-    --primary-foreground: 220 40% 10%;
-    --secondary: 220 25% 92%;
-    --secondary-foreground: 220 40% 10%;
-    --muted: 220 25% 92%;
-    --muted-foreground: 220 15% 45%;
-    --accent: 43 96% 95%;
-    --accent-foreground: 43 96% 30%;
-    --destructive: 0 72% 51%;
+    --card-foreground: 200 80% 10%;
+    --primary: 185 70% 42%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 195 40% 94%;
+    --secondary-foreground: 200 80% 10%;
+    --muted: 195 40% 94%;
+    --muted-foreground: 195 20% 40%;
+    --accent: 185 70% 92%;
+    --accent-foreground: 185 70% 25%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 20% 88%;
-    --input: 220 20% 88%;
-    --ring: 43 96% 56%;
+    --border: 195 30% 88%;
+    --input: 195 30% 88%;
+    --ring: 185 70% 42%;
+    --radius: 0.625rem;
+  }
+
+  .theme-ocean.dark, .dark .theme-ocean {
+    /* Dark Mode: Deep Ocean & Bright Teal */
+    --background: 200 60% 6%;
+    --foreground: 185 50% 95%;
+    --card: 200 55% 10%;
+    --card-foreground: 185 50% 95%;
+    --primary: 175 80% 50%;
+    --primary-foreground: 200 60% 6%;
+    --secondary: 200 50% 14%;
+    --secondary-foreground: 185 50% 95%;
+    --muted: 200 50% 14%;
+    --muted-foreground: 195 30% 60%;
+    --accent: 200 45% 18%;
+    --accent-foreground: 185 50% 95%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 200 40% 22%;
+    --input: 200 40% 22%;
+    --ring: 175 80% 50%;
+  }
+
+  /* ===== THEME 2: SUNSET BLAZE (Warm Orange & Coral) ===== */
+  .theme-sunset {
+    /* Light Mode: Warm Cream & Vibrant Orange */
+    --background: 35 60% 98%;
+    --foreground: 20 60% 12%;
+    --card: 40 50% 100%;
+    --card-foreground: 20 60% 12%;
+    --primary: 25 95% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 35 50% 93%;
+    --secondary-foreground: 20 60% 12%;
+    --muted: 35 50% 93%;
+    --muted-foreground: 25 30% 42%;
+    --accent: 25 90% 93%;
+    --accent-foreground: 25 95% 30%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 35 40% 87%;
+    --input: 35 40% 87%;
+    --ring: 25 95% 55%;
     --radius: 0.75rem;
   }
 
-  .theme-luxury.dark, .dark .theme-luxury {
-    --background: 0 0% 0%; 
-    --foreground: 43 96% 95%;
-    --card: 220 35% 8%;
-    --card-foreground: 43 96% 95%;
-    --primary: 43 96% 56%;
-    --primary-foreground: 220 40% 10%;
-    --secondary: 220 30% 12%;
-    --secondary-foreground: 43 96% 95%;
-    --muted: 220 30% 12%;
-    --muted-foreground: 220 15% 65%;
-    --accent: 220 30% 15%;
-    --accent-foreground: 43 96% 95%;
-    --destructive: 0 72% 51%;
+  .theme-sunset.dark, .dark .theme-sunset {
+    /* Dark Mode: Burnt Sienna & Fiery Orange */
+    --background: 15 40% 7%;
+    --foreground: 35 80% 95%;
+    --card: 18 38% 11%;
+    --card-foreground: 35 80% 95%;
+    --primary: 25 100% 58%;
+    --primary-foreground: 15 40% 7%;
+    --secondary: 18 35% 15%;
+    --secondary-foreground: 35 80% 95%;
+    --muted: 18 35% 15%;
+    --muted-foreground: 30 25% 58%;
+    --accent: 18 32% 20%;
+    --accent-foreground: 35 80% 95%;
+    --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 25% 20%;
-    --input: 220 25% 20%;
-    --ring: 43 96% 56%;
+    --border: 18 30% 24%;
+    --input: 18 30% 24%;
+    --ring: 25 100% 58%;
   }
 
-  /* ===== THEME 2: EMERALD LUXURY ===== */
-  .theme-emerald {
-    --background: 0 0% 98%;
-    --foreground: 240 10% 8%;
+  /* ===== THEME 3: FOREST MOSS (Deep Green & Earth) ===== */
+  .theme-forest {
+    /* Light Mode: Sage Green & Natural Tones */
+    --background: 90 20% 97%;
+    --foreground: 120 30% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 8%;
-    --primary: 160 84% 39%;
+    --card-foreground: 120 30% 12%;
+    --primary: 142 55% 38%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 5% 95%;
-    --secondary-foreground: 240 10% 8%;
-    --muted: 240 5% 95%;
-    --muted-foreground: 240 4% 46%;
-    --accent: 160 84% 95%;
-    --accent-foreground: 160 84% 20%;
+    --secondary: 90 18% 92%;
+    --secondary-foreground: 120 30% 12%;
+    --muted: 90 18% 92%;
+    --muted-foreground: 100 15% 42%;
+    --accent: 142 45% 92%;
+    --accent-foreground: 142 55% 22%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
-    --ring: 160 84% 39%;
-    --radius: 0.75rem;
-  }
-
-  .theme-emerald.dark, .dark .theme-emerald {
-    --background: 240 10% 4%;
-    --foreground: 160 84% 90%;
-    --card: 240 8% 8%;
-    --card-foreground: 160 84% 90%;
-    --primary: 160 84% 45%;
-    --primary-foreground: 240 10% 8%;
-    --secondary: 240 8% 14%;
-    --secondary-foreground: 160 84% 90%;
-    --muted: 240 8% 14%;
-    --muted-foreground: 240 5% 64%;
-    --accent: 240 8% 18%;
-    --accent-foreground: 160 84% 90%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 240 6% 20%;
-    --input: 240 6% 20%;
-    --ring: 160 84% 45%;
-  }
-
-  /* ===== THEME 3: ROYAL PURPLE ===== */
-  .theme-royal {
-    --background: 270 20% 98%;
-    --foreground: 270 30% 10%;
-    --card: 0 0% 100%;
-    --card-foreground: 270 30% 10%;
-    --primary: 270 70% 55%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 270 20% 94%;
-    --secondary-foreground: 270 30% 10%;
-    --muted: 270 20% 94%;
-    --muted-foreground: 270 10% 45%;
-    --accent: 270 70% 95%;
-    --accent-foreground: 270 70% 30%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 270 15% 88%;
-    --input: 270 15% 88%;
-    --ring: 270 70% 55%;
-    --radius: 0.75rem;
-  }
-
-  .theme-royal.dark, .dark .theme-royal {
-    --background: 270 30% 7%;
-    --foreground: 270 70% 95%;
-    --card: 270 25% 11%;
-    --card-foreground: 270 70% 95%;
-    --primary: 270 70% 60%;
-    --primary-foreground: 270 30% 10%;
-    --secondary: 270 20% 16%;
-    --secondary-foreground: 270 70% 95%;
-    --muted: 270 20% 16%;
-    --muted-foreground: 270 10% 65%;
-    --accent: 270 20% 20%;
-    --accent-foreground: 270 70% 95%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 270 18% 23%;
-    --input: 270 18% 23%;
-    --ring: 270 70% 60%;
-  }
-
-  /* ===== THEME 4: PLATINUM SILVER ===== */
-  .theme-platinum {
-    --background: 220 15% 98%;
-    --foreground: 220 20% 10%;
-    --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
-    --primary: 220 15% 25%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 220 12% 93%;
-    --secondary-foreground: 220 20% 10%;
-    --muted: 220 12% 93%;
-    --muted-foreground: 220 10% 45%;
-    --accent: 220 15% 85%;
-    --accent-foreground: 220 20% 10%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 220 10% 87%;
-    --input: 220 10% 87%;
-    --ring: 220 15% 25%;
+    --border: 90 15% 86%;
+    --input: 90 15% 86%;
+    --ring: 142 55% 38%;
     --radius: 0.5rem;
   }
 
-  .theme-platinum.dark, .dark .theme-platinum {
-    --background: 220 15% 6%;
-    --foreground: 220 10% 95%;
-    --card: 220 12% 10%;
-    --card-foreground: 220 10% 95%;
-    --primary: 220 10% 85%;
-    --primary-foreground: 220 15% 10%;
-    --secondary: 220 10% 15%;
-    --secondary-foreground: 220 10% 95%;
-    --muted: 220 10% 15%;
-    --muted-foreground: 220 8% 65%;
-    --accent: 220 10% 20%;
-    --accent-foreground: 220 10% 95%;
-    --destructive: 0 72% 51%;
+  .theme-forest.dark, .dark .theme-forest {
+    /* Dark Mode: Deep Forest & Bright Moss */
+    --background: 130 30% 5%;
+    --foreground: 100 40% 92%;
+    --card: 128 28% 9%;
+    --card-foreground: 100 40% 92%;
+    --primary: 142 65% 48%;
+    --primary-foreground: 130 30% 5%;
+    --secondary: 128 25% 13%;
+    --secondary-foreground: 100 40% 92%;
+    --muted: 128 25% 13%;
+    --muted-foreground: 110 20% 55%;
+    --accent: 128 22% 17%;
+    --accent-foreground: 100 40% 92%;
+    --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 8% 22%;
-    --input: 220 8% 22%;
-    --ring: 220 10% 85%;
+    --border: 128 20% 21%;
+    --input: 128 20% 21%;
+    --ring: 142 65% 48%;
   }
 
-  /* ===== THEME 5: ROSE GOLD ELEGANCE ===== */
-  .theme-rose {
-    --background: 20 30% 98%;
-    --foreground: 20 30% 12%;
+  /* ===== THEME 4: MIDNIGHT VIOLET (Purple & Magenta) ===== */
+  .theme-violet {
+    /* Light Mode: Lavender & Rich Purple */
+    --background: 280 40% 98%;
+    --foreground: 285 50% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 20 30% 12%;
-    --primary: 340 82% 52%;
+    --card-foreground: 285 50% 12%;
+    --primary: 280 75% 55%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 20 25% 94%;
-    --secondary-foreground: 20 30% 12%;
-    --muted: 20 25% 94%;
-    --muted-foreground: 20 15% 46%;
-    --accent: 340 82% 96%;
-    --accent-foreground: 340 82% 25%;
+    --secondary: 280 35% 94%;
+    --secondary-foreground: 285 50% 12%;
+    --muted: 280 35% 94%;
+    --muted-foreground: 280 20% 44%;
+    --accent: 280 70% 94%;
+    --accent-foreground: 280 75% 30%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 20 20% 89%;
-    --input: 20 20% 89%;
-    --ring: 340 82% 52%;
-    --radius: 0.75rem;
+    --border: 280 28% 88%;
+    --input: 280 28% 88%;
+    --ring: 280 75% 55%;
+    --radius: 0.875rem;
   }
 
-  .theme-rose.dark, .dark .theme-rose {
-    --background: 20 25% 8%;
-    --foreground: 340 82% 92%;
-    --card: 20 20% 12%;
-    --card-foreground: 340 82% 92%;
-    --primary: 340 82% 58%;
-    --primary-foreground: 20 25% 10%;
-    --secondary: 20 18% 17%;
-    --secondary-foreground: 340 82% 92%;
-    --muted: 20 18% 17%;
-    --muted-foreground: 20 12% 65%;
-    --accent: 20 18% 21%;
-    --accent-foreground: 340 82% 92%;
-    --destructive: 0 72% 51%;
+  .theme-violet.dark, .dark .theme-violet {
+    /* Dark Mode: Deep Violet & Electric Purple */
+    --background: 285 50% 5%;
+    --foreground: 280 60% 94%;
+    --card: 284 45% 9%;
+    --card-foreground: 280 60% 94%;
+    --primary: 285 90% 62%;
+    --primary-foreground: 285 50% 5%;
+    --secondary: 284 40% 13%;
+    --secondary-foreground: 280 60% 94%;
+    --muted: 284 40% 13%;
+    --muted-foreground: 280 25% 58%;
+    --accent: 284 35% 18%;
+    --accent-foreground: 280 60% 94%;
+    --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
-    --border: 20 15% 24%;
-    --input: 20 15% 24%;
-    --ring: 340 82% 58%;
+    --border: 284 32% 22%;
+    --input: 284 32% 22%;
+    --ring: 285 90% 62%;
   }
 
-  /* Utility Classes */
+  /* ===== THEME 5: DESERT SAND (Sandy Beige & Terracotta) ===== */
+  .theme-desert {
+    /* Light Mode: Warm Sand & Terracotta */
+    --background: 40 35% 97%;
+    --foreground: 30 40% 15%;
+    --card: 45 30% 100%;
+    --card-foreground: 30 40% 15%;
+    --primary: 18 75% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 40 30% 92%;
+    --secondary-foreground: 30 40% 15%;
+    --muted: 40 30% 92%;
+    --muted-foreground: 35 20% 45%;
+    --accent: 18 65% 93%;
+    --accent-foreground: 18 75% 28%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 40 25% 86%;
+    --input: 40 25% 86%;
+    --ring: 18 75% 52%;
+    --radius: 0.5rem;
+  }
+
+  .theme-desert.dark, .dark .theme-desert {
+    /* Dark Mode: Rich Earth & Warm Terracotta */
+    --background: 30 30% 6%;
+    --foreground: 40 50% 92%;
+    --card: 32 28% 10%;
+    --card-foreground: 40 50% 92%;
+    --primary: 18 85% 58%;
+    --primary-foreground: 30 30% 6%;
+    --secondary: 32 25% 14%;
+    --secondary-foreground: 40 50% 92%;
+    --muted: 32 25% 14%;
+    --muted-foreground: 38 18% 55%;
+    --accent: 32 22% 18%;
+    --accent-foreground: 40 50% 92%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 32 20% 22%;
+    --input: 32 20% 22%;
+    --ring: 18 85% 58%;
+  }
+
+  /* ===== THEME 6: ARCTIC FROST (Ice Blue & Cool Gray) ===== */
+  .theme-arctic {
+    /* Light Mode: Icy White & Cool Blue */
+    --background: 210 50% 99%;
+    --foreground: 215 30% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 30% 15%;
+    --primary: 200 90% 48%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 95%;
+    --secondary-foreground: 215 30% 15%;
+    --muted: 210 40% 95%;
+    --muted-foreground: 210 20% 48%;
+    --accent: 200 80% 94%;
+    --accent-foreground: 200 90% 28%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 210 35% 90%;
+    --input: 210 35% 90%;
+    --ring: 200 90% 48%;
+    --radius: 0.625rem;
+  }
+
+  .theme-arctic.dark, .dark .theme-arctic {
+    /* Dark Mode: Deep Slate & Neon Ice */
+    --background: 215 35% 6%;
+    --foreground: 200 60% 95%;
+    --card: 215 32% 10%;
+    --card-foreground: 200 60% 95%;
+    --primary: 195 100% 55%;
+    --primary-foreground: 215 35% 6%;
+    --secondary: 215 28% 14%;
+    --secondary-foreground: 200 60% 95%;
+    --muted: 215 28% 14%;
+    --muted-foreground: 210 18% 58%;
+    --accent: 215 25% 18%;
+    --accent-foreground: 200 60% 95%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 215 22% 22%;
+    --input: 215 22% 22%;
+    --ring: 195 100% 55%;
+  }
+
+  /* ============================================
+     🎯 UTILITY CLASSES
+     ============================================ */
+
+  /* Glass Effect */
   .glass-effect {
     @apply bg-background/80 backdrop-blur-md border border-border;
   }
   
+  /* Premium Shadow */
   .premium-shadow {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
   }
   
   .dark .premium-shadow {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Gradient Backgrounds */
+  .gradient-blue {
+    background: linear-gradient(135deg, hsl(221 83% 53%) 0%, hsl(217 100% 60%) 100%);
+  }
+
+  .gradient-ocean {
+    background: linear-gradient(135deg, hsl(185 70% 42%) 0%, hsl(200 80% 35%) 100%);
+  }
+
+  .gradient-sunset {
+    background: linear-gradient(135deg, hsl(25 95% 55%) 0%, hsl(350 80% 55%) 100%);
+  }
+
+  .gradient-forest {
+    background: linear-gradient(135deg, hsl(142 55% 38%) 0%, hsl(100 45% 35%) 100%);
+  }
+
+  .gradient-violet {
+    background: linear-gradient(135deg, hsl(280 75% 55%) 0%, hsl(320 70% 50%) 100%);
+  }
+
+  .gradient-desert {
+    background: linear-gradient(135deg, hsl(18 75% 52%) 0%, hsl(40 60% 50%) 100%);
+  }
+
+  .gradient-arctic {
+    background: linear-gradient(135deg, hsl(200 90% 48%) 0%, hsl(220 70% 55%) 100%);
+  }
+
+  /* Glow Effects */
+  .glow-primary {
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+  }
+
+  .dark .glow-primary {
+    box-shadow: 0 0 25px hsl(var(--primary) / 0.4);
+  }
+
+  /* Smooth Hover Transitions */
+  .hover-lift {
+    @apply transition-all duration-300 ease-out;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    @apply shadow-lg;
+  }
+
+  /* Card Variants */
+  .card-elevated {
+    @apply bg-card border border-border rounded-[var(--radius)] premium-shadow;
+  }
+
+  .card-outlined {
+    @apply bg-transparent border-2 border-border rounded-[var(--radius)];
+  }
+
+  .card-filled {
+    @apply bg-secondary border-none rounded-[var(--radius)];
   }
 }

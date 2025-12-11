@@ -8,8 +8,16 @@ import {
   FileText,
   Filter,
   XCircle,
-  RotateCcw,
+  FilterX,
   PackageCheck,
+  Plus,
+  Hash,
+  User,
+  MapPin,
+  Package,
+  ChevronRight,
+  Clock,
+  ChevronUp,
 } from 'lucide-react';
 import { DateFilterButtons, getTodayDate, getYesterdayDate } from '../../components/shared/DateFilterButtons';
 import { ConfirmationDialog } from '../../components/shared/ConfirmationDialog';
@@ -23,7 +31,6 @@ import { useServerPagination } from '../../hooks/useServerPagination';
 import { Pagination } from '../../components/shared/Pagination';
 import { useToast } from '../../contexts/ToastContext';
 
-// Exclusion banner state (same style as TripSheetList)
 type ExclusionFilterState = {
   isActive: boolean;
   filterKey?: string;
@@ -64,12 +71,8 @@ export const PendingStockHistory = () => {
   const [consignorOption, setConsignorOption] = useState<any>(null);
   const [consigneeOptions, setConsigneeOptions] = useState<any[]>([]);
 
-  // --- INVERTED SELECTION MODEL (aligned with TripSheetList) ---
-  // selectedGcIds: individually selected IDs when NOT in selectAllMode
   const [selectedGcIds, setSelectedGcIds] = useState<string[]>([]);
-  // selectAllMode: user clicked bulk "Select All" (entire filtered dataset)
   const [selectAllMode, setSelectAllMode] = useState(false);
-  // excludedGcIds: IDs excluded from bulk selection when selectAllMode is true
   const [excludedGcIds, setExcludedGcIds] = useState<string[]>([]);
 
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -79,21 +82,15 @@ export const PendingStockHistory = () => {
   const [reportPrintingData, setReportPrintingData] = useState<any[] | null>(null);
   const [gcPrintingJobs, setGcPrintingJobs] = useState<GcPrintJob[] | null>(null);
 
-  // Exclusion banner state
   const [exclusionFilter, setExclusionFilter] = useState<ExclusionFilterState>({
     isActive: false,
     filterKey: '',
   });
 
-  // --- Async option loaders (memoized) ---
   const loadDestinationOptions = useCallback(
     async (search: string, _prevOptions: any, { page }: any) => {
       const result = await searchToPlaces(search, page);
-      return {
-        options: result.data.map((p: any) => ({ value: p.placeName, label: p.placeName })),
-        hasMore: result.hasMore,
-        additional: { page: page + 1 },
-      };
+      return { options: result.data.map((p: any) => ({ value: p.placeName, label: p.placeName })), hasMore: result.hasMore, additional: { page: page + 1 } };
     },
     [searchToPlaces],
   );
@@ -101,11 +98,7 @@ export const PendingStockHistory = () => {
   const loadConsignorOptions = useCallback(
     async (search: string, _prevOptions: any, { page }: any) => {
       const result = await searchConsignors(search, page);
-      return {
-        options: result.data.map((c: any) => ({ value: c.id, label: c.name })),
-        hasMore: result.hasMore,
-        additional: { page: page + 1 },
-      };
+      return { options: result.data.map((c: any) => ({ value: c.id, label: c.name })), hasMore: result.hasMore, additional: { page: page + 1 } };
     },
     [searchConsignors],
   );
@@ -113,16 +106,11 @@ export const PendingStockHistory = () => {
   const loadConsigneeOptions = useCallback(
     async (search: string, _prevOptions: any, { page }: any) => {
       const result = await searchConsignees(search, page);
-      return {
-        options: result.data.map((c: any) => ({ value: c.id, label: c.name })),
-        hasMore: result.hasMore,
-        additional: { page: page + 1 },
-      };
+      return { options: result.data.map((c: any) => ({ value: c.id, label: c.name })), hasMore: result.hasMore, additional: { page: page + 1 } };
     },
     [searchConsignees],
   );
 
-  // --- Filters ---
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFilters({ search: e.target.value });
   };
@@ -144,66 +132,32 @@ export const PendingStockHistory = () => {
       end = getTodayDate();
     }
 
-    setFilters({
-      filterType: type,
-      startDate: start,
-      endDate: end,
-      customStart: '',
-      customEnd: '',
-    });
+    setFilters({ filterType: type, startDate: start, endDate: end, customStart: '', customEnd: '' });
   };
 
   const handleCustomDateChange = (start: string, end: string) => {
-    setFilters({
-      filterType: 'custom',
-      customStart: start,
-      customEnd: end,
-      startDate: start,
-      endDate: end,
-    });
+    setFilters({ filterType: 'custom', customStart: start, customEnd: end, startDate: start, endDate: end });
   };
 
   const clearAllFilters = () => {
     setDestinationOption(null);
     setConsignorOption(null);
     setConsigneeOptions([]);
-
-    setFilters({
-      search: '',
-      filterType: 'all',
-      startDate: '',
-      endDate: '',
-      destination: '',
-      consignor: '',
-      consignee: [],
-    });
-
-    // clear selection + exclusion state
+    setFilters({ search: '', filterType: 'all', startDate: '', endDate: '', destination: '', consignor: '', consignee: [] });
     setSelectAllMode(false);
     setSelectedGcIds([]);
     setExcludedGcIds([]);
     setExclusionFilter({ isActive: false, filterKey: '' });
   };
 
-  const hasActiveFilters =
-    !!filters.destination ||
-    !!filters.consignor ||
-    (filters.consignee && filters.consignee.length > 0) ||
-    filters.filterType !== 'all' ||
-    !!filters.search;
+  const hasActiveFilters = !!filters.destination || !!filters.consignor || (filters.consignee && filters.consignee.length > 0) || filters.filterType !== 'all' || !!filters.search;
 
-  // --- Selection helpers (same pattern as TripSheetList) ---
   const isRowSelected = (gcNo: string): boolean => {
-    if (selectAllMode) {
-      // Bulk mode: selected unless explicitly excluded
-      return !excludedGcIds.includes(gcNo);
-    }
-    // Standard mode: selected if present in selectedGcIds
+    if (selectAllMode) return !excludedGcIds.includes(gcNo);
     return selectedGcIds.includes(gcNo);
   };
 
-  const isAllVisibleSelected =
-    paginatedData.length > 0 && paginatedData.every((gc) => isRowSelected(gc.gcNo));
+  const isAllVisibleSelected = paginatedData.length > 0 && paginatedData.every((gc) => isRowSelected(gc.gcNo));
 
   const isIndeterminate = useMemo(() => {
     if (paginatedData.length === 0) return false;
@@ -211,74 +165,52 @@ export const PendingStockHistory = () => {
     return selectedCount > 0 && selectedCount < paginatedData.length;
   }, [paginatedData, selectAllMode, excludedGcIds, selectedGcIds]);
 
-  // total selected count
-  const finalCount = selectAllMode
-    ? Math.max(0, totalItems - excludedGcIds.length)
-    : selectedGcIds.length;
-
-  // All selected across dataset?
-  const isAllSelected =
-    selectAllMode || (totalItems > 0 && !selectAllMode && selectedGcIds.length === totalItems);
-
-  // multiple selection flag (for showing "Exclude" button)
+  const finalCount = selectAllMode ? Math.max(0, totalItems - excludedGcIds.length) : selectedGcIds.length;
+  const isAllSelected = selectAllMode || (totalItems > 0 && !selectAllMode && selectedGcIds.length === totalItems);
   const multipleSelected = finalCount > 1;
 
-  // --- Header checkbox (page-only select/deselect) ---
   const handleSelectAllVisible = (e: React.ChangeEvent<HTMLInputElement>) => {
     const visibleGcNos = paginatedData.map((gc) => gc.gcNo);
     const checked = e.target.checked;
 
     if (checked) {
-      // select all visible
       if (selectAllMode) {
-        // bulk mode: remove visible from exclusions
         setExcludedGcIds((prev) => prev.filter((id) => !visibleGcNos.includes(id)));
       } else {
-        // standard mode: add visible to selected
         setSelectedGcIds((prev) => Array.from(new Set([...prev, ...visibleGcNos])));
       }
     } else {
-      // deselect visible
       if (selectAllMode) {
-        // bulk mode: add visible to exclusions
         setExcludedGcIds((prev) => Array.from(new Set([...prev, ...visibleGcNos])));
       } else {
-        // standard mode: remove visible from selected
         setSelectedGcIds((prev) => prev.filter((id) => !visibleGcNos.includes(id)));
       }
     }
   };
 
-  // --- Row checkbox ---
   const handleSelectRow = (e: React.ChangeEvent<HTMLInputElement>, id: string) => {
     const checked = e.target.checked;
 
     if (selectAllMode) {
       if (checked) {
-        // SELECT: remove from exclusion list
         setExcludedGcIds((prev) => prev.filter((gcId) => gcId !== id));
       } else {
-        // DESELECT: add to exclusion list
         setExcludedGcIds((prev) => Array.from(new Set([...prev, id])));
       }
     } else {
       if (checked) {
-        // add to selection
         setSelectedGcIds((prev) => Array.from(new Set([...prev, id])));
       } else {
-        // remove from selection
         setSelectedGcIds((prev) => prev.filter((gcId) => gcId !== id));
       }
     }
   };
 
-  // --- Bulk Select / Clear (dataset-wide) ---
   const handleCombinedBulkSelect = () => {
     if (totalItems === 0) {
       toast.error('No items found to select based on current filters.');
       return;
     }
-
     setSelectAllMode(true);
     setExcludedGcIds([]);
     setSelectedGcIds([]);
@@ -292,14 +224,11 @@ export const PendingStockHistory = () => {
     setExclusionFilter({ isActive: false, filterKey: '' });
   };
 
-  // bulk button logic
   const bulkButtonText = isAllSelected ? 'Clear Selection' : 'Select All';
-  const bulkButtonIcon = isAllSelected ? XCircle : PackageCheck;
+  const BulkIconComponent = isAllSelected ? XCircle : PackageCheck;
   const bulkButtonVariant = isAllSelected ? 'destructive' : 'primary';
   const handleBulkAction = isAllSelected ? handleCombinedBulkDeselect : handleCombinedBulkSelect;
-  const BulkIconComponent = bulkButtonIcon;
 
-  // --- Exclude filtered data (visible page) ---
   const handleExcludeFilteredData = () => {
     if (!selectAllMode) {
       toast.error("You must first click 'Select All' to use the exclusion feature.");
@@ -309,25 +238,19 @@ export const PendingStockHistory = () => {
     const visibleGcNos = paginatedData.map((gc) => gc.gcNo);
     setExcludedGcIds((prev) => Array.from(new Set([...prev, ...visibleGcNos])));
 
-    // pick a filter key to show on banner
     let filterKey: string | undefined;
     if (filters.consignor) filterKey = 'Consignor';
     else if (filters.destination) filterKey = 'Destination';
     else if (filters.consignee && filters.consignee.length > 0) filterKey = 'Consignee';
 
-    setExclusionFilter({
-      isActive: true,
-      filterKey,
-    });
-
+    setExclusionFilter({ isActive: true, filterKey });
   };
 
-  // --- CRUD / print handlers ---
-  const handleEdit = (gcNo: string) => navigate(`/gc-entry/edit/${gcNo}`);
+  const handleEdit = (gcNo: string) => navigate('/gc-entry/edit/' + gcNo);
 
   const handleDelete = (gcNo: string) => {
     setDeletingId(gcNo);
-    setDeleteMessage(`Are you sure you want to delete GC #${gcNo}?`);
+    setDeleteMessage('Are you sure you want to delete GC #' + gcNo + '?');
     setIsConfirmOpen(true);
   };
 
@@ -335,7 +258,6 @@ export const PendingStockHistory = () => {
     if (deletingId) {
       await deleteGcEntry(deletingId);
       refresh();
-      // also clean from any selection lists
       setSelectedGcIds((prev) => prev.filter((id) => id !== deletingId));
       setExcludedGcIds((prev) => prev.filter((id) => id !== deletingId));
     }
@@ -349,13 +271,7 @@ export const PendingStockHistory = () => {
       if (printData && printData.length > 0) {
         const item = printData[0];
         const { consignor, consignee, ...gcData } = item;
-        setGcPrintingJobs([
-          {
-            gc: gcData as GcEntry,
-            consignor: consignor as Consignor,
-            consignee: consignee as Consignee,
-          },
-        ]);
+        setGcPrintingJobs([{ gc: gcData as GcEntry, consignor: consignor as Consignor, consignee: consignee as Consignee }]);
       } else {
         toast.error('Failed to fetch GC details.');
       }
@@ -372,11 +288,9 @@ export const PendingStockHistory = () => {
       let printData: any[] = [];
 
       if (selectAllMode) {
-        // print all filtered pending stock, excluding explicit exclusions
         const printFilters = { ...filters, pendingStockView: true, excludeIds: excludedGcIds };
         printData = await fetchGcPrintData([], true, printFilters);
       } else {
-        // print only explicitly selected IDs
         printData = await fetchGcPrintData(selectedGcIds);
       }
 
@@ -389,17 +303,12 @@ export const PendingStockHistory = () => {
         .map((item: any): GcPrintJob | null => {
           const { consignor, consignee, ...gcData } = item;
           if (!consignor || !consignee) return null;
-          return {
-            gc: gcData as GcEntry,
-            consignor: consignor as Consignor,
-            consignee: consignee as Consignee,
-          };
+          return { gc: gcData as GcEntry, consignor: consignor as Consignor, consignee: consignee as Consignee };
         })
         .filter((job): job is GcPrintJob => job !== null);
 
       if (jobs.length > 0) {
         setGcPrintingJobs(jobs);
-        // clear selection after print
         setSelectAllMode(false);
         setSelectedGcIds([]);
         setExcludedGcIds([]);
@@ -416,12 +325,10 @@ export const PendingStockHistory = () => {
   const handleShowReport = async () => {
     try {
       const reportData = await fetchPendingStockReport(filters);
-
       if (!reportData || reportData.length === 0) {
         toast.error('No pending stock found for current filters.');
         return;
       }
-
       setReportPrintingData(reportData);
     } catch (error) {
       console.error('Error fetching report data', error);
@@ -429,414 +336,308 @@ export const PendingStockHistory = () => {
     }
   };
 
-  // --- UI helpers ---
-  const responsiveBtnClass =
-    'w-full md:w-auto text-[10px] xs:text-xs sm:text-sm h-8 mb-1 sm:h-10 px-1 sm:px-4 whitespace-nowrap';
-
-  const printButtonText = selectAllMode
-    ? `Print All (${finalCount})`
-    : `Print (${finalCount})`;
+  const printButtonText = 'Print (' + finalCount + ')';
 
   return (
-    <div className="space-y-6">
-      {/* Top Bar */}
-      <div className="flex flex-col md:flex-row gap-2 sm:gap-4 items-center justify-between bg-background p-4 rounded-lg shadow border border-muted">
-        {/* LEFT: search + filter toggle */}
-        <div className="flex items-center gap-2 w-full md:w-1/2">
-          <div className="relative flex-1">
-            <input
-              type="text"
-              placeholder="Search all data..."
-              value={filters.search || ''}
-              onChange={handleSearchChange}
-              className="w-full pl-10 pr-4 py-2 bg-background text-foreground border border-muted-foreground/30 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
-            />
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-              size={18}
-            />
+    <div className="space-y-4">
+      {/* ===== CONTROL BAR ===== */}
+      <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+      {/* Desktop - Single Row (xl and above) */}
+<div className="hidden xl:flex items-center gap-3">
+  {/* Search Bar (Stays on Left) */}
+  <div className="relative flex-1 max-w-md">
+    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+    <input 
+      type="text" 
+      placeholder="Search pending stock..." 
+      value={filters.search || ''} 
+      onChange={handleSearchChange} 
+      className="w-full h-10 pl-10 pr-4 bg-secondary/50 text-foreground rounded-lg border-0 focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/60 text-sm" 
+    />
+  </div>
+
+  {/* Button Group (Moved to Right using ml-auto) */}
+  <div className="flex items-center gap-3 ml-auto">
+    <Button 
+      variant={hasActiveFilters ? "primary" : "outline"} 
+      onClick={() => setShowFilters(!showFilters)} 
+      className="h-10 px-4 shrink-0"
+    >
+      <Filter className="w-4 h-4" />
+      Filters
+      {hasActiveFilters && <span className="ml-1.5 w-1.5 h-1.5 bg-white rounded-full animate-pulse" />}
+    </Button>
+
+    <Button 
+      variant="secondary" 
+      onClick={handleShowReport} 
+      className="h-10"
+    >
+      <FileText className="w-4 h-4" />
+      Report
+    </Button>
+
+    <Button 
+      variant="secondary" 
+      onClick={handlePrintSelected} 
+      disabled={finalCount === 0} 
+      className="h-10"
+    >
+      <Printer className="w-4 h-4" />
+      {printButtonText}
+    </Button>
+
+    <Button 
+      variant={bulkButtonVariant} 
+      onClick={handleBulkAction} 
+      disabled={!selectAllMode && selectedGcIds.length === 0 && totalItems === 0} 
+      className="h-10"
+    >
+      <BulkIconComponent className="w-4 h-4" />
+      {bulkButtonText}
+    </Button>
+
+    <Button 
+      variant="primary" 
+      onClick={() => navigate('/gc-entry/new')} 
+      className="h-10"
+    >
+      <Plus className="w-4 h-4" />
+      Add New GC
+    </Button>
+  </div>
+</div>
+
+        {/* Tablet & Mobile - Two Rows (below xl) */}
+        <div className="flex xl:hidden flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input type="text" placeholder="Search pending stock..." value={filters.search || ''} onChange={handleSearchChange} className="w-full h-10 pl-10 pr-4 bg-secondary/50 text-foreground rounded-lg border-0 focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/60 text-sm" />
+            </div>
+            <Button variant={hasActiveFilters ? "primary" : "outline"} onClick={() => setShowFilters(!showFilters)} className="h-10 px-3 shrink-0">
+              <Filter className="w-4 h-4" />
+              <span className="hidden sm:inline ml-1">Filters</span>
+              {hasActiveFilters && <span className="ml-1.5 w-1.5 h-1.5 bg-white rounded-full animate-pulse" />}
+            </Button>
           </div>
-          <Button
-            variant={hasActiveFilters ? 'primary' : 'outline'}
-            onClick={() => setShowFilters(!showFilters)}
-            className="h-10 px-3 shrink-0"
-            title="Toggle Filters"
-          >
-            <Filter size={18} className={hasActiveFilters ? 'mr-2' : ''} />
-            {hasActiveFilters && 'Active'}
-          </Button>
-        </div>
 
-        {/* RIGHT: actions - 2-column grid on mobile, row on desktop */}
-        <div className="w-full md:w-auto mt-2 md:mt-0 grid grid-cols-2 gap-2 md:flex md:flex-row md:gap-2 md:justify-stretch">
-          {/* REPORT */}
-          <Button variant="secondary" onClick={handleShowReport} className={responsiveBtnClass}>
-            <FileText size={14} className="mr-1 sm:mr-2" /> Report
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={handleShowReport} className="flex-1 h-9 text-xs sm:text-sm">
+              <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline ml-1">Report</span>
+            </Button>
 
-          {/* PRINT */}
-          <Button
-            variant="secondary"
-            onClick={handlePrintSelected}
-            disabled={finalCount === 0}
-            className={responsiveBtnClass}
-          >
-            <Printer size={14} className="mr-1 sm:mr-2" />
-            {printButtonText}
-          </Button>
+            <Button variant="secondary" onClick={handlePrintSelected} disabled={finalCount === 0} className="flex-1 h-9 text-xs sm:text-sm">
+              <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="ml-1">({finalCount})</span>
+            </Button>
 
-          {/* BULK SELECT / CLEAR */}
-          <Button
-            variant={bulkButtonVariant}
-            onClick={handleBulkAction}
-            className={responsiveBtnClass}
-            disabled={!selectAllMode && selectedGcIds.length === 0 && totalItems === 0}
-            title={
-              bulkButtonText === 'Clear Selection'
-                ? 'Click to remove all items from selection'
-                : 'Select all filtered items'
-            }
-          >
-            <BulkIconComponent size={14} className="mr-1 sm:mr-2" />
-            {bulkButtonText}
-          </Button>
+            <Button variant={bulkButtonVariant} onClick={handleBulkAction} disabled={!selectAllMode && selectedGcIds.length === 0 && totalItems === 0} className="flex-1 h-9 text-xs sm:text-sm">
+              <BulkIconComponent className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline ml-1">{isAllSelected ? "Clear" : "Select All"}</span>
+              <span className="sm:hidden ml-1">{isAllSelected ? "Clear" : "All"}</span>
+            </Button>
 
-          {/* ADD NEW */}
-          <Button
-            variant="primary"
-            onClick={() => navigate('/gc-entry/new')}
-            className={responsiveBtnClass}
-          >
-            + Add New GC
-          </Button>
+            <Button variant="primary" onClick={() => navigate('/gc-entry/new')} className="flex-1 h-9 text-xs sm:text-sm">
+              <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline ml-1">Add GC</span>
+              <span className="sm:hidden ml-1">Add</span>
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Advanced Filters */}
+      {/* ===== FILTERS PANEL ===== */}
       {showFilters && (
-        <div className="p-4 bg-muted/20 rounded-lg border border-muted animate-in fade-in slide-in-from-top-2">
+        <div className="bg-card border border-border rounded-xl p-4 shadow-sm animate-in slide-in-from-top-2 duration-200">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">
-              Advanced Filters
-            </h3>
-            <div className="flex gap-4">
-              {/* Exclude button – visible when multiple items selected */}
+            <h3 className="text-sm font-semibold text-foreground">Filters</h3>
+            <div className="flex items-center gap-2">
               {multipleSelected && (
-                <button
-                  onClick={handleExcludeFilteredData}
-                  className="text-xs flex items-center text-destructive hover:text-destructive/80 font-medium"
-                  disabled={paginatedData.length === 0}
-                  title="Exclude all visible items from the current bulk selection"
-                >
-                  <XCircle size={14} className="mr-1" />
-                  Exclude
+                <button onClick={handleExcludeFilteredData} disabled={paginatedData.length === 0} className="inline-flex items-center gap-1 text-xs text-destructive hover:text-destructive/80 font-medium">
+                  <XCircle className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Exclude Visible</span>
                 </button>
               )}
-              <button
-                onClick={clearAllFilters}
-                className="text-xs flex items-center text-primary hover:text-primary/80 font-medium"
-              >
-                <RotateCcw size={14} className="mr-1" /> Clear All
+              <button onClick={clearAllFilters} className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium">
+                <FilterX className="w-3.5 h-3.5" />
+                Clear All
               </button>
-              
+              <button onClick={() => setShowFilters(false)} className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                <ChevronUp className="w-4 h-4" />
+              </button>
             </div>
           </div>
 
-          {/* Exclusion banner (same style as TripSheetList) */}
           {exclusionFilter.isActive && selectAllMode && (
-            <div className="mb-4 p-3 bg-yellow-100 text-yellow-800 border border-yellow-300 rounded text-sm">
-              <strong>Exclusion Active:</strong> {excludedGcIds.length} Pending GCs are currently
-              excluded from the bulk selection{' '}
-              {exclusionFilter.filterKey && (
-                <>
-                  (e.g., those matching{' '}
-                  <strong>
-                    {exclusionFilter.filterKey}:{' '}
-                    {consignorOption?.label ||
-                      destinationOption?.label ||
-                      (consigneeOptions[0]?.label as string) ||
-                      'Filter Value'}
-                  </strong>
-                  ).
-                </>
-              )}
+            <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-start gap-3">
+              <XCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+              <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                Exclusion Active: {excludedGcIds.length} GCs excluded
+                {exclusionFilter.filterKey && <> (filtered by <strong>{exclusionFilter.filterKey}</strong>)</>}
+              </p>
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <AsyncAutocomplete
-              label="Destination"
-              loadOptions={loadDestinationOptions}
-              value={destinationOption}
-              onChange={(val) => {
-                setDestinationOption(val);
-                const destinationValue = (val as any)?.value || '';
-                setFilters({ destination: destinationValue });
-                if (!destinationValue) {
-                  setExclusionFilter({ isActive: false, filterKey: '' });
-                }
-              }}
-              placeholder="Search..."
-              defaultOptions
-            />
-
-            <AsyncAutocomplete
-              label="Consignor"
-              loadOptions={loadConsignorOptions}
-              value={consignorOption}
-              onChange={(val) => {
-                setConsignorOption(val);
-                const consignorValue = (val as any)?.value || '';
-                setFilters({ consignor: consignorValue });
-                if (!consignorValue) {
-                  setExclusionFilter({ isActive: false, filterKey: '' });
-                }
-              }}
-              placeholder="Search..."
-              defaultOptions
-            />
-
-            <div>
-              <AsyncAutocomplete
-                label="Filter by Consignee (Multi-select)"
-                loadOptions={loadConsigneeOptions}
-                value={consigneeOptions}
-                onChange={(val: any) => {
-                  const arr = Array.isArray(val) ? val : val ? [val] : [];
-                  setConsigneeOptions(arr);
-                  const ids = arr.map((v: any) => v.value);
-                  setFilters({ consignee: ids });
-                }}
-                placeholder="Select consignees..."
-                isMulti={true}
-                defaultOptions
-              />
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+            <AsyncAutocomplete label="Destination" loadOptions={loadDestinationOptions} value={destinationOption} onChange={(val) => { setDestinationOption(val); setFilters({ destination: (val as any)?.value || '' }); }} placeholder="Search destination..." defaultOptions />
+            <AsyncAutocomplete label="Consignor" loadOptions={loadConsignorOptions} value={consignorOption} onChange={(val) => { setConsignorOption(val); setFilters({ consignor: (val as any)?.value || '' }); }} placeholder="Search consignor..." defaultOptions />
+            <AsyncAutocomplete label="Consignee (Multi-select)" loadOptions={loadConsigneeOptions} value={consigneeOptions} onChange={(val: any) => { const arr = Array.isArray(val) ? val : val ? [val] : []; setConsigneeOptions(arr); setFilters({ consignee: arr.map((v: any) => v.value) }); }} placeholder="Select consignees..." isMulti={true} defaultOptions />
           </div>
 
-          <DateFilterButtons
-            filterType={filters.filterType || 'all'}
-            setFilterType={handleFilterTypeChange}
-            customStart={filters.customStart || ''}
-            setCustomStart={(val) => handleCustomDateChange(val, filters.customEnd)}
-            customEnd={filters.customEnd || ''}
-            setCustomEnd={(val) => handleCustomDateChange(filters.customStart, val)}
-          />
+          <DateFilterButtons filterType={filters.filterType || 'all'} setFilterType={handleFilterTypeChange} customStart={filters.customStart || ''} setCustomStart={(val) => handleCustomDateChange(val, filters.customEnd)} customEnd={filters.customEnd || ''} setCustomEnd={(val) => handleCustomDateChange(filters.customStart, val)} />
         </div>
       )}
 
-      {/* Main Table */}
-      <div className="bg-background rounded-lg shadow border border-muted overflow-hidden">
-        {/* Desktop table */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="min-w-full divide-y divide-muted">
-            <thead className="bg-muted/50">
-              <tr>
-                <th
-                  className="px-4 py-3 text-left w-12"
-                  title="Select/Deselect all visible items"
-                >
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 accent-primary border-muted-foreground/30 rounded focus:ring-primary"
-                    checked={isAllVisibleSelected}
-                    ref={(el) => {
-                      if (el) el.indeterminate = isIndeterminate;
-                    }}
-                    onChange={handleSelectAllVisible}
-                  />
+      {/* ===== DATA TABLE ===== */}
+      <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+        {/* Desktop Table - xl and above */}
+        <div className="hidden xl:block overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border bg-muted/30">
+                <th className="px-4 py-3 text-left w-12">
+                  <input type="checkbox" className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer" checked={isAllVisibleSelected} ref={(el) => { if (el) el.indeterminate = isIndeterminate; }} onChange={handleSelectAllVisible} />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
-                  GC No
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
-                  Consignor
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
-                  Consignee
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
-                  From
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
-                  To
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
-                  Qty
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
-                  Actions
-                </th>
+                <th className="px-4 py-3 text-left"><div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider"><Hash className="w-3.5 h-3.5" />GC No</div></th>
+                <th className="px-4 py-3 text-left"><div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider"><User className="w-3.5 h-3.5" />Consignor</div></th>
+                <th className="px-4 py-3 text-left"><div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider"><User className="w-3.5 h-3.5" />Consignee</div></th>
+                <th className="px-4 py-3 text-left"><div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider"><MapPin className="w-3.5 h-3.5" />From</div></th>
+                <th className="px-4 py-3 text-left"><div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider"><MapPin className="w-3.5 h-3.5" />To</div></th>
+                <th className="px-4 py-3 text-left"><div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider"><Package className="w-3.5 h-3.5" />Qty</div></th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-28">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-muted">
+            <tbody className="divide-y divide-border">
               {loading ? (
-                <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center">
-                    Loading data...
-                  </td>
-                </tr>
+                <tr><td colSpan={8} className="px-4 py-12 text-center"><div className="flex flex-col items-center gap-3"><div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /><span className="text-sm text-muted-foreground">Loading...</span></div></td></tr>
               ) : paginatedData.length > 0 ? (
                 paginatedData.map((gc) => {
-                  const consignorName =
-                    (gc as any).consignorName || (gc as any).consignor?.name || 'N/A';
-                  const consigneeName =
-                    (gc as any).consigneeName || (gc as any).consignee?.name || 'N/A';
+                  const consignorName = (gc as any).consignorName || (gc as any).consignor?.name || 'N/A';
+                  const consigneeName = (gc as any).consigneeName || (gc as any).consignee?.name || 'N/A';
                   const isSelected = isRowSelected(gc.gcNo);
 
                   return (
-                    <tr key={gc.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-4">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 accent-primary"
-                          checked={isSelected}
-                          onChange={(e) => handleSelectRow(e, gc.gcNo)}
-                        />
-                      </td>
-                      <td className="px-6 py-4 text-primary font-bold">{gc.gcNo}</td>
-                      <td className="px-6 py-4 text-sm">{consignorName}</td>
-                      <td className="px-6 py-4 text-sm">{consigneeName}</td>
-                      <td className="px-6 py-4 text-sm">{gc.from}</td>
-                      <td className="px-6 py-4 text-sm">{gc.destination}</td>
-                      <td className="px-6 py-4 text-sm">{gc.totalQty}</td>
-                      <td className="px-6 py-4 space-x-3">
-                        <button
-                          onClick={() => handleEdit(gc.gcNo)}
-                          className="text-blue-600 hover:text-blue-800"
-                        >
-                          <FilePenLine size={18} />
-                        </button>
-                        <button
-                          onClick={() => handlePrintSingle(gc.gcNo)}
-                          className="text-green-600 hover:text-green-800"
-                        >
-                          <Printer size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(gc.gcNo)}
-                          className="text-destructive hover:text-destructive/80"
-                        >
-                          <Trash2 size={18} />
-                        </button>
+                    <tr key={gc.id} className={`transition-colors hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""}`}>
+                      <td className="px-4 py-3"><input type="checkbox" className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer" checked={isSelected} onChange={(e) => handleSelectRow(e, gc.gcNo)} /></td>
+                      <td className="px-4 py-3"><span className="font-semibold text-primary">{gc.gcNo}</span></td>
+                      <td className="px-4 py-3"><span className="text-sm text-foreground">{consignorName}</span></td>
+                      <td className="px-4 py-3"><span className="text-sm text-foreground">{consigneeName}</span></td>
+                      <td className="px-4 py-3"><span className="text-sm text-foreground">{gc.from}</span></td>
+                      <td className="px-4 py-3"><span className="text-sm text-foreground">{gc.destination}</span></td>
+                      <td className="px-4 py-3"><span className="text-sm text-foreground">{gc.totalQty}</span></td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => handleEdit(gc.gcNo)} className="p-1.5 rounded-md text-blue-600 hover:bg-blue-500/10 transition-colors" title="Edit"><FilePenLine className="w-4 h-4" /></button>
+                          <button onClick={() => handlePrintSingle(gc.gcNo)} className="p-1.5 rounded-md text-emerald-600 hover:bg-emerald-500/10 transition-colors" title="Print"><Printer className="w-4 h-4" /></button>
+                          <button onClick={() => handleDelete(gc.gcNo)} className="p-1.5 rounded-md text-destructive hover:bg-destructive/10 transition-colors" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                        </div>
                       </td>
                     </tr>
                   );
                 })
               ) : (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="px-6 py-12 text-center text-muted-foreground"
-                  >
-                    No Pending Stock entries found.
-                  </td>
-                </tr>
+                <tr><td colSpan={8} className="px-4 py-12 text-center"><div className="flex flex-col items-center gap-2"><Clock className="w-10 h-10 text-muted-foreground/30" /><p className="text-sm text-muted-foreground">No Pending Stock entries found</p></div></td></tr>
               )}
             </tbody>
           </table>
         </div>
 
-        {/* Mobile list */}
-        <div className="block md:hidden divide-y divide-muted">
-          {paginatedData.length > 0 ? (
+        {/* Tablet Table - lg to xl */}
+        <div className="hidden lg:block xl:hidden overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border bg-muted/30">
+                <th className="px-3 py-3 text-left w-10"><input type="checkbox" className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer" checked={isAllVisibleSelected} ref={(el) => { if (el) el.indeterminate = isIndeterminate; }} onChange={handleSelectAllVisible} /></th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">GC No</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Consignor / Consignee</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Route / Qty</th>
+                <th className="px-3 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider w-24">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {loading ? (
+                <tr><td colSpan={5} className="px-3 py-12 text-center"><div className="flex flex-col items-center gap-3"><div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /><span className="text-sm text-muted-foreground">Loading...</span></div></td></tr>
+              ) : paginatedData.length > 0 ? (
+                paginatedData.map((gc) => {
+                  const consignorName = (gc as any).consignorName || (gc as any).consignor?.name || 'N/A';
+                  const consigneeName = (gc as any).consigneeName || (gc as any).consignee?.name || 'N/A';
+                  const isSelected = isRowSelected(gc.gcNo);
+
+                  return (
+                    <tr key={gc.id} className={`transition-colors hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""}`}>
+                      <td className="px-3 py-3"><input type="checkbox" className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer" checked={isSelected} onChange={(e) => handleSelectRow(e, gc.gcNo)} /></td>
+                      <td className="px-3 py-3"><span className="font-semibold text-primary">{gc.gcNo}</span></td>
+                      <td className="px-3 py-3"><div className="text-sm"><span className="text-foreground block">{consignorName}</span><span className="text-muted-foreground text-xs">→ {consigneeName}</span></div></td>
+                      <td className="px-3 py-3"><div className="text-sm"><span className="text-foreground block">{gc.from} → {gc.destination}</span><span className="text-muted-foreground text-xs">Qty: {gc.totalQty}</span></div></td>
+                      <td className="px-3 py-3">
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => handleEdit(gc.gcNo)} className="p-1.5 rounded-md text-blue-600 hover:bg-blue-500/10 transition-colors" title="Edit"><FilePenLine className="w-4 h-4" /></button>
+                          <button onClick={() => handlePrintSingle(gc.gcNo)} className="p-1.5 rounded-md text-emerald-600 hover:bg-emerald-500/10 transition-colors" title="Print"><Printer className="w-4 h-4" /></button>
+                          <button onClick={() => handleDelete(gc.gcNo)} className="p-1.5 rounded-md text-destructive hover:bg-destructive/10 transition-colors" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr><td colSpan={5} className="px-3 py-12 text-center"><div className="flex flex-col items-center gap-2"><Clock className="w-10 h-10 text-muted-foreground/30" /><p className="text-sm text-muted-foreground">No Pending Stock entries found</p></div></td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile Cards - below lg */}
+        <div className="block lg:hidden divide-y divide-border">
+          {loading ? (
+            <div className="p-6 text-center"><div className="flex flex-col items-center gap-2"><div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /><span className="text-sm text-muted-foreground">Loading...</span></div></div>
+          ) : paginatedData.length > 0 ? (
             paginatedData.map((gc) => {
-              const consignorName =
-                (gc as any).consignorName || (gc as any).consignor?.name || 'N/A';
-              const consigneeName =
-                (gc as any).consigneeName || (gc as any).consignee?.name || 'N/A';
+              const consignorName = (gc as any).consignorName || (gc as any).consignor?.name || 'N/A';
+              const consigneeName = (gc as any).consigneeName || (gc as any).consignee?.name || 'N/A';
               const isSelected = isRowSelected(gc.gcNo);
 
               return (
-                <div
-                  key={gc.id}
-                  className={`p-4 hover:bg-muted/30 transition-colors ${
-                    isSelected ? '' : ''
-                  }`}
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="flex gap-3 flex-1">
-                      <div className="pt-1">
-                        <input
-                          type="checkbox"
-                          className="h-5 w-5 accent-primary"
-                          checked={isSelected}
-                          onChange={(e) => handleSelectRow(e, gc.gcNo)}
-                        />
+                <div key={gc.id} className={`p-4 transition-colors ${isSelected ? "bg-primary/5" : ""}`}>
+                  <div className="flex gap-3">
+                    <div className="pt-0.5 flex-shrink-0"><input type="checkbox" className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer" checked={isSelected} onChange={(e) => handleSelectRow(e, gc.gcNo)} /></div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-1.5"><Hash className="w-4 h-4 text-primary/60" /><span className="font-bold text-primary">GC #{gc.gcNo}</span></div>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-500/10 text-amber-600"><Clock className="w-3 h-3" />Pending</span>
                       </div>
-                      <div className="space-y-1 w-full">
-                        <div className="font-bold text-blue-600 text-lg">GC #{gc.gcNo}</div>
-                        <div className="font-semibold text-foreground">{consignorName}</div>
-                        <div className="text-sm text-muted-foreground">To: {consigneeName}</div>
-                        <div className="text-sm text-muted-foreground">From: {gc.from}</div>
-                        <div className="text-sm text-muted-foreground">At: {gc.destination}</div>
+                      <div className="space-y-1.5 text-sm mb-3">
+                        <div className="flex items-center gap-2 text-foreground"><User className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /><span className="text-muted-foreground">From:</span><span className="truncate">{consignorName}</span></div>
+                        <div className="flex items-center gap-2 text-foreground"><ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /><span className="text-muted-foreground">To:</span><span className="truncate">{consigneeName}</span></div>
+                        <div className="flex items-center gap-2 text-foreground"><MapPin className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /><span className="text-muted-foreground">Route:</span><span className="truncate">{gc.from} → {gc.destination}</span></div>
+                        <div className="flex items-center gap-2 text-foreground"><Package className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /><span className="text-muted-foreground">Qty:</span><span className="font-semibold">{gc.totalQty}</span></div>
+                      </div>
+                      <div className="flex items-center gap-2 pt-3 border-t border-border">
+                        <button onClick={() => handleEdit(gc.gcNo)} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium text-blue-600 bg-blue-500/10 hover:bg-blue-500/20 transition-colors"><FilePenLine className="w-3.5 h-3.5" />Edit</button>
+                        <button onClick={() => handlePrintSingle(gc.gcNo)} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors"><Printer className="w-3.5 h-3.5" />Print</button>
+                        <button onClick={() => handleDelete(gc.gcNo)} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium text-destructive bg-destructive/10 hover:bg-destructive/20 transition-colors"><Trash2 className="w-3.5 h-3.5" />Delete</button>
                       </div>
                     </div>
-                    <div className="flex flex-col gap-3 pl-2">
-                      <button
-                        onClick={() => handleEdit(gc.gcNo)}
-                        className="text-blue-600 p-1 hover:bg-blue-50 rounded"
-                      >
-                        <FilePenLine size={20} />
-                      </button>
-                      <button
-                        onClick={() => handlePrintSingle(gc.gcNo)}
-                        className="text-green-600 p-1 hover:bg-green-50 rounded"
-                      >
-                        <Printer size={20} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(gc.gcNo)}
-                        className="text-destructive p-1 hover:bg-red-50 rounded"
-                      >
-                        <Trash2 size={20} />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center mt-3 pt-3 border-t border-dashed border-muted">
-                    <div className="text-sm font-medium">Qty: {gc.totalQty}</div>
-                    <div className="text-sm font-bold text-muted-foreground">Status: Pending</div>
                   </div>
                 </div>
               );
             })
           ) : (
-            <div className="p-8 text-center text-muted-foreground">
-              No Pending Stock entries found.
-            </div>
+            <div className="p-8 text-center"><div className="flex flex-col items-center gap-2"><Clock className="w-10 h-10 text-muted-foreground/30" /><p className="text-sm text-muted-foreground">No Pending Stock entries found</p></div></div>
           )}
         </div>
 
-        <div className="border-t border-muted p-4">
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-            itemsPerPage={itemsPerPage}
-            onItemsPerPageChange={setItemsPerPage}
-            totalItems={totalItems}
-          />
+        {/* Pagination */}
+        <div className="border-t border-border p-4">
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={setItemsPerPage} totalItems={totalItems} />
         </div>
       </div>
 
-      <ConfirmationDialog
-        open={isConfirmOpen}
-        onClose={() => setIsConfirmOpen(false)}
-        onConfirm={handleConfirmDelete}
-        title="Delete GC"
-        description={deleteMessage}
-      />
-
-      {reportPrintingData && (
-        <StockReportPrint
-          data={reportPrintingData}
-          onClose={() => setReportPrintingData(null)}
-        />
-      )}
-      {gcPrintingJobs && (
-        <GcPrintManager jobs={gcPrintingJobs} onClose={() => setGcPrintingJobs(null)} />
-      )}
+      {/* Modals */}
+      <ConfirmationDialog open={isConfirmOpen} onClose={() => setIsConfirmOpen(false)} onConfirm={handleConfirmDelete} title="Delete GC" description={deleteMessage} />
+      {reportPrintingData && <StockReportPrint data={reportPrintingData} onClose={() => setReportPrintingData(null)} />}
+      {gcPrintingJobs && <GcPrintManager jobs={gcPrintingJobs} onClose={() => setGcPrintingJobs(null)} />}
     </div>
   );
 };
-

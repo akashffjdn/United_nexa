@@ -1,6 +1,18 @@
 import { useState, useRef } from 'react';
 import { Button } from './Button';
-import { Upload, AlertCircle, X, CheckCircle, FileText, AlertTriangle, Download } from 'lucide-react';
+import { 
+  Upload, 
+  AlertCircle, 
+  X, 
+  CheckCircle, 
+  AlertTriangle, 
+  Download,
+  FileUp,
+  FileCheck,
+  XCircle,
+  Copy,
+  Sparkles
+} from 'lucide-react';
 
 interface CsvImporterProps<T> {
   onImport: (data: T[]) => void;
@@ -8,7 +20,7 @@ interface CsvImporterProps<T> {
   mapRow: (row: any) => T | null; 
   checkDuplicate: (newItem: T, existingItem: T) => boolean;
   label?: string;
-  className?: string; // Added className prop for responsive styling
+  className?: string;
 }
 
 interface FailedRecord {
@@ -26,6 +38,7 @@ export const CsvImporter = <T,>({
 }: CsvImporterProps<T>) => {
   const [isOpen, setIsOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   
   const [previewData, setPreviewData] = useState<T[]>([]);
   const [failedRecords, setFailedRecords] = useState<FailedRecord[]>([]);
@@ -133,10 +146,7 @@ export const CsvImporter = <T,>({
     setError(null);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (!selectedFile) return;
-
+  const processFile = (selectedFile: File) => {
     if (!selectedFile.name.toLowerCase().endsWith(".csv")) {
       setError("Please select a valid .csv file.");
       return;
@@ -151,6 +161,31 @@ export const CsvImporter = <T,>({
     };
     reader.onerror = () => setError("Failed to read file.");
     reader.readAsText(selectedFile);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+    processFile(selectedFile);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const droppedFile = e.dataTransfer.files?.[0];
+    if (droppedFile) {
+      processFile(droppedFile);
+    }
   };
 
   const handleConfirmImport = () => {
@@ -183,106 +218,213 @@ export const CsvImporter = <T,>({
     document.body.removeChild(link);
   };
 
+  const totalRecords = previewData.length + duplicateCount + invalidCount;
+
   return (
     <>
       <Button variant="outline" onClick={() => setIsOpen(true)} size="sm" className={className}>
-        <Upload size={16} className="mr-2" />
-        {label}
+        <Upload size={16} className="mr-1.5 sm:mr-2" />
+        <span className="hidden xs:inline">{label}</span>
+        <span className="xs:hidden">Import</span>
       </Button>
 
       {isOpen && (
-        <div className="fixed -top-6 left-0 right-0 bottom-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="bg-background rounded-xl shadow-2xl w-full max-w-lg border border-muted flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between p-4 border-b border-muted">
-              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <FileText size={20} className="text-primary" />
-                Import Data
-              </h3>
-              <button onClick={handleClose} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm">
+          <div 
+            className="bg-card rounded-2xl shadow-2xl w-full max-w-md sm:max-w-lg border border-border flex flex-col max-h-[90vh] sm:max-h-[85vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border bg-muted/30">
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <FileUp className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-semibold text-foreground">Import Data</h3>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground hidden sm:block">Upload a CSV file to import records</p>
+                </div>
+              </div>
+              <button 
+                onClick={handleClose} 
+                className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              >
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
             </div>
 
-            <div className="p-6 space-y-6 overflow-y-auto flex-1">
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
               {!file ? (
+                /* Upload Area */
                 <div 
-                  className="border-2 border-dashed border-muted-foreground/30 rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                  className={`relative border-2 border-dashed rounded-xl p-6 sm:p-10 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-200 ${
+                    isDragging 
+                      ? 'border-primary bg-primary/5 scale-[1.02]' 
+                      : 'border-border hover:border-primary/50 hover:bg-muted/30'
+                  }`}
                   onClick={() => fileInputRef.current?.click()}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
                 >
-                  <Upload size={40} className="text-muted-foreground mb-3" />
-                  <p className="text-sm font-medium text-foreground">Click to upload CSV</p>
-                  <p className="text-xs text-muted-foreground mt-1">Supported format: .csv</p>
-                  <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv" className="hidden" />
+                  <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center mb-4 transition-colors ${
+                    isDragging ? 'bg-primary/20' : 'bg-muted'
+                  }`}>
+                    <Upload className={`w-6 h-6 sm:w-7 sm:h-7 transition-colors ${
+                      isDragging ? 'text-primary' : 'text-muted-foreground'
+                    }`} />
+                  </div>
+                  <p className="text-sm sm:text-base font-medium text-foreground mb-1">
+                    {isDragging ? 'Drop your file here' : 'Click or drag to upload'}
+                  </p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Supports CSV files only
+                  </p>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    onChange={handleFileChange} 
+                    accept=".csv" 
+                    className="hidden" 
+                  />
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between bg-muted/30 p-3 rounded-md border border-muted">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-full"><CheckCircle size={18} /></div>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{file.name}</p>
-                        <p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB</p>
-                      </div>
+                /* File Selected - Analysis View */
+                <div className="space-y-4 sm:space-y-5">
+                  {/* File Info Card */}
+                  <div className="flex items-center gap-3 p-3 sm:p-4 rounded-xl bg-muted/50 border border-border">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
+                      <FileCheck className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600" />
                     </div>
-                    <button onClick={handleReset} className="text-xs text-destructive hover:underline font-medium">Change File</button>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm sm:text-base font-medium text-foreground truncate">{file.name}</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">
+                        {(file.size / 1024).toFixed(1)} KB • {totalRecords} records found
+                      </p>
+                    </div>
+                    <button 
+                      onClick={handleReset} 
+                      className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+                      title="Remove file"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
 
-                  {error ? (
-                    <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-md flex items-start gap-2 border border-destructive/20">
-                      <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                      <span>{error}</span>
-                    </div>
-                  ) : (
-                    <div className="bg-card border border-border rounded-lg overflow-hidden shadow-sm">
-                      <div className="p-3 border-b border-border bg-muted/20">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Analysis Report</h4>
+                  {/* Error State */}
+                  {error && (
+                    <div className="flex items-start gap-3 p-3 sm:p-4 rounded-xl bg-destructive/10 border border-destructive/20">
+                      <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-destructive">Import Error</p>
+                        <p className="text-xs sm:text-sm text-destructive/80 mt-0.5">{error}</p>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Analysis Report */}
+                  {!error && (
+                    <div className="bg-card border border-border rounded-xl overflow-hidden">
+                      <div className="px-4 py-3 border-b border-border bg-muted/30">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-primary" />
+                          <h4 className="text-xs sm:text-sm font-semibold text-foreground">Analysis Report</h4>
+                        </div>
+                      </div>
+                      
                       <div className="divide-y divide-border">
-                        <div className="p-4 flex justify-between items-center bg-green-50/50 dark:bg-green-900/10">
-                          <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-green-500" /><span className="text-sm font-medium text-foreground">Ready to Import</span></div>
-                          <span className="text-lg font-bold text-green-600">{previewData.length}</span>
+                        {/* Ready to Import */}
+                        <div className="flex items-center justify-between p-3 sm:p-4">
+                          <div className="flex items-center gap-2.5 sm:gap-3">
+                            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                              <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
+                            </div>
+                            <div>
+                              <p className="text-xs sm:text-sm font-medium text-foreground">Ready to Import</p>
+                              <p className="text-[10px] sm:text-xs text-muted-foreground">Valid unique records</p>
+                            </div>
+                          </div>
+                          <span className="text-lg sm:text-xl font-bold text-emerald-600">{previewData.length}</span>
                         </div>
-                        <div className="p-4 flex justify-between items-center bg-orange-50/50 dark:bg-orange-900/10">
-                          <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-orange-500" /><span className="text-sm font-medium text-foreground">Duplicates (Skipped)</span></div>
-                          <span className="text-lg font-bold text-orange-600">{duplicateCount}</span>
+
+                        {/* Duplicates */}
+                        <div className="flex items-center justify-between p-3 sm:p-4">
+                          <div className="flex items-center gap-2.5 sm:gap-3">
+                            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                              <Copy className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
+                            </div>
+                            <div>
+                              <p className="text-xs sm:text-sm font-medium text-foreground">Duplicates</p>
+                              <p className="text-[10px] sm:text-xs text-muted-foreground">Will be skipped</p>
+                            </div>
+                          </div>
+                          <span className="text-lg sm:text-xl font-bold text-amber-600">{duplicateCount}</span>
                         </div>
-                        <div className="p-4 flex justify-between items-center bg-red-50/50 dark:bg-red-900/10">
-                          <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-500" /><span className="text-sm font-medium text-foreground">Invalid / Missing Fields</span></div>
-                          <span className="text-lg font-bold text-red-600">{invalidCount}</span>
+
+                        {/* Invalid */}
+                        <div className="flex items-center justify-between p-3 sm:p-4">
+                          <div className="flex items-center gap-2.5 sm:gap-3">
+                            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-red-500/10 flex items-center justify-center">
+                              <XCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
+                            </div>
+                            <div>
+                              <p className="text-xs sm:text-sm font-medium text-foreground">Invalid Records</p>
+                              <p className="text-[10px] sm:text-xs text-muted-foreground">Missing or invalid fields</p>
+                            </div>
+                          </div>
+                          <span className="text-lg sm:text-xl font-bold text-red-600">{invalidCount}</span>
                         </div>
                       </div>
                     </div>
                   )}
                   
+                  {/* Download Error Log */}
                   {failedRecords.length > 0 && !error && (
-                    <div className="pt-2">
-                        <Button 
-                            onClick={handleDownloadErrorLog} 
-                            variant="outline" 
-                            className="w-full border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                        >
-                            <Download size={16} className="mr-2" />
-                            Download Error Log ({failedRecords.length} Records)
-                        </Button>
-                        <p className="text-[10px] text-muted-foreground text-center mt-1">
-                            Contains rejected records with reasons. Fix and re-upload.
-                        </p>
-                    </div>
+                    <button 
+                      onClick={handleDownloadErrorLog}
+                      className="w-full flex items-center justify-center gap-2 p-3 sm:p-3.5 rounded-xl border border-destructive/30 text-destructive bg-destructive/5 hover:bg-destructive/10 transition-colors"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span className="text-xs sm:text-sm font-medium">
+                        Download Error Log ({failedRecords.length} records)
+                      </span>
+                    </button>
                   )}
 
+                  {/* No Data Warning */}
                   {previewData.length === 0 && failedRecords.length === 0 && !error && (
-                    <div className="p-3 bg-yellow-50 text-yellow-800 border border-yellow-200 rounded-md text-sm flex items-center gap-2">
-                        <AlertTriangle size={16} />
-                        <span>No data found.</span>
+                    <div className="flex items-center gap-3 p-3 sm:p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                      <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                      <p className="text-xs sm:text-sm text-amber-700 dark:text-amber-400">
+                        No valid data found in the file.
+                      </p>
                     </div>
                   )}
                 </div>
               )}
             </div>
 
-            <div className="p-4 border-t border-muted flex justify-end gap-3 bg-muted/10">
-              <Button variant="secondary" onClick={handleClose}>Cancel</Button>
-              <Button variant="primary" onClick={handleConfirmImport} disabled={!file || !!error || previewData.length === 0}>
-                Import {previewData.length} Records
-              </Button>
+            {/* Footer */}
+            <div className="px-4 sm:px-6 py-4 border-t border-border bg-muted/20">
+              <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 sm:justify-end">
+                <Button 
+                  variant="outline" 
+                  onClick={handleClose}
+                  className="w-full sm:w-auto h-10 sm:h-11"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  variant="primary" 
+                  onClick={handleConfirmImport} 
+                  disabled={!file || !!error || previewData.length === 0}
+                  className="w-full sm:w-auto h-10 sm:h-11"
+                >
+                  <CheckCircle className="w-4 h-4 mr-1.5" />
+                  Import {previewData.length} Records
+                </Button>
+              </div>
             </div>
           </div>
         </div>

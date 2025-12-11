@@ -1,6 +1,24 @@
 import { useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { FilePenLine, Trash2, Search, Printer, FileText, Filter, XCircle, RotateCcw, PackageCheck } from "lucide-react";
+import {
+  FilePenLine,
+  Trash2,
+  Search,
+  Printer,
+  FileText,
+  Filter,
+  XCircle,
+  FilterX,
+  PackageCheck,
+  Plus,
+  Hash,
+  MapPin,
+  Calendar,
+  IndianRupee,
+  ChevronRight,
+  Truck,
+  ChevronUp,
+} from "lucide-react";
 import { DateFilterButtons, getTodayDate, getYesterdayDate } from "../../components/shared/DateFilterButtons";
 import { ConfirmationDialog } from "../../components/shared/ConfirmationDialog";
 import { Button } from "../../components/shared/Button";
@@ -59,7 +77,6 @@ export const TripSheetList = () => {
   } = useServerPagination<TripSheetEntry>({
     endpoint: "/operations/tripsheet",
     initialFilters: { search: "", filterType: "all", consignee: [] } as TripSheetFilter,
-   
   });
 
   const [showFilters, setShowFilters] = useState(false);
@@ -67,12 +84,10 @@ export const TripSheetList = () => {
   const [consignorOption, setConsignorOption] = useState<any>(null);
   const [consigneeOptions, setConsigneeOptions] = useState<any[]>([]);
 
-  // selection state
   const [selectedMfNos, setSelectedMfNos] = useState<string[]>([]);
   const [selectAllMode, setSelectAllMode] = useState(false);
   const [excludedMfNos, setExcludedMfNos] = useState<string[]>([]);
 
-  // exclusion filter banner
   const [exclusionFilter, setExclusionFilter] = useState<ExclusionFilterState>({
     isActive: false,
     filterKey: ""
@@ -84,7 +99,6 @@ export const TripSheetList = () => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteMessage, setDeleteMessage] = useState("");
 
-  // async loaders
   const loadDestinationOptions = useCallback(
     async (search: string, _prevOptions: any, { page }: any) => {
       const result = await searchToPlaces(search, page);
@@ -121,7 +135,6 @@ export const TripSheetList = () => {
     [searchConsignees]
   );
 
-  // filters
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFilters({ search: e.target.value });
   };
@@ -143,41 +156,18 @@ export const TripSheetList = () => {
       end = getTodayDate();
     }
 
-    setFilters({
-      filterType: type,
-      startDate: start,
-      endDate: end,
-      customStart: "",
-      customEnd: ""
-    });
+    setFilters({ filterType: type, startDate: start, endDate: end, customStart: "", customEnd: "" });
   };
 
   const handleCustomDateChange = (start: string, end: string) => {
-    setFilters({
-      filterType: "custom",
-      customStart: start,
-      customEnd: end,
-      startDate: start,
-      endDate: end
-    });
+    setFilters({ filterType: "custom", customStart: start, customEnd: end, startDate: start, endDate: end });
   };
 
   const clearAllFilters = () => {
     setDestinationOption(null);
     setConsignorOption(null);
     setConsigneeOptions([]);
-
-    setFilters({
-      search: "",
-      filterType: "all",
-      startDate: "",
-      endDate: "",
-      toPlace: "",
-      consignor: "",
-      consignee: []
-    });
-
-    // clear selection + exclusion state
+    setFilters({ search: "", filterType: "all", startDate: "", endDate: "", toPlace: "", consignor: "", consignee: [] });
     setSelectAllMode(false);
     setSelectedMfNos([]);
     setExcludedMfNos([]);
@@ -185,14 +175,11 @@ export const TripSheetList = () => {
   };
 
   const isRowSelected = (mfNo: string): boolean => {
-    if (selectAllMode) {
-      return !excludedMfNos.includes(mfNo);
-    }
+    if (selectAllMode) return !excludedMfNos.includes(mfNo);
     return selectedMfNos.includes(mfNo);
   };
 
-  const isAllVisibleSelected =
-    paginatedData.length > 0 && paginatedData.every((ts) => isRowSelected(ts.mfNo));
+  const isAllVisibleSelected = paginatedData.length > 0 && paginatedData.every((ts) => isRowSelected(ts.mfNo));
 
   const isIndeterminate = useMemo(() => {
     if (paginatedData.length === 0) return false;
@@ -200,7 +187,6 @@ export const TripSheetList = () => {
     return selectedCount > 0 && selectedCount < paginatedData.length;
   }, [paginatedData, selectAllMode, excludedMfNos, selectedMfNos]);
 
-  // header checkbox
   const handleSelectAllVisible = (e: React.ChangeEvent<HTMLInputElement>) => {
     const visibleMfNos = paginatedData.map((ts) => ts.mfNo);
     const checked = e.target.checked;
@@ -220,7 +206,6 @@ export const TripSheetList = () => {
     }
   };
 
-  // row checkbox
   const handleSelectRow = (id: string, checked: boolean) => {
     if (selectAllMode) {
       if (checked) {
@@ -249,12 +234,10 @@ export const TripSheetList = () => {
       toast.error("No items found to select based on current filters.");
       return;
     }
-
     setSelectAllMode(true);
     setExcludedMfNos([]);
     setSelectedMfNos([]);
     setExclusionFilter({ isActive: false, filterKey: "" });
-
   };
 
   const handleExcludeFilteredData = () => {
@@ -262,27 +245,20 @@ export const TripSheetList = () => {
       toast.error("You must first click 'Select All' to use the exclusion feature.");
       return;
     }
-
     const visibleMfNos = paginatedData.map((ts) => ts.mfNo);
-
     setExcludedMfNos((prev) => Array.from(new Set([...prev, ...visibleMfNos])));
 
-    // determine which filter to display
     let filterKey: string | undefined;
     if (filters.consignor) filterKey = "Consignor";
     else if (filters.toPlace) filterKey = "Destination";
     else if (filters.consignee && filters.consignee.length > 0) filterKey = "Consignee";
 
-    setExclusionFilter({
-      isActive: true,
-      filterKey
-    });
-
+    setExclusionFilter({ isActive: true, filterKey });
   };
 
   const onDelete = (mfNo: string) => {
     setDelId(mfNo);
-    setDeleteMessage(`Are you sure you want to delete Trip Sheet #${mfNo}?`);
+    setDeleteMessage('Are you sure you want to delete Trip Sheet #' + mfNo + '?');
     setConfirmOpen(true);
   };
 
@@ -291,24 +267,21 @@ export const TripSheetList = () => {
     setConfirmOpen(false);
     try {
       await deleteTripSheet(delId);
-      toast.success(`Trip Sheet #${delId} deleted successfully.`);
+      toast.success('Trip Sheet #' + delId + ' deleted successfully.');
       refresh();
       setSelectedMfNos((prev) => prev.filter((id) => id !== delId));
       setExcludedMfNos((prev) => prev.filter((id) => id !== delId));
     } catch (error) {
       console.error("Deletion failed:", error);
-      toast.error(`Failed to delete Trip Sheet #${delId}.`);
+      toast.error('Failed to delete Trip Sheet #' + delId + '.');
     } finally {
       setDelId(null);
     }
   };
 
   const handlePrintSelected = async () => {
-    const finalCount = selectAllMode
-      ? Math.max(0, totalItems - excludedMfNos.length)
-      : selectedMfNos.length;
-
-    if (finalCount === 0) {
+    const count = selectAllMode ? Math.max(0, totalItems - excludedMfNos.length) : selectedMfNos.length;
+    if (count === 0) {
       toast.error("No Trip Sheets selected for printing.");
       return;
     }
@@ -316,10 +289,7 @@ export const TripSheetList = () => {
     try {
       let sheets: TripSheetEntry[] = [];
       if (selectAllMode) {
-        sheets = await fetchTripSheetPrintData([], true, {
-          ...filters,
-          excludeIds: excludedMfNos
-        });
+        sheets = await fetchTripSheetPrintData([], true, { ...filters, excludeIds: excludedMfNos });
       } else {
         sheets = await fetchTripSheetPrintData(selectedMfNos);
       }
@@ -330,7 +300,7 @@ export const TripSheetList = () => {
         setSelectAllMode(false);
         setExcludedMfNos([]);
         setExclusionFilter({ isActive: false, filterKey: "" });
-        toast.success(`Prepared ${sheets.length} print job(s).`);
+        toast.success('Prepared ' + sheets.length + ' print job(s).');
       } else {
         toast.error("Failed to load data for printing.");
       }
@@ -357,10 +327,9 @@ export const TripSheetList = () => {
   const handleShowReport = async () => {
     try {
       const reportData = await fetchTripSheetReport(filters);
-
       if (reportData && reportData.length > 0) {
         setReportPrintingJobs(reportData as TripSheetEntry[]);
-        toast.success(`Found ${reportData.length} items for the report.`);
+        toast.success('Found ' + reportData.length + ' items for the report.');
       } else {
         toast.error("No data found for report based on current filters.");
       }
@@ -370,434 +339,303 @@ export const TripSheetList = () => {
     }
   };
 
-  const hasActiveFilters =
-    !!filters.toPlace ||
-    !!filters.consignor ||
-    (filters.consignee && filters.consignee.length > 0) ||
-    filters.filterType !== "all" ||
-    !!filters.search;
-
-  // counts
-  const finalCount = selectAllMode
-    ? Math.max(0, totalItems - excludedMfNos.length)
-    : selectedMfNos.length;
-  const printButtonText = `Print (${finalCount})`;
-
-  // NEW: determine if everything is selected
-// determine if *everything* is selected
-const isAllSelected =
-  (selectAllMode && excludedMfNos.length === 0) ||           // bulk mode and nothing excluded
-  (!selectAllMode && totalItems > 0 && selectedMfNos.length === totalItems); // normal mode
-
-  // bulk button logic (updated)
+  const hasActiveFilters = !!filters.toPlace || !!filters.consignor || (filters.consignee && filters.consignee.length > 0) || filters.filterType !== "all" || !!filters.search;
+  const finalCount = selectAllMode ? Math.max(0, totalItems - excludedMfNos.length) : selectedMfNos.length;
+  const printButtonText = 'Print (' + finalCount + ')';
+  const isAllSelected = (selectAllMode && excludedMfNos.length === 0) || (!selectAllMode && totalItems > 0 && selectedMfNos.length === totalItems);
   const bulkButtonText = isAllSelected ? "Clear Selection" : "Select All";
-  const bulkButtonIcon = isAllSelected ? XCircle : PackageCheck;
+  const BulkIconComponent = isAllSelected ? XCircle : PackageCheck;
   const handleBulkAction = isAllSelected ? handleCombinedBulkDeselect : handleCombinedBulkSelect;
   const bulkButtonVariant = isAllSelected ? "destructive" : "primary";
-  const BulkIconComponent = bulkButtonIcon;
-
-  // used to show exclude button when multiple are selected
   const multipleSelected = finalCount > 1;
 
-  // responsive btn class: full width on mobile, normal on md+
-const responsiveBtnClass =
-  "w-full md:w-auto text-[10px] xs:text-xs sm:text-sm h-8 sm:h-10 mb-1 px-1 sm:px-4 whitespace-nowrap";
-
   return (
-    <div className="space-y-6">
-      {/* 1. Top Control Bar */}
-      <div className="flex flex-col md:flex-row gap-2 sm:gap-4 items-center justify-between bg-background p-4 rounded-lg shadow border border-muted">
-        {/* LEFT */}
-        <div className="flex items-center gap-2 w-full md:w-1/2">
-          <div className="relative flex-1">
-            <input
-              type="text"
-              placeholder="Search TS No, Place, Driver..."
-              value={filters.search || ""}
-              onChange={handleSearchChange}
-              className="w-full pl-10 pr-4 py-2 bg-background text-foreground border border-muted-foreground/30 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
-            />
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-              size={18}
-            />
+    <div className="space-y-4">
+      {/* ===== CONTROL BAR ===== */}
+      <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+{/* Desktop - Single Row (xl and above) */}
+<div className="hidden xl:flex items-center gap-3">
+  {/* Search Bar (Stays on Left) */}
+  <div className="relative flex-1 max-w-md">
+    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+    <input 
+      type="text" 
+      placeholder="Search TS No, Place, Driver..." 
+      value={filters.search || ""} 
+      onChange={handleSearchChange} 
+      className="w-full h-10 pl-10 pr-4 bg-secondary/50 text-foreground rounded-lg border-0 focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/60 text-sm" 
+    />
+  </div>
+
+  {/* Button Group (Moved to Right using ml-auto) */}
+  <div className="flex items-center gap-3 ml-auto">
+    <Button 
+      variant={hasActiveFilters ? "primary" : "outline"} 
+      onClick={() => setShowFilters(!showFilters)} 
+      className="h-10 px-4 shrink-0"
+    >
+      <Filter className="w-4 h-4" />
+      Filters
+      {hasActiveFilters && <span className="ml-1.5 w-1.5 h-1.5 bg-white rounded-full animate-pulse" />}
+    </Button>
+
+    <Button 
+      variant="secondary" 
+      onClick={handleShowReport} 
+      className="h-10"
+    >
+      <FileText className="w-4 h-4" />
+      Report
+    </Button>
+
+    <Button 
+      variant="secondary" 
+      onClick={handlePrintSelected} 
+      disabled={finalCount === 0} 
+      className="h-10"
+    >
+      <Printer className="w-4 h-4" />
+      {printButtonText}
+    </Button>
+
+    <Button 
+      variant={bulkButtonVariant} 
+      onClick={handleBulkAction} 
+      disabled={!selectAllMode && selectedMfNos.length === 0 && totalItems === 0} 
+      className="h-10"
+    >
+      <BulkIconComponent className="w-4 h-4" />
+      {bulkButtonText}
+    </Button>
+
+    <Button 
+      variant="primary" 
+      onClick={() => navigate("/tripsheet/new")} 
+      className="h-10"
+    >
+      <Plus className="w-4 h-4" />
+      Add New TS
+    </Button>
+  </div>
+</div>
+        {/* Tablet & Mobile - Two Rows (below xl) */}
+        <div className="flex xl:hidden flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input type="text" placeholder="Search TS No, Place, Driver..." value={filters.search || ""} onChange={handleSearchChange} className="w-full h-10 pl-10 pr-4 bg-secondary/50 text-foreground rounded-lg border-0 focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/60 text-sm" />
+            </div>
+            <Button variant={hasActiveFilters ? "primary" : "outline"} onClick={() => setShowFilters(!showFilters)} className="h-10 px-3 shrink-0">
+              <Filter className="w-4 h-4" />
+              <span className="hidden sm:inline ml-1">Filters</span>
+              {hasActiveFilters && <span className="ml-1.5 w-1.5 h-1.5 bg-white rounded-full animate-pulse" />}
+            </Button>
           </div>
 
-          <Button
-            variant={hasActiveFilters ? "primary" : "outline"}
-            onClick={() => setShowFilters(!showFilters)}
-            className="h-10 px-3 shrink-0"
-            title="Toggle Filters"
-          >
-            <Filter size={18} className={hasActiveFilters ? "mr-2" : ""} />
-            {hasActiveFilters && "Active"}
-          </Button>
-        </div>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={handleShowReport} className="flex-1 h-9 text-xs sm:text-sm">
+              <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline ml-1">Report</span>
+            </Button>
 
-        {/* RIGHT: Actions */}
-        {/* MOBILE: grid 2x2, DESKTOP: flex row */}
-        <div className="w-full md:w-auto mt-2 md:mt-0 grid grid-cols-2 gap-2 md:flex md:flex-row md:gap-2 md:justify-stretch">
-          
+            <Button variant="secondary" onClick={handlePrintSelected} disabled={finalCount === 0} className="flex-1 h-9 text-xs sm:text-sm">
+              <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="ml-1">({finalCount})</span>
+            </Button>
 
-          {/* REPORT BUTTON */}
-          <Button variant="secondary" onClick={handleShowReport} className={responsiveBtnClass}>
-            <FileText size={14} className="mr-1 sm:mr-2" /> Report
-          </Button>
+            <Button variant={bulkButtonVariant} onClick={handleBulkAction} disabled={!selectAllMode && selectedMfNos.length === 0 && totalItems === 0} className="flex-1 h-9 text-xs sm:text-sm">
+              <BulkIconComponent className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline ml-1">{isAllSelected ? "Clear" : "Select All"}</span>
+              <span className="sm:hidden ml-1">{isAllSelected ? "Clear" : "All"}</span>
+            </Button>
 
-          {/* PRINT BUTTON */}
-          <Button
-            variant="secondary"
-            onClick={handlePrintSelected}
-            disabled={finalCount === 0}
-            className={responsiveBtnClass}
-          >
-            <Printer size={14} className="mr-1 sm:mr-2" />
-            {printButtonText}
-          </Button>
-
-          {/* BULK BUTTON */}
-          <Button
-            variant={bulkButtonVariant}
-            onClick={handleBulkAction}
-            className={responsiveBtnClass}
-            disabled={!selectAllMode && selectedMfNos.length === 0 && totalItems === 0}
-            title={
-              bulkButtonText === "Clear Selection"
-                ? "Click to remove all items from selection"
-                : "Select all filtered items"
-            }
-          >
-            <BulkIconComponent size={14} className="mr-1 sm:mr-2" />
-            {bulkButtonText}
-          </Button>
-
-          {/* ADD NEW BUTTON */}
-          <Button
-            variant="primary"
-            onClick={() => navigate("/tripsheet/new")}
-            className={responsiveBtnClass}
-          >
-            + Add New
-          </Button>
+            <Button variant="primary" onClick={() => navigate("/tripsheet/new")} className="flex-1 h-9 text-xs sm:text-sm">
+              <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline ml-1">Add TS</span>
+              <span className="sm:hidden ml-1">Add</span>
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* 2. Collapsible Filters */}
+      {/* ===== FILTERS PANEL ===== */}
       {showFilters && (
-        <div className="p-4 bg-muted/20 rounded-lg border border-muted animate-in fade-in slide-in-from-top-2">
+        <div className="bg-card border border-border rounded-xl p-4 shadow-sm animate-in slide-in-from-top-2 duration-200">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">
-              Advanced Filters
-            </h3>
-            <div className="flex gap-4">
-              {/* EXCLUDE BUTTON visible when MULTIPLE selected */}
+            <h3 className="text-sm font-semibold text-foreground">Filters</h3>
+            <div className="flex items-center gap-2">
               {multipleSelected && (
-                <button
-                  onClick={handleExcludeFilteredData}
-                  className="text-xs flex items-center text-destructive hover:text-destructive/80 font-medium"
-                  disabled={paginatedData.length === 0}
-                  title="Exclude all visible items from the current bulk selection"
-                >
-                  <XCircle size={14} className="mr-1 sm:mr-2" />
-                  Exclude
+                <button onClick={handleExcludeFilteredData} disabled={paginatedData.length === 0} className="inline-flex items-center gap-1 text-xs text-destructive hover:text-destructive/80 font-medium">
+                  <XCircle className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Exclude Visible</span>
                 </button>
               )}
-
-              <button
-                onClick={clearAllFilters}
-                className="text-xs flex items-center text-primary hover:text-primary/80 font-medium"
-              >
-                <RotateCcw size={14} className="mr-1" /> Clear All
+              <button onClick={clearAllFilters} className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium">
+                <FilterX className="w-3.5 h-3.5" />
+                Clear All
+              </button>
+              <button onClick={() => setShowFilters(false)} className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                <ChevronUp className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* EXCLUSION BANNER */}
           {exclusionFilter.isActive && selectAllMode && (
-            <div className="mb-4 p-3 bg-yellow-100 text-yellow-800 border border-yellow-300 rounded text-sm">
-              <strong>Exclusion Active:</strong> {excludedMfNos.length} Trip Sheets are currently
-              excluded from the bulk selection{" "}
-              {exclusionFilter.filterKey && (
-                <>
-                  (e.g., those matching{" "}
-                  <strong>
-                    {exclusionFilter.filterKey}:{" "}
-                    {consignorOption?.label ||
-                      destinationOption?.label ||
-                      (consigneeOptions[0]?.label as string) ||
-                      "Filter Value"}
-                  </strong>
-                  ).
-                </>
-              )}
+            <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-start gap-3">
+              <XCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+              <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                Exclusion Active: {excludedMfNos.length} Trip Sheets excluded
+                {exclusionFilter.filterKey && <> (filtered by <strong>{exclusionFilter.filterKey}</strong>)</>}
+              </p>
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <AsyncAutocomplete
-              label="Filter by Destination"
-              loadOptions={loadDestinationOptions}
-              value={destinationOption}
-              onChange={(val: any) => {
-                setDestinationOption(val);
-                setFilters({ toPlace: val?.value || "" });
-              }}
-              placeholder="Select destination..."
-              defaultOptions
-            />
-
-            <AsyncAutocomplete
-              label="Filter by Consignor"
-              loadOptions={loadConsignorOptions}
-              value={consignorOption}
-              onChange={(val: any) => {
-                setConsignorOption(val);
-                setFilters({ consignor: val?.value || "" });
-              }}
-              placeholder="Select consignor..."
-              defaultOptions
-            />
-
-            <div>
-              <AsyncAutocomplete
-                label="Filter by Consignee (Multi-select)"
-                loadOptions={loadConsigneeOptions}
-                value={consigneeOptions}
-                onChange={(val: any) => {
-                  const arr = Array.isArray(val) ? val : val ? [val] : [];
-                  setConsigneeOptions(arr);
-                  const ids = arr.map((v: any) => v.value);
-                  setFilters({ consignee: ids });
-                }}
-                placeholder="Select consignees..."
-                isMulti={true}
-                defaultOptions
-              />
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+            <AsyncAutocomplete label="Destination" loadOptions={loadDestinationOptions} value={destinationOption} onChange={(val: any) => { setDestinationOption(val); setFilters({ toPlace: val?.value || "" }); }} placeholder="Search destination..." defaultOptions />
+            <AsyncAutocomplete label="Consignor" loadOptions={loadConsignorOptions} value={consignorOption} onChange={(val: any) => { setConsignorOption(val); setFilters({ consignor: val?.value || "" }); }} placeholder="Search consignor..." defaultOptions />
+            <AsyncAutocomplete label="Consignee (Multi-select)" loadOptions={loadConsigneeOptions} value={consigneeOptions} onChange={(val: any) => { const arr = Array.isArray(val) ? val : val ? [val] : []; setConsigneeOptions(arr); setFilters({ consignee: arr.map((v: any) => v.value) }); }} placeholder="Select consignees..." isMulti={true} defaultOptions />
           </div>
 
-          <DateFilterButtons
-            filterType={filters.filterType || "all"}
-            setFilterType={handleFilterTypeChange}
-            customStart={filters.customStart || ""}
-            setCustomStart={(val) => handleCustomDateChange(val, filters.customEnd)}
-            customEnd={filters.customEnd || ""}
-            setCustomEnd={(val) => handleCustomDateChange(filters.customStart, val)}
-          />
+          <DateFilterButtons filterType={filters.filterType || "all"} setFilterType={handleFilterTypeChange} customStart={filters.customStart || ""} setCustomStart={(val) => handleCustomDateChange(val, filters.customEnd)} customEnd={filters.customEnd || ""} setCustomEnd={(val) => handleCustomDateChange(filters.customStart, val)} />
         </div>
       )}
 
-      {/* 3. Data Table */}
-      <div className="bg-background rounded-lg shadow border border-muted overflow-hidden">
-        <div className="hidden md:block overflow-x-auto">
-          <table className="min-w-full divide-y divide-muted">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="px-4 py-3 text-left w-12" title="Select/Deselect all visible items">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 accent-primary border-muted-foreground/30 rounded focus:ring-primary"
-                    checked={isAllVisibleSelected}
-                    ref={(el) => {
-                      if (el) el.indeterminate = isIndeterminate;
-                    }}
-                    onChange={handleSelectAllVisible}
-                  />
+      {/* ===== DATA TABLE ===== */}
+      <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+        {/* Desktop Table - xl and above */}
+        <div className="hidden xl:block overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border bg-muted/30">
+                <th className="px-4 py-3 text-left w-12">
+                  <input type="checkbox" className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer" checked={isAllVisibleSelected} ref={(el) => { if (el) el.indeterminate = isIndeterminate; }} onChange={handleSelectAllVisible} />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
-                  TS No
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
-                  From
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
-                  To
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
-                  Date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
-                  Amount
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
-                  Actions
-                </th>
+                <th className="px-4 py-3 text-left"><div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider"><Hash className="w-3.5 h-3.5" />TS No</div></th>
+                <th className="px-4 py-3 text-left"><div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider"><MapPin className="w-3.5 h-3.5" />From</div></th>
+                <th className="px-4 py-3 text-left"><div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider"><MapPin className="w-3.5 h-3.5" />To</div></th>
+                <th className="px-4 py-3 text-left"><div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider"><Calendar className="w-3.5 h-3.5" />Date</div></th>
+                <th className="px-4 py-3 text-left"><div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider"><IndianRupee className="w-3.5 h-3.5" />Amount</div></th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-28">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-muted">
+            <tbody className="divide-y divide-border">
               {loading ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
-                    Loading data...
-                  </td>
-                </tr>
+                <tr><td colSpan={7} className="px-4 py-12 text-center"><div className="flex flex-col items-center gap-3"><div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /><span className="text-sm text-muted-foreground">Loading...</span></div></td></tr>
               ) : paginatedData.length > 0 ? (
                 paginatedData.map((ts) => {
                   const isSelected = isRowSelected(ts.mfNo);
                   return (
-                    <tr key={ts.id}>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 accent-primary"
-                          checked={isSelected}
-                          onChange={(e) => handleSelectRow(ts.mfNo, e.target.checked)}
-                        />
-                      </td>
-                      <td className="px-6 py-4 font-semibold text-primary">{ts.mfNo}</td>
-                      <td className="px-6 py-4 text-sm">{ts.fromPlace}</td>
-                      <td className="px-6 py-4 text-sm">{ts.toPlace}</td>
-                      <td className="px-6 py-4 text-sm">{ts.tsDate}</td>
-                      <td className="px-6 py-4 text-sm">
-                        ₹{ts.totalAmount.toLocaleString("en-IN")}
-                      </td>
-                      <td className="px-6 py-4 space-x-3">
-                        <button
-                          onClick={() => navigate(`/tripsheet/edit/${ts.mfNo}`)}
-                          className="text-blue-600 hover:text-blue-800"
-                          title="Edit Trip Sheet"
-                        >
-                          <FilePenLine size={18} />
-                        </button>
-                        <button
-                          onClick={() => handlePrintSingle(ts.mfNo)}
-                          className="text-green-600 hover:text-green-800"
-                          title="Print Trip Sheet"
-                        >
-                          <Printer size={18} />
-                        </button>
-                        <button
-                          onClick={() => onDelete(ts.mfNo)}
-                          className="text-destructive hover:text-destructive/80"
-                          title="Delete Trip Sheet"
-                        >
-                          <Trash2 size={18} />
-                        </button>
+                    <tr key={ts.id} className={`transition-colors hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""}`}>
+                      <td className="px-4 py-3"><input type="checkbox" className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer" checked={isSelected} onChange={(e) => handleSelectRow(ts.mfNo, e.target.checked)} /></td>
+                      <td className="px-4 py-3"><span className="font-semibold text-primary">{ts.mfNo}</span></td>
+                      <td className="px-4 py-3"><span className="text-sm text-foreground">{ts.fromPlace}</span></td>
+                      <td className="px-4 py-3"><span className="text-sm text-foreground">{ts.toPlace}</span></td>
+                      <td className="px-4 py-3"><span className="text-sm text-foreground">{ts.tsDate}</span></td>
+                      <td className="px-4 py-3"><span className="text-sm font-semibold text-emerald-600">₹{ts.totalAmount.toLocaleString("en-IN")}</span></td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => navigate('/tripsheet/edit/' + ts.mfNo)} className="p-1.5 rounded-md text-blue-600 hover:bg-blue-500/10 transition-colors" title="Edit"><FilePenLine className="w-4 h-4" /></button>
+                          <button onClick={() => handlePrintSingle(ts.mfNo)} className="p-1.5 rounded-md text-emerald-600 hover:bg-emerald-500/10 transition-colors" title="Print"><Printer className="w-4 h-4" /></button>
+                          <button onClick={() => onDelete(ts.mfNo)} className="p-1.5 rounded-md text-destructive hover:bg-destructive/10 transition-colors" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                        </div>
                       </td>
                     </tr>
                   );
                 })
               ) : (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-6 py-12 text-center text-muted-foreground"
-                  >
-                    No Trip Sheets found.
-                  </td>
-                </tr>
+                <tr><td colSpan={7} className="px-4 py-12 text-center"><div className="flex flex-col items-center gap-2"><Truck className="w-10 h-10 text-muted-foreground/30" /><p className="text-sm text-muted-foreground">No Trip Sheets found</p></div></td></tr>
               )}
             </tbody>
           </table>
         </div>
 
-        {/* Mobile View */}
-        <div className="block md:hidden divide-y divide-muted">
-          {paginatedData.map((ts) => {
-            const isSelected = isRowSelected(ts.mfNo);
-            return (
-              <div
-                key={ts.id}
-                className={`p-4 hover:bg-muted/10 transition-colors border-b border-muted last:border-0 ${
-                  isSelected ? "" : ""
-                }`}
-              >
-                <div className="flex justify-between items-start">
-                  <div className="flex gap-3">
-                    <div className="pt-1">
-                      <input
-                        type="checkbox"
-                        className="h-5 w-5 accent-primary"
-                        checked={isSelected}
-                        onChange={(e) => handleSelectRow(ts.mfNo, e.target.checked)}
-                      />
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <div className="font-bold text-blue-600 text-lg leading-tight mb-2">
-                        TS #{ts.mfNo}
-                      </div>
-                      <div className="text-sm text-muted-foreground space-y-0.5">
-                        <div>
-                          <span className="font-medium text-foreground">Date:</span> {ts.tsDate}
+        {/* Tablet Table - lg to xl */}
+        <div className="hidden lg:block xl:hidden overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border bg-muted/30">
+                <th className="px-3 py-3 text-left w-10"><input type="checkbox" className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer" checked={isAllVisibleSelected} ref={(el) => { if (el) el.indeterminate = isIndeterminate; }} onChange={handleSelectAllVisible} /></th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">TS No</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">From / To</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Date / Amount</th>
+                <th className="px-3 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider w-24">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {loading ? (
+                <tr><td colSpan={5} className="px-3 py-12 text-center"><div className="flex flex-col items-center gap-3"><div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /><span className="text-sm text-muted-foreground">Loading...</span></div></td></tr>
+              ) : paginatedData.length > 0 ? (
+                paginatedData.map((ts) => {
+                  const isSelected = isRowSelected(ts.mfNo);
+                  return (
+                    <tr key={ts.id} className={`transition-colors hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""}`}>
+                      <td className="px-3 py-3"><input type="checkbox" className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer" checked={isSelected} onChange={(e) => handleSelectRow(ts.mfNo, e.target.checked)} /></td>
+                      <td className="px-3 py-3"><span className="font-semibold text-primary">{ts.mfNo}</span></td>
+                      <td className="px-3 py-3"><div className="text-sm"><span className="text-foreground block">{ts.fromPlace}</span><span className="text-muted-foreground text-xs">→ {ts.toPlace}</span></div></td>
+                      <td className="px-3 py-3"><div className="text-sm"><span className="text-foreground block">{ts.tsDate}</span><span className="text-emerald-600 font-semibold text-xs">₹{ts.totalAmount.toLocaleString("en-IN")}</span></div></td>
+                      <td className="px-3 py-3">
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => navigate('/tripsheet/edit/' + ts.mfNo)} className="p-1.5 rounded-md text-blue-600 hover:bg-blue-500/10 transition-colors" title="Edit"><FilePenLine className="w-4 h-4" /></button>
+                          <button onClick={() => handlePrintSingle(ts.mfNo)} className="p-1.5 rounded-md text-emerald-600 hover:bg-emerald-500/10 transition-colors" title="Print"><Printer className="w-4 h-4" /></button>
+                          <button onClick={() => onDelete(ts.mfNo)} className="p-1.5 rounded-md text-destructive hover:bg-destructive/10 transition-colors" title="Delete"><Trash2 className="w-4 h-4" /></button>
                         </div>
-                        <div>
-                          <span className="font-medium text-foreground">From:</span>{" "}
-                          {ts.fromPlace}
-                        </div>
-                        <div>
-                          <span className="font-medium text-foreground">To:</span> {ts.toPlace}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-3 pl-2">
-                    <button
-                      onClick={() => navigate(`/tripsheet/edit/${ts.mfNo}`)}
-                      className="text-blue-600 p-1 hover:bg-blue-50 rounded"
-                      title="Edit"
-                    >
-                      <FilePenLine size={20} />
-                    </button>
-                    <button
-                      onClick={() => handlePrintSingle(ts.mfNo)}
-                      className="text-green-600 p-1 hover:bg-green-50 rounded"
-                      title="Print"
-                    >
-                      <Printer size={20} />
-                    </button>
-                    <button
-                      onClick={() => onDelete(ts.mfNo)}
-                      className="text-destructive p-1 hover:bg-red-50 rounded"
-                      title="Delete"
-                    >
-                      <Trash2 size={20} />
-                    </button>
-                  </div>
-                </div>
-                <div className="mt-3 pt-2 text-sm font-medium text-foreground border-t border-dashed border-muted">
-                  Amount:{" "}
-                  <span className="font-bold">
-                    ₹{ts.totalAmount.toLocaleString("en-IN")}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr><td colSpan={5} className="px-3 py-12 text-center"><div className="flex flex-col items-center gap-2"><Truck className="w-10 h-10 text-muted-foreground/30" /><p className="text-sm text-muted-foreground">No Trip Sheets found</p></div></td></tr>
+              )}
+            </tbody>
+          </table>
         </div>
 
-        <div className="border-t border-muted p-4">
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-            itemsPerPage={itemsPerPage}
-            onItemsPerPageChange={setItemsPerPage}
-            totalItems={totalItems}
-          />
+        {/* Mobile Cards - below lg */}
+        <div className="block lg:hidden divide-y divide-border">
+          {loading ? (
+            <div className="p-6 text-center"><div className="flex flex-col items-center gap-2"><div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /><span className="text-sm text-muted-foreground">Loading...</span></div></div>
+          ) : paginatedData.length > 0 ? (
+            paginatedData.map((ts) => {
+              const isSelected = isRowSelected(ts.mfNo);
+              return (
+                <div key={ts.id} className={`p-4 transition-colors ${isSelected ? "bg-primary/5" : ""}`}>
+                  <div className="flex gap-3">
+                    <div className="pt-0.5 flex-shrink-0"><input type="checkbox" className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer" checked={isSelected} onChange={(e) => handleSelectRow(ts.mfNo, e.target.checked)} /></div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-1.5"><Hash className="w-4 h-4 text-primary/60" /><span className="font-bold text-primary">TS #{ts.mfNo}</span></div>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-500/10 text-emerald-600"><IndianRupee className="w-3 h-3" />{ts.totalAmount.toLocaleString("en-IN")}</span>
+                      </div>
+                      <div className="space-y-1.5 text-sm mb-3">
+                        <div className="flex items-center gap-2 text-foreground"><MapPin className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /><span className="text-muted-foreground">From:</span><span className="truncate">{ts.fromPlace}</span></div>
+                        <div className="flex items-center gap-2 text-foreground"><ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /><span className="text-muted-foreground">To:</span><span className="truncate">{ts.toPlace}</span></div>
+                        <div className="flex items-center gap-2 text-foreground"><Calendar className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /><span className="text-muted-foreground">Date:</span><span>{ts.tsDate}</span></div>
+                      </div>
+                      <div className="flex items-center gap-2 pt-3 border-t border-border">
+                        <button onClick={() => navigate('/tripsheet/edit/' + ts.mfNo)} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium text-blue-600 bg-blue-500/10 hover:bg-blue-500/20 transition-colors"><FilePenLine className="w-3.5 h-3.5" />Edit</button>
+                        <button onClick={() => handlePrintSingle(ts.mfNo)} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors"><Printer className="w-3.5 h-3.5" />Print</button>
+                        <button onClick={() => onDelete(ts.mfNo)} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium text-destructive bg-destructive/10 hover:bg-destructive/20 transition-colors"><Trash2 className="w-3.5 h-3.5" />Delete</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="p-8 text-center"><div className="flex flex-col items-center gap-2"><Truck className="w-10 h-10 text-muted-foreground/30" /><p className="text-sm text-muted-foreground">No Trip Sheets found</p></div></div>
+          )}
+        </div>
+
+        {/* Pagination */}
+        <div className="border-t border-border p-4">
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={setItemsPerPage} totalItems={totalItems} />
         </div>
       </div>
 
-      <ConfirmationDialog
-        open={confirmOpen}
-        onClose={() => setConfirmOpen(false)}
-        onConfirm={confirmDelete}
-        title="Delete Trip Sheet"
-        description={deleteMessage}
-      />
-
-      {printingSheets && (
-        <TripSheetPrintManager
-          sheets={printingSheets}
-          onClose={() => setPrintingSheets(null)}
-        />
-      )}
-      {reportPrintingJobs && (
-        <TripSheetReportPrint
-          sheets={reportPrintingJobs}
-          onClose={() => setReportPrintingJobs(null)}
-        />
-      )}
+      {/* Modals */}
+      <ConfirmationDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={confirmDelete} title="Delete Trip Sheet" description={deleteMessage} />
+      {printingSheets && <TripSheetPrintManager sheets={printingSheets} onClose={() => setPrintingSheets(null)} />}
+      {reportPrintingJobs && <TripSheetReportPrint sheets={reportPrintingJobs} onClose={() => setReportPrintingJobs(null)} />}
     </div>
   );
 };
-

@@ -43,43 +43,49 @@ export const ConfirmationDialog = ({
 
   return (
     // Modal Backdrop
-    <div className="fixed -top-6 left-0 right-0 bottom-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
       {/* Modal Panel */}
-      <div className="relative w-full max-w-md bg-background rounded-lg shadow-xl">
+      <div className="relative w-full max-w-sm bg-card border border-border rounded-xl shadow-lg">
         {/* Modal Body */}
-        <div className="p-6">
+        <div className="p-5">
           <div className="flex items-start gap-4">
-            <div className={`flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full ${iconContainerClass} sm:h-10 sm:w-10`}>
-              <AlertTriangle className={`h-6 w-6 ${iconClass}`} />
+            {/* Icon */}
+            <div className={`flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-full ${iconContainerClass}`}>
+              <AlertTriangle className={`h-5 w-5 ${iconClass}`} />
             </div>
-            <div className="mt-0 flex-1">
-              <h3 className="text-lg font-semibold leading-6 text-foreground">
+            
+            {/* Content */}
+            <div className="flex-1 pt-0.5">
+              <h3 className="text-base font-semibold text-foreground">
                 {title}
               </h3>
-              <div className="mt-2">
-                <p className="text-sm text-muted-foreground">
-                  {description}
-                </p>
-              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {description}
+              </p>
             </div>
           </div>
         </div>
         
-        {/* Modal Footer (Actions) */}
-        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 p-4 rounded-b-lg">
-          <Button type="button" variant="secondary" onClick={onClose} className="w-full sm:w-auto">
+        {/* Modal Footer */}
+        <div className="flex justify-end gap-2 px-5 py-4 border-t border-border bg-muted/30 rounded-b-xl">
+          <Button 
+            type="button" 
+            variant="outline" 
+            size="sm"
+            onClick={onClose}
+          >
             Cancel
           </Button>
           <Button
             type="button"
             variant={effectiveVariant}
+            size="sm"
             onClick={() => {
               onConfirm();
               onClose();
             }}
-            className="w-full sm:w-auto"
           >
-            <ConfirmIcon className="size-4 mr-2" />
+            <ConfirmIcon className="w-4 h-4" />
             {confirmText}
           </Button>
         </div>
