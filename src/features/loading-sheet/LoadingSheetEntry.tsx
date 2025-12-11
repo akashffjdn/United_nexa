@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+// LoadingSheetEntry.tsx
+import { useState, useCallback, useMemo } from 'react';
 import { Trash2, Search, Printer, PackageCheck, Filter, XCircle, FilterX } from 'lucide-react';
 import { DateFilterButtons, getTodayDate, getYesterdayDate } from '../../components/shared/DateFilterButtons';
 import { ConfirmationDialog } from '../../components/shared/ConfirmationDialog';
@@ -15,10 +16,29 @@ import { LoadListPrintManager, type LoadListJob } from './LoadListPrintManager';
 import { QtySelectionDialog } from './QtySelectionDialog';
 import { useToast } from '../../contexts/ToastContext';
 
-// Exclusion banner state (same style as TripSheetList)
+// Filter type definition
+type LoadingSheetFilter = {
+  search?: string;
+  filterType?: string;
+  startDate?: string;
+  endDate?: string;
+  customStart?: string;
+  customEnd?: string;
+  destination?: string;
+  consignor?: string;
+  consignee?: string[];
+  godown?: string;
+};
+
 type ExclusionFilterState = {
   isActive: boolean;
   filterKey?: string;
+};
+
+type SelectAllSnapshot = {
+  active: boolean;
+  total: number;
+  filters: LoadingSheetFilter;
 };
 
 export const LoadingSheetEntry = () => {
@@ -35,7 +55,7 @@ export const LoadingSheetEntry = () => {
 
   const toast = useToast();
 
-  // --- SERVER-SIDE PAGINATION HOOK ---
+  // Server-side pagination hook - FIXED: Complete initialFilters
   const {
     data: paginatedData,
     loading,
@@ -48,50 +68,98 @@ export const LoadingSheetEntry = () => {
     setFilters,
     filters,
     refresh
-  } = useServerPagination<GcEntry & { loadedCount?: number, consignorId?: string, destination?: string, totalQty?: number }>({
+  } = useServerPagination<
+    GcEntry & { loadedCount?: number; consignorId?: string; destination?: string; totalQty?: number }
+  >({
     endpoint: '/operations/loading-sheet',
-    initialFilters: { search: '', filterType: 'all' },
-    initialItemsPerPage: 10
+    initialFilters: {
+      search: '',
+      filterType: 'all',
+      startDate: '',
+      endDate: '',
+      customStart: '',
+      customEnd: '',
+      destination: '',
+      consignor: '',
+      consignee: [],
+      godown: ''
+    } as LoadingSheetFilter,
+    initialItemsPerPage: 10,
   });
 
-  // --- UI State ---
+  // UI State
   const [showFilters, setShowFilters] = useState(false);
   const [destinationOption, setDestinationOption] = useState<any>(null);
   const [consignorOption, setConsignorOption] = useState<any>(null);
   const [godownOption, setGodownOption] = useState<any>(null);
   const [consigneeOptions, setConsigneeOptions] = useState<any[]>([]);
 
-  // --- Selection State (inverted model, like TripSheetList) ---
+  // Selection State - FIXED: Proper typed snapshot
   const [selectedGcIds, setSelectedGcIds] = useState<string[]>([]);
   const [selectAllMode, setSelectAllMode] = useState(false);
   const [excludedGcIds, setExcludedGcIds] = useState<string[]>([]);
-
-  // --- Exclusion Banner State ---
-  const [exclusionFilter, setExclusionFilter] = useState<ExclusionFilterState>({
-    isActive: false,
-    filterKey: ''
+  const [selectAllSnapshot, setSelectAllSnapshot] = useState<SelectAllSnapshot>({
+    active: false,
+    total: 0,
+    filters: {
+      search: '',
+      filterType: 'all',
+      startDate: '',
+      endDate: '',
+      customStart: '',
+      customEnd: '',
+      destination: '',
+      consignor: '',
+      consignee: [],
+      godown: ''
+    },
   });
 
-  // --- Print/Modal State ---
+  // Exclusion Banner State
+  const [exclusionFilter, setExclusionFilter] = useState<ExclusionFilterState>({
+    isActive: false,
+    filterKey: '',
+  });
+
+  // Print/Modal State
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [deleteMessage, setDeleteMessage] = useState("");
+  const [deleteMessage, setDeleteMessage] = useState('');
   const [isQtySelectOpen, setIsQtySelectOpen] = useState(false);
 
-// 🟢 UPDATED: State includes 'contentItems' and 'loadedPackages' is now any[] to support structured data
-  const [currentQtySelection, setCurrentQtySelection] = useState<{ 
-    gcId: string; 
-    maxQty: number; 
-    startNo: number; 
-    loadedPackages: any[]; // Changed from number[] to any[] to support {itemId, packages[]}
-    contentItems: any[]; 
+  const [currentQtySelection, setCurrentQtySelection] = useState<{
+    gcId: string;
+    maxQty: number;
+    startNo: number;
+    loadedPackages: any[];
+    contentItems: any[];
   } | null>(null);
-    
+
   const [reportPrintingJobs, setReportPrintingJobs] = useState<any[] | null>(null);
   const [gcPrintingJobs, setGcPrintingJobs] = useState<GcPrintJob[] | null>(null);
   const [loadListPrintingJobs, setLoadListPrintingJobs] = useState<LoadListJob[] | null>(null);
 
-  // --- Filter Handlers ---
+  // ---------------------------------------------------------------------------
+  // Helper: Create complete filter object
+  // ---------------------------------------------------------------------------
+  const createCompleteFilters = (sourceFilters: LoadingSheetFilter): LoadingSheetFilter => {
+    return {
+      search: sourceFilters.search || '',
+      filterType: sourceFilters.filterType || 'all',
+      startDate: sourceFilters.startDate || '',
+      endDate: sourceFilters.endDate || '',
+      customStart: sourceFilters.customStart || '',
+      customEnd: sourceFilters.customEnd || '',
+      destination: sourceFilters.destination || '',
+      consignor: sourceFilters.consignor || '',
+      consignee: sourceFilters.consignee || [],
+      godown: sourceFilters.godown || '',
+    };
+  };
+
+  // ---------------------------------------------------------------------------
+  // Filter Handlers
+  // ---------------------------------------------------------------------------
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFilters({ search: e.target.value });
   };
@@ -118,7 +186,7 @@ export const LoadingSheetEntry = () => {
       startDate: start,
       endDate: end,
       customStart: '',
-      customEnd: ''
+      customEnd: '',
     });
   };
 
@@ -128,7 +196,7 @@ export const LoadingSheetEntry = () => {
       customStart: start,
       customEnd: end,
       startDate: start,
-      endDate: end
+      endDate: end,
     });
   };
 
@@ -146,255 +214,242 @@ export const LoadingSheetEntry = () => {
       destination: '',
       consignor: '',
       consignee: [],
-      godown: ''
+      godown: '',
     });
 
-    // Reset selection + exclusion (same as TripSheetList behavior)
+    // Reset selection + exclusion + snapshot
     setSelectAllMode(false);
+    setSelectAllSnapshot({
+      active: false,
+      total: 0,
+      filters: createCompleteFilters({})
+    });
     setSelectedGcIds([]);
     setExcludedGcIds([]);
     setExclusionFilter({ isActive: false, filterKey: '' });
   };
 
-  // --- Async Autocomplete Loaders ---
-  const loadDestinationOptions = useCallback(async (search: string, _prevOptions: any, { page }: any) => {
-    const result = await searchToPlaces(search, page);
-    return {
-      options: result.data.map((p: any) => ({ value: p.placeName, label: p.placeName })),
-      hasMore: result.hasMore,
-      additional: { page: page + 1 },
-    };
-  }, [searchToPlaces]);
+  // ---------------------------------------------------------------------------
+  // Async Autocomplete Loaders
+  // ---------------------------------------------------------------------------
+  const loadDestinationOptions = useCallback(
+    async (search: string, _prevOptions: any, { page }: any) => {
+      const result = await searchToPlaces(search, page);
+      return {
+        options: result.data.map((p: any) => ({ value: p.placeName, label: p.placeName })),
+        hasMore: result.hasMore,
+        additional: { page: page + 1 },
+      };
+    },
+    [searchToPlaces]
+  );
 
-  const loadConsignorOptions = useCallback(async (search: string, _prevOptions: any, { page }: any) => {
-    const result = await searchConsignors(search, page);
-    return {
-      options: result.data.map((c: any) => ({ value: c.id, label: c.name })),
-      hasMore: result.hasMore,
-      additional: { page: page + 1 },
-    };
-  }, [searchConsignors]);
+  const loadConsignorOptions = useCallback(
+    async (search: string, _prevOptions: any, { page }: any) => {
+      const result = await searchConsignors(search, page);
+      return {
+        options: result.data.map((c: any) => ({ value: c.id, label: c.name })),
+        hasMore: result.hasMore,
+        additional: { page: page + 1 },
+      };
+    },
+    [searchConsignors]
+  );
 
-  const loadConsigneeOptions = useCallback(async (search: string, _prevOptions: any, { page }: any) => {
-    const result = await searchConsignees(search, page);
-    return {
-      options: result.data.map((c: any) => ({ value: c.id, label: c.name })),
-      hasMore: result.hasMore,
-      additional: { page: page + 1 },
-    };
-  }, [searchConsignees]);
+  const loadConsigneeOptions = useCallback(
+    async (search: string, _prevOptions: any, { page }: any) => {
+      const result = await searchConsignees(search, page);
+      return {
+        options: result.data.map((c: any) => ({ value: c.id, label: c.name })),
+        hasMore: result.hasMore,
+        additional: { page: page + 1 },
+      };
+    },
+    [searchConsignees]
+  );
 
-  const loadGodownOptions = useCallback(async (search: string, _prevOptions: any, { page }: any) => {
-    const result = await searchGodowns(search, page);
-    return {
-      options: result.data.map((g: any) => ({ value: g.godownName || g.name, label: g.godownName || g.name })),
-      hasMore: result.hasMore,
-      additional: { page: page + 1 },
-    };
-  }, [searchGodowns]);
+  const loadGodownOptions = useCallback(
+    async (search: string, _prevOptions: any, { page }: any) => {
+      const result = await searchGodowns(search, page);
+      return {
+        options: result.data.map((g: any) => ({
+          value: g.godownName || g.name,
+          label: g.godownName || g.name,
+        })),
+        hasMore: result.hasMore,
+        additional: { page: page + 1 },
+      };
+    },
+    [searchGodowns]
+  );
 
-
-  // --- SELECTION LOGIC (inverted) ---
-
-  const handleSelectRow = (e: React.ChangeEvent<HTMLInputElement>, id: string) => {
-    const isChecked = e.target.checked;
-
-    if (selectAllMode) {
-      // Bulk mode: maintain exclusion list
-      if (!isChecked) {
-        setExcludedGcIds(prev => Array.from(new Set([...prev, id])));
-      } else {
-        setExcludedGcIds(prev => prev.filter(gcId => gcId !== id));
-      }
-    } else {
-      // Normal mode: maintain selected list
-      setSelectedGcIds(prev =>
-        isChecked
-          ? Array.from(new Set([...prev, id]))
-          : prev.filter(gcId => gcId !== id)
-      );
-    }
-  };
-
+  // ---------------------------------------------------------------------------
+  // Selection helpers
+  // ---------------------------------------------------------------------------
   const isRowSelected = (gcNo: string): boolean => {
-    if (selectAllMode) {
+    if (selectAllMode && selectAllSnapshot.active) {
       return !excludedGcIds.includes(gcNo);
     }
     return selectedGcIds.includes(gcNo);
   };
 
-  // COMBINED DESELECT HANDLER (kept, but now also respects exclusion banner reset via clearAllFilters)
-  const handleCombinedBulkDeselect = async () => {
-    const isConsignorActive = !!filters.consignor;
-    const isConsigneeActive = Array.isArray(filters.consignee) && filters.consignee.length > 0;
-    const isDestinationActive = !!filters.destination;
-    const isGodownActive = !!filters.godown;
-    const isDateActive = filters.filterType !== 'all';
-    const isSearchActive = !!filters.search;
-
-    const hasFiltersToDeselect = isConsignorActive || isConsigneeActive || isDestinationActive || isGodownActive || isDateActive || isSearchActive;
-
-    let totalDeselected = 0;
-
-    if (!hasFiltersToDeselect) {
-      const visibleSelectedIds = paginatedData.map(gc => gc.gcNo).filter(isRowSelected);
-      if (visibleSelectedIds.length > 0) {
-        if (selectAllMode) {
-          setExcludedGcIds(prev => Array.from(new Set([...prev, ...visibleSelectedIds])));
-        } else {
-          setSelectedGcIds(prev => prev.filter(id => !visibleSelectedIds.includes(id)));
-        }
-        totalDeselected = visibleSelectedIds.length;
-      }
-    } else {
-      try {
-        const allMatchingItems = await fetchLoadingSheetPrintData([], true, filters); 
-
-        if (!allMatchingItems || allMatchingItems.length === 0) {
-          toast.error(`No items found matching the current combination of active filters.`);
-          clearAllFilters();
-          return;
-        }
-
-        const allMatchingIds = allMatchingItems.map((item: any) => item.gcNo);
-        totalDeselected = allMatchingIds.length;
-
-        if (!selectAllMode) {
-          setSelectedGcIds(prev => prev.filter(id => !allMatchingIds.includes(id)));
-        } else {
-          setExcludedGcIds(prev => Array.from(new Set([...prev, ...allMatchingIds])));
-        }
-        
-      } catch (error) {
-        console.error("Bulk deselect failed:", error);
-        toast.error(`An error occurred while deselecting filtered items.`);
-        return; 
-      }
-    }
-    
-    if (hasFiltersToDeselect || totalDeselected > 0) {
-      clearAllFilters();
-    } else if (totalDeselected === 0) {
-    }
-  };
-
-  // COMBINED BULK SELECT HANDLER
-  const handleCombinedBulkSelect = async () => {
-    const hasFiltersToSelect = !!filters.consignor || 
-                               (Array.isArray(filters.consignee) && filters.consignee.length > 0) || 
-                               !!filters.destination || 
-                               !!filters.godown || 
-                               filters.filterType !== 'all' || 
-                               !!filters.search;
-
-    let totalSelected = 0;
-
-    try {
-      if (!hasFiltersToSelect) {
-        // True bulk mode: all items
-        setSelectAllMode(true);
-        setExcludedGcIds([]);
-        setSelectedGcIds([]);
-        setExclusionFilter({ isActive: false, filterKey: '' });
-        totalSelected = totalItems; 
-      } else {
-        // Bulk mode for filtered set
-        const allMatchingItems = await fetchLoadingSheetPrintData([], true, filters); 
-
-        if (!allMatchingItems || allMatchingItems.length === 0) {
-          toast.error(`No items found matching the current filters.`);
-          return;
-        }
-
-        const allMatchingIds = allMatchingItems.map((item: any) => item.gcNo);
-        totalSelected = allMatchingIds.length;
-
-        setSelectAllMode(true);
-        setExcludedGcIds([]);
-        setSelectedGcIds(allMatchingIds);
-        setExclusionFilter({ isActive: false, filterKey: '' });
-      }
-
-      if (totalSelected > 0) {
-      }
-    } catch (error) {
-      console.error("Bulk select failed:", error);
-      toast.error(`An error occurred while selecting items.`);
-    }
-  };
-
-  // Sync visible selection when in bulk mode
-  useEffect(() => {
-    if (selectAllMode) {
-      const currentVisibleIds = paginatedData
-        .map(gc => gc.gcNo)
-        .filter(gcId => !excludedGcIds.includes(gcId));
-
-      const currentSelectedSet = new Set(selectedGcIds);
-      const newVisibleSet = new Set(currentVisibleIds);
-
-      if (
-        currentSelectedSet.size !== newVisibleSet.size ||
-        !currentVisibleIds.every(id => currentSelectedSet.has(id))
-      ) {
-        setSelectedGcIds(currentVisibleIds);
-      }
-    }
-  }, [paginatedData, selectAllMode, excludedGcIds, selectedGcIds]);
-
   const isAllVisibleSelected =
-    paginatedData.length > 0 && paginatedData.every(gc => isRowSelected(gc.gcNo));
+    paginatedData.length > 0 && paginatedData.every((gc) => isRowSelected(gc.gcNo));
 
-  const handleDeselectAllVisible = () => { 
-    const visibleGcNos = paginatedData.map(gc => gc.gcNo);
-    const currentlyAllSelected = isAllVisibleSelected; 
-    
-    if (currentlyAllSelected) {
-      if (selectAllMode) {
-        setExcludedGcIds(prev => Array.from(new Set([...prev, ...visibleGcNos])));
+  const isIndeterminate = useMemo(() => {
+    if (paginatedData.length === 0) return false;
+    const selectedCount = paginatedData.filter((gc) => isRowSelected(gc.gcNo)).length;
+    return selectedCount > 0 && selectedCount < paginatedData.length;
+  }, [paginatedData, selectAllMode, excludedGcIds, selectedGcIds, selectAllSnapshot]);
+
+  const finalCount =
+    selectAllMode && selectAllSnapshot.active
+      ? Math.max(0, (selectAllSnapshot.total || totalItems) - excludedGcIds.length)
+      : selectedGcIds.length;
+
+  const printButtonText = selectAllMode
+    ? `Print All (${finalCount})`
+    : `Print (${finalCount})`;
+
+  const isAllSelected =
+    selectAllMode && selectAllSnapshot.active
+      ? excludedGcIds.length === 0
+      : totalItems > 0 && selectedGcIds.length === totalItems;
+
+  const multipleSelected = finalCount > 0;
+
+  const bulkButtonText = isAllSelected ? 'Clear Selection' : 'Select All';
+  const bulkButtonIcon = isAllSelected ? XCircle : PackageCheck;
+  const bulkButtonVariant = isAllSelected ? 'destructive' : 'primary';
+  const BulkIconComponent = bulkButtonIcon;
+
+  // ---------------------------------------------------------------------------
+  // Selection handlers
+  // ---------------------------------------------------------------------------
+  const handleDeselectAllVisible = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const visibleGcNos = paginatedData.map((gc) => gc.gcNo);
+    const checked = e.target.checked;
+
+    if (checked) {
+      if (selectAllMode && selectAllSnapshot.active) {
+        setExcludedGcIds((prev) => prev.filter((id) => !visibleGcNos.includes(id)));
       } else {
-        setSelectedGcIds(prev => prev.filter(id => !visibleGcNos.includes(id)));
+        setSelectedGcIds((prev) => Array.from(new Set([...prev, ...visibleGcNos])));
       }
     } else {
-      if (selectAllMode) {
-        setExcludedGcIds(prev => prev.filter(gcId => !visibleGcNos.includes(gcId)));
+      if (selectAllMode && selectAllSnapshot.active) {
+        setExcludedGcIds((prev) => Array.from(new Set([...prev, ...visibleGcNos])));
       } else {
-        setSelectedGcIds(prev => Array.from(new Set([...prev, ...visibleGcNos])));
+        setSelectedGcIds((prev) => prev.filter((id) => !visibleGcNos.includes(id)));
       }
     }
   };
 
-  // --- NEW: EXCLUDE FILTERED (visible) DATA + banner state ---
-  const handleExcludeFilteredData = () => {
-    if (!selectAllMode) {
-      toast.error("You must first click 'Select All' to use the exclusion feature.");
+  const handleSelectRow = (gcNo: string, checked: boolean) => {
+    if (selectAllMode && selectAllSnapshot.active) {
+      if (checked) {
+        setExcludedGcIds((prev) => prev.filter((id) => id !== gcNo));
+      } else {
+        setExcludedGcIds((prev) => Array.from(new Set([...prev, gcNo])));
+      }
+    } else {
+      if (checked) {
+        setSelectedGcIds((prev) => Array.from(new Set([...prev, gcNo])));
+      } else {
+        setSelectedGcIds((prev) => prev.filter((id) => id !== gcNo));
+      }
+    }
+  };
+
+  const handleCombinedBulkDeselect = () => {
+    setSelectAllMode(false);
+    setSelectAllSnapshot({
+      active: false,
+      total: 0,
+      filters: createCompleteFilters({})
+    });
+    setExcludedGcIds([]);
+    setSelectedGcIds([]);
+    setExclusionFilter({ isActive: false, filterKey: '' });
+  };
+
+  // FIXED: Create complete filter snapshot
+  const handleCombinedBulkSelect = () => {
+    if (totalItems === 0) {
+      toast.error('No items found to select based on current filters.');
       return;
     }
 
-    const visibleGcNos = paginatedData.map(gc => gc.gcNo);
+    const completeFilters = createCompleteFilters(filters);
 
-    if (visibleGcNos.length === 0) {
-      toast.error("No visible items to exclude.");
-      return;
-    }
-
-    setExcludedGcIds(prev => Array.from(new Set([...prev, ...visibleGcNos])));
-
-    let filterKey: string | undefined;
-    if (filters.consignor) filterKey = "Consignor";
-    else if (filters.destination) filterKey = "Destination";
-    else if (filters.godown) filterKey = "Godown";
-    else if (filters.consignee && filters.consignee.length > 0) filterKey = "Consignee";
-
-    setExclusionFilter({
-      isActive: true,
-      filterKey
+    setSelectAllMode(true);
+    setExcludedGcIds([]);
+    setSelectedGcIds([]);
+    setExclusionFilter({ isActive: false, filterKey: '' });
+    setSelectAllSnapshot({
+      active: true,
+      total: totalItems,
+      filters: completeFilters,
     });
 
+    toast.success(`Selected ${totalItems} items (snapshot).`);
   };
 
-  // --- ACTIONS ---
+  // ---------------------------------------------------------------------------
+  // Exclude logic
+  // ---------------------------------------------------------------------------
+  const handleExcludeFilteredData = async () => {
+    if (selectAllMode && selectAllSnapshot.active) {
+      try {
+        const allMatching = await fetchLoadingSheetPrintData([], true, {
+          ...createCompleteFilters(filters)
+        });
 
+        if (!allMatching || allMatching.length === 0) {
+          toast.error('No items found to exclude for current filters.');
+          return;
+        }
+
+        const idsToExclude = allMatching.map((gc: any) => gc.gcNo);
+
+        setExcludedGcIds((prev) => Array.from(new Set([...prev, ...idsToExclude])));
+
+        let filterKey: string | undefined;
+        if (filters.consignor) filterKey = 'Consignor';
+        else if (filters.destination) filterKey = 'Destination';
+        else if (filters.godown) filterKey = 'Godown';
+        else if (filters.consignee && filters.consignee.length > 0) filterKey = 'Consignee';
+
+        setExclusionFilter({ isActive: true, filterKey });
+
+        toast.success(`Excluded ${idsToExclude.length} items from bulk selection.`);
+      } catch (err) {
+        console.error('Exclude filtered failed:', err);
+        toast.error('Failed to exclude filtered records.');
+      }
+      return;
+    }
+
+    // MANUAL MODE
+    if (!selectAllMode) {
+      if (selectedGcIds.length === 0) {
+        toast.error('No selected items to exclude.');
+        return;
+      }
+
+      const idsToExclude = [...selectedGcIds];
+
+      setExcludedGcIds((prev) => Array.from(new Set([...prev, ...idsToExclude])));
+      setSelectedGcIds([]);
+      setExclusionFilter({ isActive: true });
+
+      toast.success(`Excluded ${idsToExclude.length} selected items.`);
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------------------
   const handleDelete = (gcNo: string) => {
     setDeletingId(gcNo);
     setDeleteMessage(`Are you sure you want to delete GC #${gcNo}?`);
@@ -405,6 +460,8 @@ export const LoadingSheetEntry = () => {
     if (deletingId) {
       await deleteGcEntry(deletingId);
       refresh();
+      setSelectedGcIds((prev) => prev.filter((id) => id !== deletingId));
+      setExcludedGcIds((prev) => prev.filter((id) => id !== deletingId));
     }
     setIsConfirmOpen(false);
     setDeletingId(null);
@@ -418,39 +475,45 @@ export const LoadingSheetEntry = () => {
         const item = printData[0];
         const { consignor, consignee, ...gcData } = item;
 
-        setLoadListPrintingJobs([{
-          gc: gcData as GcEntry,
-          consignor: { ...consignor, id: consignor.id || consignor._id || 'unknown' } as Consignor,
-          consignee: { ...consignee, id: consignee.id || consignee._id || 'unknown' } as Consignee
-        }]);
+        setLoadListPrintingJobs([
+          {
+            gc: gcData as GcEntry,
+            consignor: { ...consignor, id: consignor.id || consignor._id || 'unknown' } as Consignor,
+            consignee: { ...consignee, id: consignee.id || consignee._id || 'unknown' } as Consignee,
+          },
+        ]);
       } else {
-        toast.error("Failed to fetch GC details.");
+        toast.error('Failed to fetch GC details.');
       }
     } catch (error) {
-      console.error("Print error:", error);
-      toast.error("An error occurred while fetching print data.");
+      console.error('Print error:', error);
+      toast.error('An error occurred while fetching print data.');
     }
   };
 
-  // BULK PRINT
+  // FIXED: Bulk print - Keep selection after print
   const handlePrintSelected = async () => {
-    const finalCount = selectAllMode ? Math.max(0, totalItems - excludedGcIds.length) : selectedGcIds.length;
-    if (finalCount === 0) return;
+    if (finalCount === 0) {
+      toast.error('No items selected for printing.');
+      return;
+    }
 
     try {
-      let results = [];
+      let results: any[] = [];
 
-      if (selectAllMode) {
-        results = await fetchLoadingSheetPrintData([], true, {
-          ...filters,
-          excludeIds: excludedGcIds
-        });
+      if (selectAllMode && selectAllSnapshot.active) {
+        const filtersForPrint: LoadingSheetFilter = {
+          ...selectAllSnapshot.filters,
+          excludeIds: excludedGcIds.length > 0 ? excludedGcIds : undefined,
+        } as any;
+
+        results = await fetchLoadingSheetPrintData([], true, filtersForPrint);
       } else {
         results = await fetchLoadingSheetPrintData(selectedGcIds);
       }
 
       if (!results || results.length === 0) {
-        toast.error("No data received for selected GCs.");
+        toast.error('No data received for selected GCs.');
         return;
       }
 
@@ -461,56 +524,52 @@ export const LoadingSheetEntry = () => {
           gc: gcData as GcEntry,
           consignor: {
             ...consignor,
-            id: consignor.id || consignor._id
+            id: consignor.id || consignor._id,
           } as Consignor,
           consignee: {
             ...consignee,
-            id: consignee.id || consignee._id
-          } as Consignee
+            id: consignee.id || consignee._id,
+          } as Consignee,
         };
       });
 
       if (jobs.length > 0) {
         setLoadListPrintingJobs(jobs);
-
-        // Reset selection after print
-        setSelectAllMode(false);
-        setExcludedGcIds([]);
-        setSelectedGcIds([]);
-        setExclusionFilter({ isActive: false, filterKey: '' });
+        toast.success(`Prepared ${jobs.length} print job(s).`);
+        // FIXED: Selection is NOT reset after print - keeping it visible
       }
     } catch (error) {
-      console.error("Bulk print failed", error);
-      toast.error("Failed to prepare print jobs.");
+      console.error('Bulk print failed', error);
+      toast.error('Failed to prepare print jobs.');
     }
   };
 
   // Qty selection
-const handleOpenQtySelect = async (gc: GcEntry) => {
+  const handleOpenQtySelect = async (gc: GcEntry) => {
     const fullGc = await fetchGcById(gc.gcNo);
 
     if (fullGc) {
-      const qtyStr = fullGc.quantity ? fullGc.quantity.toString() : "0";
+      const qtyStr = fullGc.quantity ? fullGc.quantity.toString() : '0';
       const maxQty = parseInt(qtyStr) || 1;
       const startNo = parseInt(fullGc.fromNo?.toString() || '1') || 1;
-      
-      // 🟢 UPDATED: Pass structured data as is (array of objects or array of numbers depending on legacy)
+
       const currentLoaded = fullGc.loadedPackages || [];
       const contentItems = fullGc.contentItems || [];
 
       setCurrentQtySelection({
         gcId: fullGc.gcNo,
-        maxQty: maxQty,
-        startNo: startNo,
+        maxQty,
+        startNo,
         loadedPackages: currentLoaded,
-        contentItems: contentItems // Pass to state
+        contentItems,
       });
       setIsQtySelectOpen(true);
     } else {
-      toast.error("Failed to load GC details.");
+      toast.error('Failed to load GC details.');
     }
   };
-const handleSaveSelectedQty = async (qtyArray: any) => {
+
+  const handleSaveSelectedQty = async (qtyArray: any) => {
     if (currentQtySelection) {
       await saveLoadingProgress(currentQtySelection.gcId, qtyArray);
       refresh();
@@ -518,6 +577,7 @@ const handleSaveSelectedQty = async (qtyArray: any) => {
     setIsQtySelectOpen(false);
     setCurrentQtySelection(null);
   };
+
   const handleCloseQtySelect = () => {
     setIsQtySelectOpen(false);
     setCurrentQtySelection(null);
@@ -532,36 +592,15 @@ const handleSaveSelectedQty = async (qtyArray: any) => {
     !!filters.search;
 
   const responsiveBtnClass =
-    "w-full md:w-auto text-[10px] xs:text-xs sm:text-sm h-8 sm:h-10 px-1 sm:px-4 whitespace-nowrap";
+    'w-full md:w-auto text-[10px] xs:text-xs sm:text-sm h-8 sm:h-10 px-1 sm:px-4 whitespace-nowrap';
 
-  const totalItemsInFilter = hasActiveFilters && selectAllMode 
-    ? selectedGcIds.length 
-    : totalItems;
-
-  const finalCount = selectAllMode 
-    ? Math.max(0, totalItemsInFilter - excludedGcIds.length) 
-    : selectedGcIds.length;
-
-  const printButtonText = selectAllMode
-    ? `Print All (${finalCount})`
-    : `Print (${finalCount})`;
-
-  const bulkButtonText = selectAllMode ? "Clear Selection" : "Select All";
-  const bulkButtonIcon = selectAllMode ? XCircle : PackageCheck;
-  const handleBulkAction = selectAllMode ? handleCombinedBulkDeselect : handleCombinedBulkSelect;
-  const bulkButtonVariant = selectAllMode ? "destructive" : "primary";
-  const BulkIconComponent = bulkButtonIcon;
-
-  // show Exclude button when multiple selected (like TripSheetList)
-  const multipleSelected = finalCount > 1;
-
+  // ---------------------------------------------------------------------------
+  // JSX
+  // ---------------------------------------------------------------------------
   return (
     <div className="space-y-6">
-
-      {/* 1. Top Control Bar */}
+      {/* Top Control Bar */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-background p-4 rounded-lg shadow border border-muted">
-
-        {/* LEFT: Search + Filter Toggle */}
         <div className="flex items-center gap-2 w-full md:w-1/2">
           <div className="relative flex-1">
             <input
@@ -571,7 +610,10 @@ const handleSaveSelectedQty = async (qtyArray: any) => {
               onChange={handleSearchChange}
               className="w-full pl-10 pr-4 py-2 bg-background text-foreground border border-muted-foreground/30 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
             />
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+              size={18}
+            />
           </div>
 
           <Button
@@ -580,15 +622,13 @@ const handleSaveSelectedQty = async (qtyArray: any) => {
             className="h-10 px-3 shrink-0"
             title="Toggle Filters"
           >
-            <Filter size={18} className={hasActiveFilters ? "mr-2" : ""} />
-            {hasActiveFilters && "Active"}
+            <Filter size={18} className={hasActiveFilters ? 'mr-2' : ''} />
+            {hasActiveFilters && 'Active'}
           </Button>
         </div>
 
-        {/* RIGHT: Actions - 2-column grid on mobile, row on desktop */}
         <div className="w-full md:w-auto mt-2 md:mt-0 grid grid-cols-2 gap-2 md:flex md:flex-row md:gap-2 md:justify-stretch">
-
-           <Button
+          <Button
             variant="secondary"
             onClick={handlePrintSelected}
             disabled={finalCount === 0}
@@ -598,24 +638,23 @@ const handleSaveSelectedQty = async (qtyArray: any) => {
             {printButtonText}
           </Button>
 
-
           <Button
             variant={bulkButtonVariant}
-            onClick={handleBulkAction}
+            onClick={isAllSelected ? handleCombinedBulkDeselect : handleCombinedBulkSelect}
             className={responsiveBtnClass}
-            title={selectAllMode 
-              ? "Click to Deselect All (clear bulk mode)" 
-              : "Select all items matching current filters, or all entries if no filters active."}
+            title={
+              isAllSelected
+                ? 'Click to Deselect All (clear bulk mode)'
+                : 'Select all items matching current filters, or all entries if no filters active.'
+            }
           >
             <BulkIconComponent size={14} className="mr-1 sm:mr-2" />
             {bulkButtonText}
           </Button>
-
-         
         </div>
       </div>
 
-      {/* 2. Collapsible Filters */}
+      {/* Filters panel */}
       {showFilters && (
         <div className="p-4 bg-muted/20 rounded-lg border border-muted animate-in fade-in slide-in-from-top-2">
           <div className="flex justify-between items-center mb-4">
@@ -623,16 +662,14 @@ const handleSaveSelectedQty = async (qtyArray: any) => {
               Advanced Filters
             </h3>
             <div className="flex gap-2">
-              {/* EXCLUDE BUTTON visible when multiple selected */}
               {multipleSelected && (
                 <button
                   onClick={handleExcludeFilteredData}
                   className="text-xs flex items-center text-destructive hover:text-destructive/80 font-medium"
                   disabled={paginatedData.length === 0}
-                  title="Exclude all visible items from the current bulk selection"
+                  title="Exclude based on current selection / filters"
                 >
-                  <XCircle size={14} className="mr-1 sm:mr-2" />
-                  Exclude
+                  <XCircle size={14} className="mr-1 sm:mr-2" /> Exclude
                 </button>
               )}
 
@@ -642,27 +679,16 @@ const handleSaveSelectedQty = async (qtyArray: any) => {
               >
                 <FilterX size={14} className="mr-1" /> Clear All
               </button>
-              
             </div>
           </div>
 
-          {/* Exclusion banner (same style as TripSheetList) */}
-          {exclusionFilter.isActive && selectAllMode && (
+          {excludedGcIds.length > 0 && (
             <div className="mb-4 p-3 bg-yellow-100 text-yellow-800 border border-yellow-300 rounded text-sm">
               <strong>Exclusion Active:</strong> {excludedGcIds.length} GCs are currently
-              excluded from the bulk selection{" "}
+              excluded from the selection{' '}
               {exclusionFilter.filterKey && (
                 <>
-                  (e.g., those matching{" "}
-                  <strong>
-                    {exclusionFilter.filterKey}:{" "}
-                    {consignorOption?.label ||
-                      destinationOption?.label ||
-                      godownOption?.label ||
-                      (consigneeOptions[0]?.label as string) ||
-                      "Filter Value"}
-                  </strong>
-                  ).
+                  (e.g., those matching <strong>{exclusionFilter.filterKey}</strong>)
                 </>
               )}
             </div>
@@ -708,7 +734,7 @@ const handleSaveSelectedQty = async (qtyArray: any) => {
                 loadOptions={loadConsigneeOptions}
                 value={consigneeOptions}
                 onChange={(val: any) => {
-                  const arr = Array.isArray(val) ? val : (val ? [val] : []);
+                  const arr = Array.isArray(val) ? val : val ? [val] : [];
                   setConsigneeOptions(arr);
                   const ids = arr.map((v: any) => v.value);
                   setFilters({ consignee: ids });
@@ -730,10 +756,9 @@ const handleSaveSelectedQty = async (qtyArray: any) => {
           />
         </div>
       )}
-      
-      {/* 3. Responsive Data Display */}
+
+      {/* Data table */}
       <div className="bg-background rounded-lg shadow border border-muted overflow-hidden">
-        {/* DESKTOP TABLE */}
         <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-muted">
             <thead className="bg-muted/50">
@@ -743,6 +768,9 @@ const handleSaveSelectedQty = async (qtyArray: any) => {
                     type="checkbox"
                     className="h-4 w-4 accent-primary border-muted-foreground/30 rounded focus:ring-primary"
                     checked={isAllVisibleSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = isIndeterminate;
+                    }}
                     onChange={handleDeselectAllVisible}
                   />
                 </th>
@@ -785,7 +813,7 @@ const handleSaveSelectedQty = async (qtyArray: any) => {
 
                   const isPartiallyPending = pendingCount > 0 && pendingCount < totalCount;
                   const isFullyPending = pendingCount === totalCount && totalCount > 0;
-                  
+
                   const isSelected = isRowSelected(gc.gcNo);
 
                   return (
@@ -795,13 +823,8 @@ const handleSaveSelectedQty = async (qtyArray: any) => {
                           type="checkbox"
                           className="h-4 w-4 accent-primary border-muted-foreground/30 rounded focus:ring-primary"
                           checked={isSelected}
-                          onChange={() =>
-                            handleSelectRow(
-                              { target: { checked: !isSelected } } as any,
-                              gc.gcNo
-                            )
-                          }
-                          title={isSelected ? "Click to Deselect" : "Click to Select"}
+                          onChange={(e) => handleSelectRow(gc.gcNo, e.target.checked)}
+                          title={isSelected ? 'Click to Deselect' : 'Click to Select'}
                         />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-primary">
@@ -809,7 +832,7 @@ const handleSaveSelectedQty = async (qtyArray: any) => {
                       </td>
                       <td className="px-6 py-4 text-sm">{consignorName}</td>
                       <td className="px-6 py-4 text-sm">{consigneeName}</td>
-                      
+
                       <td className="px-6 py-4 text-sm font-semibold">{totalCount}</td>
                       <td
                         className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${
@@ -850,7 +873,10 @@ const handleSaveSelectedQty = async (qtyArray: any) => {
                 })
               ) : (
                 <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center text-muted-foreground">
+                  <td
+                    colSpan={9}
+                    className="px-6 py-12 text-center text-muted-foreground"
+                  >
                     No entries found.
                   </td>
                 </tr>
@@ -859,7 +885,7 @@ const handleSaveSelectedQty = async (qtyArray: any) => {
           </table>
         </div>
 
-        {/* MOBILE CARD LIST */}
+        {/* Mobile list */}
         <div className="block md:hidden divide-y divide-muted">
           {paginatedData.length > 0 ? (
             paginatedData.map((gc) => {
@@ -872,7 +898,7 @@ const handleSaveSelectedQty = async (qtyArray: any) => {
               const pendingCount = totalCount - loadedCount;
               const isPartiallyPending = pendingCount > 0 && pendingCount < totalCount;
               const isFullyPending = pendingCount === totalCount && totalCount > 0;
-              
+
               const isSelected = isRowSelected(gc.gcNo);
 
               return (
@@ -883,18 +909,19 @@ const handleSaveSelectedQty = async (qtyArray: any) => {
                         type="checkbox"
                         className="h-4 w-4 accent-primary border-muted-foreground/30 rounded focus:ring-primary mt-1.5"
                         checked={isSelected}
-                        onChange={() =>
-                          handleSelectRow(
-                            { target: { checked: !isSelected } } as any,
-                            gc.gcNo
-                          )
-                        }
-                        title={isSelected ? "Click to Deselect" : "Click to Select"}
+                        onChange={(e) => handleSelectRow(gc.gcNo, e.target.checked)}
+                        title={isSelected ? 'Click to Deselect' : 'Click to Select'}
                       />
                       <div>
-                        <div className="text-lg font-semibold text-primary">GC #{gc.gcNo}</div>
-                        <div className="text-md font-medium text-foreground">From: {consignorName}</div>
-                        <div className="text-sm text-muted-foreground">To: {consigneeName}</div>
+                        <div className="text-lg font-semibold text-primary">
+                          GC #{gc.gcNo}
+                        </div>
+                        <div className="text-md font-medium text-foreground">
+                          From: {consignorName}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          To: {consigneeName}
+                        </div>
                       </div>
                     </div>
                     <div className="flex flex-col space-y-3 pt-1">
@@ -925,7 +952,8 @@ const handleSaveSelectedQty = async (qtyArray: any) => {
                   </div>
                   <div className="flex justify-between mt-2 pt-2 border-t border-muted">
                     <span className="text-sm font-medium">
-                      Case Qty: <span className="text-foreground">{totalCount}</span>
+                      Case Qty:{' '}
+                      <span className="text-foreground">{totalCount}</span>
                     </span>
                     <span className="text-sm font-medium">
                       Pending Qty:{' '}
@@ -946,7 +974,9 @@ const handleSaveSelectedQty = async (qtyArray: any) => {
               );
             })
           ) : (
-            <div className="p-8 text-center text-muted-foreground">No entries found.</div>
+            <div className="p-8 text-center text-muted-foreground">
+              No entries found.
+            </div>
           )}
         </div>
 
@@ -1006,5 +1036,3 @@ const handleSaveSelectedQty = async (qtyArray: any) => {
     </div>
   );
 };
-
-
