@@ -682,17 +682,7 @@ export const LoadingSheetEntry = () => {
             </div>
           </div>
 
-          /* {excludedGcIds.length > 0 && (
-            <div className="mb-4 p-3 bg-yellow-100 text-yellow-800 border border-yellow-300 rounded text-sm">
-              <strong>Exclusion Active:</strong> {excludedGcIds.length} GCs are currently
-              excluded from the selection{' '}
-              {exclusionFilter.filterKey && (
-                <>
-                  (e.g., those matching <strong>{exclusionFilter.filterKey}</strong>)
-                </>
-              )}
-            </div>
-          )} */
+          
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
             <AsyncAutocomplete
