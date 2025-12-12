@@ -45,7 +45,7 @@ export const LoginScreen = () => {
     if (validationTimeouts.current.email) clearTimeout(validationTimeouts.current.email);
     validationTimeouts.current.email = setTimeout(() => {
       validateField('email', val);
-    }, 500);
+    }, 1000);
   };
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -55,7 +55,7 @@ export const LoginScreen = () => {
     if (validationTimeouts.current.password) clearTimeout(validationTimeouts.current.password);
     validationTimeouts.current.password = setTimeout(() => {
       validateField('password', val);
-    }, 500);
+    }, 1000);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

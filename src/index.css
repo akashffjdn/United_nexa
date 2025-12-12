@@ -21,7 +21,7 @@
 @layer base {
   :root {
     /* ▼ ACTIVE THEME: Royal Blue & Pure Black ▼ */
-    @apply theme-blue; 
+    @apply theme-ocean; 
   }
 
   body {

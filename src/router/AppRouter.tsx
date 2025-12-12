@@ -13,34 +13,34 @@ const load = (importPromise: Promise<any>, componentName: string) =>
 const LoginScreen = lazy(() => load(import('../features/auth/LoginScreen'), 'LoginScreen'));
 
 // Features -> Dashboard
-const DashboardPage = lazy(() => load(import('../features/dashboard/DashboardPage'), 'DashboardPage'));
-const MasterDashboardPage = lazy(() => load(import('../features/dashboard/MasterDashboardPage'), 'MasterDashboardPage'));
+const DashboardPage = lazy(() => load(import('../features/operations/dashboard/DashboardPage'), 'DashboardPage'));
+const MasterDashboardPage = lazy(() => load(import('../features/operations/dashboard/MasterDashboardPage'), 'MasterDashboardPage'));
 
 // Features -> Operations
-const GcEntryList = lazy(() => load(import('../features/gc-entry/GcEntryList'), 'GcEntryList'));
-const GcEntryForm = lazy(() => load(import('../features/gc-entry/GcEntryForm'), 'GcEntryForm'));
-const LoadingSheetEntry = lazy(() => load(import('../features/loading-sheet/LoadingSheetEntry'), 'LoadingSheetEntry'));
-const TripSheetList = lazy(() => load(import('../features/trip-sheet-entry/TripSheetList'), 'TripSheetList'));
-const TripSheetForm = lazy(() => load(import('../features/trip-sheet-entry/TripSheetForm'), 'TripSheetForm'));
-const PendingStockHistory = lazy(() => load(import('../features/pending-stock/PendingStockHistory'), 'PendingStockHistory'));
+const GcEntryList = lazy(() => load(import('../features/operations/gc-entry/GcEntryList'), 'GcEntryList'));
+const GcEntryForm = lazy(() => load(import('../features/operations/gc-entry/GcEntryForm'), 'GcEntryForm'));
+const LoadingSheetEntry = lazy(() => load(import('../features/operations/loading-sheet/LoadingSheetEntry'), 'LoadingSheetEntry'));
+const TripSheetList = lazy(() => load(import('../features/operations/trip-sheet-entry/TripSheetList'), 'TripSheetList'));
+const TripSheetForm = lazy(() => load(import('../features/operations/trip-sheet-entry/TripSheetForm'), 'TripSheetForm'));
+const PendingStockHistory = lazy(() => load(import('../features/operations/pending-stock/PendingStockHistory'), 'PendingStockHistory'));
 
 // Features -> Masters
-const ConsignorList = lazy(() => load(import('../features/consignors/ConsignorList'), 'ConsignorList'));
-const ConsigneeList = lazy(() => load(import('../features/consignees/ConsigneeList'), 'ConsigneeList'));
-const FromPlaceList = lazy(() => load(import('../features/from-places-entry/FromPlacesList'), 'FromPlaceList'));
-const ToPlacesList = lazy(() => load(import('../features/to-places-entry/ToPlacesList'), 'ToPlacesList'));
-const PackingEntryList = lazy(() => load(import('../features/packing-entry/PackingUnitList'), 'PackingEntryList'));
-const ContentList = lazy(() => load(import('../features/content-entry/ContentList'), 'ContentList'));
-const VehicleList = lazy(() => load(import('../features/vehicle-details/VehicleList'), 'VehicleList'));
-const DriverList = lazy(() => load(import('../features/driver-details copy/DriverList'), 'DriverList'));
+const ConsignorList = lazy(() => load(import('../features/master/consignors/ConsignorList'), 'ConsignorList'));
+const ConsigneeList = lazy(() => load(import('../features/master/consignees/ConsigneeList'), 'ConsigneeList'));
+const FromPlaceList = lazy(() => load(import('../features/master/from-places-entry/FromPlacesList'), 'FromPlaceList'));
+const ToPlacesList = lazy(() => load(import('../features/master/to-places-entry/ToPlacesList'), 'ToPlacesList'));
+const PackingEntryList = lazy(() => load(import('../features/master/packing-entry/PackingUnitList'), 'PackingEntryList'));
+const ContentList = lazy(() => load(import('../features/master/content-entry/ContentList'), 'ContentList'));
+const VehicleList = lazy(() => load(import('../features/master/vehicle-details/VehicleList'), 'VehicleList'));
+const DriverList = lazy(() => load(import('../features/master/driver-details copy/DriverList'), 'DriverList'));
 
 // Features -> Templates (Settings)
-const MainScreen = lazy(() => load(import('../features/templates/MainScreen'), 'default'));
+const MainScreen = lazy(() => load(import('../features/master/admin/templates/MainScreen'), 'default'));
 
 // Features -> Admin
-const UserList = lazy(() => load(import('../features/users/UserList'), 'UserList'));
+const UserList = lazy(() => load(import('../features/master/admin/users/UserList'), 'UserList'));
 // 🟢 NEW: Audit Logs
-const AuditLogPage = lazy(() => load(import('../features/audit-logs/AuditLogPage'), 'default'));
+const AuditLogPage = lazy(() => load(import('../features/master/admin/audit-logs/AuditLogPage'), 'default'));
 
 const ProtectedRoute = ({ requireAdmin = false }: { requireAdmin?: boolean }) => {
   const { user, loading } = useAuth();
