@@ -25,28 +25,15 @@ import { Button } from "../../components/shared/Button";
 import { AsyncAutocomplete } from "../../components/shared/AsyncAutocomplete";
 import { useData } from "../../hooks/useData";
 import { useServerPagination } from "../../hooks/useServerPagination";
-import type { TripSheetEntry, ToPlace, Consignor, Consignee } from "../../types";
+import type { TripSheetEntry, ToPlace, Consignor, Consignee ,TripSheetFilter,ExclusionFilterState} from "../../types";
 import { Pagination } from "../../components/shared/Pagination";
 import { TripSheetPrintManager } from "./TripSheetPrintManager";
 import { TripSheetReportPrint } from "./TripSheetReportView";
 import { useToast } from "../../contexts/ToastContext";
-
-type TripSheetFilter = {
-  search?: string;
-  filterType?: string;
-  startDate?: string;
-  endDate?: string;
-  customStart?: string;
-  customEnd?: string;
-  toPlace?: string;
-  consignor?: string;
-  consignee?: string[];
-  excludeIds?: string[];
-};
-
-type ExclusionFilterState = {
-  isActive: boolean;
-  filterKey?: string;
+type SelectAllSnapshot = {
+  active: boolean;
+  total: number;
+  filters: TripSheetFilter; // Use proper type instead of any
 };
 
 export const TripSheetList = () => {
@@ -76,7 +63,17 @@ export const TripSheetList = () => {
     refresh
   } = useServerPagination<TripSheetEntry>({
     endpoint: "/operations/tripsheet",
-    initialFilters: { search: "", filterType: "all", consignee: [] } as TripSheetFilter,
+    initialFilters: {
+      search: "",
+      filterType: "all",
+      startDate: "",
+      endDate: "",
+      customStart: "",
+      customEnd: "",
+      toPlace: "",
+      consignor: "",
+      consignee: []
+    } as TripSheetFilter,
   });
 
   const [showFilters, setShowFilters] = useState(false);
@@ -84,11 +81,30 @@ export const TripSheetList = () => {
   const [consignorOption, setConsignorOption] = useState<any>(null);
   const [consigneeOptions, setConsigneeOptions] = useState<any[]>([]);
 
+  // Selection state
   const [selectedMfNos, setSelectedMfNos] = useState<string[]>([]);
   const [selectAllMode, setSelectAllMode] = useState(false);
   const [excludedMfNos, setExcludedMfNos] = useState<string[]>([]);
 
-  const [exclusionFilter, setExclusionFilter] = useState<ExclusionFilterState>({
+  // Snapshot state - initialized with proper empty filter object
+  const [selectAllSnapshot, setSelectAllSnapshot] = useState<SelectAllSnapshot>({
+    active: false,
+    total: 0,
+    filters: {
+      search: "",
+      filterType: "all",
+      startDate: "",
+      endDate: "",
+      customStart: "",
+      customEnd: "",
+      toPlace: "",
+      consignor: "",
+      consignee: []
+    },
+  });
+
+  // Exclusion filter banner
+  const [, setExclusionFilter] = useState<ExclusionFilterState>({
     isActive: false,
     filterKey: ""
   });
@@ -99,6 +115,7 @@ export const TripSheetList = () => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteMessage, setDeleteMessage] = useState("");
 
+  // Async loaders
   const loadDestinationOptions = useCallback(
     async (search: string, _prevOptions: any, { page }: any) => {
       const result = await searchToPlaces(search, page);
@@ -135,6 +152,22 @@ export const TripSheetList = () => {
     [searchConsignees]
   );
 
+  // Helper function to create complete filter object
+  const createCompleteFilters = (sourceFilters: TripSheetFilter): TripSheetFilter => {
+    return {
+      search: sourceFilters.search || "",
+      filterType: sourceFilters.filterType || "all",
+      startDate: sourceFilters.startDate || "",
+      endDate: sourceFilters.endDate || "",
+      customStart: sourceFilters.customStart || "",
+      customEnd: sourceFilters.customEnd || "",
+      toPlace: sourceFilters.toPlace || "",
+      consignor: sourceFilters.consignor || "",
+      consignee: sourceFilters.consignee || [],
+    };
+  };
+
+  // Filter handlers
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFilters({ search: e.target.value });
   };
@@ -156,49 +189,94 @@ export const TripSheetList = () => {
       end = getTodayDate();
     }
 
-    setFilters({ filterType: type, startDate: start, endDate: end, customStart: "", customEnd: "" });
+    setFilters({
+      filterType: type,
+      startDate: start,
+      endDate: end,
+      customStart: "",
+      customEnd: ""
+    });
   };
 
   const handleCustomDateChange = (start: string, end: string) => {
-    setFilters({ filterType: "custom", customStart: start, customEnd: end, startDate: start, endDate: end });
+    setFilters({
+      filterType: "custom",
+      customStart: start,
+      customEnd: end,
+      startDate: start,
+      endDate: end
+    });
   };
 
   const clearAllFilters = () => {
     setDestinationOption(null);
     setConsignorOption(null);
     setConsigneeOptions([]);
-    setFilters({ search: "", filterType: "all", startDate: "", endDate: "", toPlace: "", consignor: "", consignee: [] });
+
+    setFilters({
+      search: "",
+      filterType: "all",
+      startDate: "",
+      endDate: "",
+      toPlace: "",
+      consignor: "",
+      consignee: []
+    });
+
+    // Clear selection + exclusion/snapshot state
     setSelectAllMode(false);
     setSelectedMfNos([]);
     setExcludedMfNos([]);
     setExclusionFilter({ isActive: false, filterKey: "" });
+    setSelectAllSnapshot({
+      active: false,
+      total: 0,
+      filters: createCompleteFilters({})
+    });
   };
 
+  // Selection Helpers
   const isRowSelected = (mfNo: string): boolean => {
-    if (selectAllMode) return !excludedMfNos.includes(mfNo);
+    if (selectAllMode && selectAllSnapshot.active) {
+      return !excludedMfNos.includes(mfNo);
+    }
     return selectedMfNos.includes(mfNo);
   };
 
-  const isAllVisibleSelected = paginatedData.length > 0 && paginatedData.every((ts) => isRowSelected(ts.mfNo));
+  const isAllVisibleSelected =
+    paginatedData.length > 0 && paginatedData.every((ts) => isRowSelected(ts.mfNo));
 
   const isIndeterminate = useMemo(() => {
     if (paginatedData.length === 0) return false;
     const selectedCount = paginatedData.filter((ts) => isRowSelected(ts.mfNo)).length;
     return selectedCount > 0 && selectedCount < paginatedData.length;
-  }, [paginatedData, selectAllMode, excludedMfNos, selectedMfNos]);
+  }, [paginatedData, selectAllMode, excludedMfNos, selectedMfNos, selectAllSnapshot]);
 
+  // Counts using Snapshot Logic
+  const finalCount = selectAllMode && selectAllSnapshot.active
+    ? Math.max(0, (selectAllSnapshot.total || totalItems) - excludedMfNos.length)
+    : selectedMfNos.length;
+
+  const printButtonText = `Print (${finalCount})`;
+
+  // Determine if everything is selected across the dataset
+  const isAllSelected = selectAllMode && selectAllSnapshot.active
+    ? excludedMfNos.length === 0
+    : (totalItems > 0 && selectedMfNos.length === totalItems);
+
+  // Header checkbox - select/deselect visible page only
   const handleSelectAllVisible = (e: React.ChangeEvent<HTMLInputElement>) => {
     const visibleMfNos = paginatedData.map((ts) => ts.mfNo);
     const checked = e.target.checked;
 
     if (checked) {
-      if (selectAllMode) {
+      if (selectAllMode && selectAllSnapshot.active) {
         setExcludedMfNos((prev) => prev.filter((mfNo) => !visibleMfNos.includes(mfNo)));
       } else {
         setSelectedMfNos((prev) => Array.from(new Set([...prev, ...visibleMfNos])));
       }
     } else {
-      if (selectAllMode) {
+      if (selectAllMode && selectAllSnapshot.active) {
         setExcludedMfNos((prev) => Array.from(new Set([...prev, ...visibleMfNos])));
       } else {
         setSelectedMfNos((prev) => prev.filter((id) => !visibleMfNos.includes(id)));
@@ -206,8 +284,9 @@ export const TripSheetList = () => {
     }
   };
 
+  // Row checkbox
   const handleSelectRow = (id: string, checked: boolean) => {
-    if (selectAllMode) {
+    if (selectAllMode && selectAllSnapshot.active) {
       if (checked) {
         setExcludedMfNos((prev) => prev.filter((mfNo) => mfNo !== id));
       } else {
@@ -222,43 +301,105 @@ export const TripSheetList = () => {
     }
   };
 
+  // Clear Selection
   const handleCombinedBulkDeselect = () => {
     setSelectAllMode(false);
     setExcludedMfNos([]);
     setSelectedMfNos([]);
     setExclusionFilter({ isActive: false, filterKey: "" });
+    setSelectAllSnapshot({
+      active: false,
+      total: 0,
+      filters: createCompleteFilters({})
+    });
   };
 
-  const handleCombinedBulkSelect = async () => {
+  // Select All - Creates snapshot with COMPLETE filter object
+  const handleCombinedBulkSelect = () => {
     if (totalItems === 0) {
       toast.error("No items found to select based on current filters.");
       return;
     }
+
+    // Create a complete snapshot of ALL filter fields
+    const completeFilters = createCompleteFilters(filters);
+
+    console.log("=== SELECT ALL DEBUG ===");
+    console.log("Total items to select:", totalItems);
+    console.log("Current filters:", filters);
+    console.log("Complete filters for snapshot:", completeFilters);
+
     setSelectAllMode(true);
     setExcludedMfNos([]);
     setSelectedMfNos([]);
     setExclusionFilter({ isActive: false, filterKey: "" });
+    setSelectAllSnapshot({
+      active: true,
+      total: totalItems,
+      filters: completeFilters,
+    });
   };
 
-  const handleExcludeFilteredData = () => {
-    if (!selectAllMode) {
-      toast.error("You must first click 'Select All' to use the exclusion feature.");
+  // Exclude Filtered Data
+  const handleExcludeFilteredData = async () => {
+    const visibleMfNos = paginatedData.map((ts) => ts.mfNo);
+
+    if (visibleMfNos.length === 0 && finalCount === 0) {
       return;
     }
-    const visibleMfNos = paginatedData.map((ts) => ts.mfNo);
-    setExcludedMfNos((prev) => Array.from(new Set([...prev, ...visibleMfNos])));
 
-    let filterKey: string | undefined;
-    if (filters.consignor) filterKey = "Consignor";
-    else if (filters.toPlace) filterKey = "Destination";
-    else if (filters.consignee && filters.consignee.length > 0) filterKey = "Consignee";
+    // CASE 1: Manual Selection Mode
+    if (!selectAllMode || !selectAllSnapshot.active) {
+      const selectedVisible = visibleMfNos.filter((id) => selectedMfNos.includes(id));
 
-    setExclusionFilter({ isActive: true, filterKey });
+      if (selectedVisible.length === 0) {
+        return;
+      }
+
+      setSelectedMfNos((prev) => prev.filter((id) => !selectedVisible.includes(id)));
+      setExcludedMfNos((prev) => Array.from(new Set([...prev, ...selectedVisible])));
+      setExclusionFilter({ isActive: true, filterKey: "Manual Selection" });
+      toast.success(`Excluded ${selectedVisible.length} items from bulk selection.`);
+      return;
+    }
+
+    // CASE 2: Select-All Mode - Exclude ALL matching current filters
+    try {
+      const allMatching = await fetchTripSheetPrintData([], true, {
+        ...createCompleteFilters(filters),
+        page: 1,
+        perPage: 0,
+      });
+
+      if (!allMatching || allMatching.length === 0) {
+        return;
+      }
+
+      const idsToExclude = allMatching.map((ts: any) => ts.mfNo);
+
+      setExcludedMfNos(prev =>
+        Array.from(new Set([...prev, ...idsToExclude]))
+      );
+
+      let filterKey: string | undefined;
+      if (filters.consignor) filterKey = "Consignor";
+      else if (filters.toPlace) filterKey = "Destination";
+      else if (filters.consignee && filters.consignee.length > 0) filterKey = "Consignee";
+
+      setExclusionFilter({
+        isActive: true,
+        filterKey
+      });
+      toast.success(`Excluded ${idsToExclude.length} items from bulk selection.`);
+
+    } catch (e) {
+      console.error("Exclude failed during bulk fetch:", e);
+    }
   };
 
   const onDelete = (mfNo: string) => {
     setDelId(mfNo);
-    setDeleteMessage('Are you sure you want to delete Trip Sheet #' + mfNo + '?');
+    setDeleteMessage(`Are you sure you want to delete Trip Sheet #${mfNo}?`);
     setConfirmOpen(true);
   };
 
@@ -267,45 +408,79 @@ export const TripSheetList = () => {
     setConfirmOpen(false);
     try {
       await deleteTripSheet(delId);
-      toast.success('Trip Sheet #' + delId + ' deleted successfully.');
+      toast.success(`Trip Sheet #${delId} deleted successfully.`);
       refresh();
       setSelectedMfNos((prev) => prev.filter((id) => id !== delId));
       setExcludedMfNos((prev) => prev.filter((id) => id !== delId));
     } catch (error) {
       console.error("Deletion failed:", error);
-      toast.error('Failed to delete Trip Sheet #' + delId + '.');
+      toast.error(`Failed to delete Trip Sheet #${delId}.`);
     } finally {
       setDelId(null);
     }
   };
 
+  // Bulk Print Handler with comprehensive debug logging
   const handlePrintSelected = async () => {
-    const count = selectAllMode ? Math.max(0, totalItems - excludedMfNos.length) : selectedMfNos.length;
-    if (count === 0) {
+    if (finalCount === 0) {
       toast.error("No Trip Sheets selected for printing.");
       return;
     }
 
     try {
       let sheets: TripSheetEntry[] = [];
-      if (selectAllMode) {
-        sheets = await fetchTripSheetPrintData([], true, { ...filters, excludeIds: excludedMfNos });
+
+      if (selectAllMode && selectAllSnapshot.active) {
+        // Bulk mode: use snapshot filters and excluded IDs
+        const filtersForPrint: TripSheetFilter = {
+          ...selectAllSnapshot.filters,
+          excludeIds: excludedMfNos.length > 0 ? excludedMfNos : undefined,
+        };
+
+        // DEBUG: Log what we're sending
+        console.log("=== PRINT DEBUG ===");
+        console.log("Mode: Select All (Bulk)");
+        console.log("Snapshot active:", selectAllSnapshot.active);
+        console.log("Snapshot total:", selectAllSnapshot.total);
+        console.log("Snapshot filters:", JSON.stringify(selectAllSnapshot.filters, null, 2));
+        console.log("Excluded MF Nos:", excludedMfNos);
+        console.log("Excluded count:", excludedMfNos.length);
+        console.log("Final filters being sent:", JSON.stringify(filtersForPrint, null, 2));
+        console.log("Expected count:", finalCount);
+
+        sheets = await fetchTripSheetPrintData([], true, filtersForPrint);
+
+        console.log("API Response - Sheets returned:", sheets?.length);
+        console.log("Sheets data:", sheets);
       } else {
+        // Manual mode: use explicitly selected IDs
+        console.log("=== PRINT DEBUG ===");
+        console.log("Mode: Manual Selection");
+        console.log("Selected MF Nos:", selectedMfNos);
+        console.log("Selected count:", selectedMfNos.length);
+
         sheets = await fetchTripSheetPrintData(selectedMfNos);
+
+        console.log("API Response - Sheets returned:", sheets?.length);
+        console.log("Sheets data:", sheets);
       }
 
       if (sheets && sheets.length > 0) {
         setPrintingSheets(sheets);
-        setSelectedMfNos([]);
-        setSelectAllMode(false);
-        setExcludedMfNos([]);
-        setExclusionFilter({ isActive: false, filterKey: "" });
-        toast.success('Prepared ' + sheets.length + ' print job(s).');
+
+        
+
+        toast.success(`Prepared ${sheets.length} print job(s).`);
       } else {
-        toast.error("Failed to load data for printing.");
+        console.error("No sheets returned from API");
+        console.error("This could mean:");
+        console.error("1. Backend returned empty array");
+        console.error("2. Filters don't match any records");
+        console.error("3. All records are excluded");
+        toast.error("Failed to load data for printing. No Trip Sheets matched criteria.");
       }
     } catch (e) {
-      console.error(e);
+      console.error("Error loading print data:", e);
       toast.error("Error loading print data.");
     }
   };
@@ -319,7 +494,7 @@ export const TripSheetList = () => {
         toast.error("Failed to load data for printing.");
       }
     } catch (e) {
-      console.error(e);
+      console.error("Error loading print data:", e);
       toast.error("Error loading print data.");
     }
   };
@@ -327,9 +502,10 @@ export const TripSheetList = () => {
   const handleShowReport = async () => {
     try {
       const reportData = await fetchTripSheetReport(filters);
+
       if (reportData && reportData.length > 0) {
         setReportPrintingJobs(reportData as TripSheetEntry[]);
-        toast.success('Found ' + reportData.length + ' items for the report.');
+        toast.success(`Found ${reportData.length} items for the report.`);
       } else {
         toast.error("No data found for report based on current filters.");
       }
@@ -339,15 +515,21 @@ export const TripSheetList = () => {
     }
   };
 
-  const hasActiveFilters = !!filters.toPlace || !!filters.consignor || (filters.consignee && filters.consignee.length > 0) || filters.filterType !== "all" || !!filters.search;
-  const finalCount = selectAllMode ? Math.max(0, totalItems - excludedMfNos.length) : selectedMfNos.length;
-  const printButtonText = 'Print (' + finalCount + ')';
-  const isAllSelected = (selectAllMode && excludedMfNos.length === 0) || (!selectAllMode && totalItems > 0 && selectedMfNos.length === totalItems);
+  const hasActiveFilters =
+    !!filters.toPlace ||
+    !!filters.consignor ||
+    (filters.consignee && filters.consignee.length > 0) ||
+    filters.filterType !== "all" ||
+    !!filters.search;
+
+  // Bulk button logic
   const bulkButtonText = isAllSelected ? "Clear Selection" : "Select All";
-  const BulkIconComponent = isAllSelected ? XCircle : PackageCheck;
+  const bulkButtonIcon = isAllSelected ? XCircle : PackageCheck;
   const handleBulkAction = isAllSelected ? handleCombinedBulkDeselect : handleCombinedBulkSelect;
   const bulkButtonVariant = isAllSelected ? "destructive" : "primary";
-  const multipleSelected = finalCount > 1;
+  const BulkIconComponent = bulkButtonIcon;
+
+  const multipleSelected = finalCount > 0;
 
   return (
     <div className="space-y-4">
@@ -480,7 +662,7 @@ export const TripSheetList = () => {
             </div>
           </div>
 
-          {exclusionFilter.isActive && selectAllMode && (
+          {/* {exclusionFilter.isActive && selectAllMode && (
             <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-start gap-3">
               <XCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
               <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
@@ -488,7 +670,7 @@ export const TripSheetList = () => {
                 {exclusionFilter.filterKey && <> (filtered by <strong>{exclusionFilter.filterKey}</strong>)</>}
               </p>
             </div>
-          )}
+          )} */}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
             <AsyncAutocomplete label="Destination" loadOptions={loadDestinationOptions} value={destinationOption} onChange={(val: any) => { setDestinationOption(val); setFilters({ toPlace: val?.value || "" }); }} placeholder="Search destination..." defaultOptions />

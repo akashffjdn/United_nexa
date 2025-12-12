@@ -30,13 +30,9 @@ import { Button } from "../../components/shared/Button";
 import { AsyncAutocomplete } from "../../components/shared/AsyncAutocomplete";
 import { GcPrintManager, type GcPrintJob } from "./GcPrintManager";
 import { Pagination } from "../../components/shared/Pagination";
-import type { GcEntry, Consignor, Consignee } from "../../types";
+import type { GcEntry, Consignor, Consignee, GcFilter, ExclusionFilterState, SelectAllSnapshot } from "../../types";
 import { useToast } from "../../contexts/ToastContext";
 
-type ExclusionFilterState = {
-  isActive: boolean;
-  filterKey?: string;
-};
 
 export const GcEntryList = () => {
   const navigate = useNavigate();
@@ -50,6 +46,9 @@ export const GcEntryList = () => {
 
   const toast = useToast();
 
+  // ---------------------------------------------------------------------------
+  // Server pagination - FIXED: Complete initialFilters
+  // ---------------------------------------------------------------------------
   const {
     data: paginatedData,
     loading,
@@ -65,33 +64,90 @@ export const GcEntryList = () => {
   } = useServerPagination<GcEntry>({
     endpoint: "/operations/gc",
     initialItemsPerPage: 10,
-    initialFilters: { search: "", filterType: "all" },
+    initialFilters: {
+      search: "",
+      filterType: "all",
+      startDate: "",
+      endDate: "",
+      customStart: "",
+      customEnd: "",
+      destination: "",
+      consignor: "",
+      consignee: []
+    } as GcFilter,
   });
 
+  // ---------------------------------------------------------------------------
+  // UI state
+  // ---------------------------------------------------------------------------
   const [showFilters, setShowFilters] = useState(false);
   const [destinationOption, setDestinationOption] = useState<any>(null);
   const [consignorOption, setConsignorOption] = useState<any>(null);
   const [consigneeOptions, setConsigneeOptions] = useState<any[]>([]);
 
+  // ---------------------------------------------------------------------------
+  // Selection state - FIXED: Proper typed snapshot
+  // ---------------------------------------------------------------------------
   const [selectedGcNos, setSelectedGcNos] = useState<string[]>([]);
   const [selectAllMode, setSelectAllMode] = useState(false);
   const [excludedGcNos, setExcludedGcNos] = useState<string[]>([]);
+  const [selectAllSnapshot, setSelectAllSnapshot] = useState<SelectAllSnapshot>({
+    active: false,
+    total: 0,
+    filters: {
+      search: "",
+      filterType: "all",
+      startDate: "",
+      endDate: "",
+      customStart: "",
+      customEnd: "",
+      destination: "",
+      consignor: "",
+      consignee: []
+    },
+  });
 
-  const [exclusionFilter, setExclusionFilter] = useState<ExclusionFilterState>({
+  const [, setExclusionFilter] = useState<ExclusionFilterState>({
     isActive: false,
     filterKey: "",
   });
 
+  // ---------------------------------------------------------------------------
+  // Modal / print state
+  // ---------------------------------------------------------------------------
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteMessage, setDeleteMessage] = useState("");
   const [printingJobs, setPrintingJobs] = useState<GcPrintJob[] | null>(null);
 
+  // ---------------------------------------------------------------------------
+  // Helper: Create complete filter object
+  // ---------------------------------------------------------------------------
+  const createCompleteFilters = (sourceFilters: GcFilter): GcFilter => {
+    return {
+      search: sourceFilters.search || "",
+      filterType: sourceFilters.filterType || "all",
+      startDate: sourceFilters.startDate || "",
+      endDate: sourceFilters.endDate || "",
+      customStart: sourceFilters.customStart || "",
+      customEnd: sourceFilters.customEnd || "",
+      destination: sourceFilters.destination || "",
+      consignor: sourceFilters.consignor || "",
+      consignee: sourceFilters.consignee || [],
+    };
+  };
+
+  // ---------------------------------------------------------------------------
+  // Async loaders
+  // ---------------------------------------------------------------------------
   const loadDestinationOptions = useCallback(
     async (search: string, _prevOptions: any, { page }: any) => {
       const result = await searchToPlaces(search, page);
       return {
-        options: result.data.map((p: any) => ({ value: p.placeName, label: p.placeName })),
+        options: result.data.map((p: any) => ({
+          value: p.placeName,
+          label: p.placeName,
+        })),
         hasMore: result.hasMore,
         additional: { page: page + 1 },
       };
@@ -103,7 +159,10 @@ export const GcEntryList = () => {
     async (search: string, _prevOptions: any, { page }: any) => {
       const result = await searchConsignors(search, page);
       return {
-        options: result.data.map((c: any) => ({ value: c.id, label: c.name })),
+        options: result.data.map((c: any) => ({
+          value: c.id,
+          label: c.name,
+        })),
         hasMore: result.hasMore,
         additional: { page: page + 1 },
       };
@@ -115,7 +174,10 @@ export const GcEntryList = () => {
     async (search: string, _prevOptions: any, { page }: any) => {
       const result = await searchConsignees(search, page);
       return {
-        options: result.data.map((c: any) => ({ value: c.id, label: c.name })),
+        options: result.data.map((c: any) => ({
+          value: c.id,
+          label: c.name,
+        })),
         hasMore: result.hasMore,
         additional: { page: page + 1 },
       };
@@ -123,6 +185,9 @@ export const GcEntryList = () => {
     [searchConsignees]
   );
 
+  // ---------------------------------------------------------------------------
+  // Filters
+  // ---------------------------------------------------------------------------
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFilters({ search: e.target.value });
   };
@@ -144,22 +209,50 @@ export const GcEntryList = () => {
       end = getTodayDate();
     }
 
-    setFilters({ filterType: type, startDate: start, endDate: end, customStart: "", customEnd: "" });
+    setFilters({
+      filterType: type,
+      startDate: start,
+      endDate: end,
+      customStart: "",
+      customEnd: "",
+    });
   };
 
   const handleCustomDateChange = (start: string, end: string) => {
-    setFilters({ filterType: "custom", customStart: start, customEnd: end, startDate: start, endDate: end });
+    setFilters({
+      filterType: "custom",
+      customStart: start,
+      customEnd: end,
+      startDate: start,
+      endDate: end,
+    });
   };
 
   const clearAllFilters = () => {
     setDestinationOption(null);
     setConsignorOption(null);
     setConsigneeOptions([]);
-    setFilters({ search: "", filterType: "all", startDate: "", endDate: "", destination: "", consignor: "", consignee: [] });
+
+    setFilters({
+      search: "",
+      filterType: "all",
+      startDate: "",
+      endDate: "",
+      destination: "",
+      consignor: "",
+      consignee: [],
+    });
+
+    // clear selection + exclusion/snapshot state
     setSelectAllMode(false);
     setSelectedGcNos([]);
     setExcludedGcNos([]);
     setExclusionFilter({ isActive: false, filterKey: "" });
+    setSelectAllSnapshot({
+      active: false,
+      total: 0,
+      filters: createCompleteFilters({})
+    });
   };
 
   const hasActiveFilters =
@@ -169,40 +262,57 @@ export const GcEntryList = () => {
     filters.filterType !== "all" ||
     !!filters.search;
 
+  // ---------------------------------------------------------------------------
+  // Selection helpers
+  // ---------------------------------------------------------------------------
   const isRowSelected = (gcNo: string): boolean => {
-    if (selectAllMode) return !excludedGcNos.includes(gcNo);
+    if (selectAllMode && selectAllSnapshot.active) {
+      return !excludedGcNos.includes(gcNo);
+    }
     return selectedGcNos.includes(gcNo);
   };
 
-  const isAllVisibleSelected = paginatedData.length > 0 && paginatedData.every((gc) => isRowSelected(gc.gcNo));
+  const isAllVisibleSelected =
+    paginatedData.length > 0 && paginatedData.every((gc) => isRowSelected(gc.gcNo));
 
   const isIndeterminate = useMemo(() => {
     if (paginatedData.length === 0) return false;
     const selectedCount = paginatedData.filter((gc) => isRowSelected(gc.gcNo)).length;
     return selectedCount > 0 && selectedCount < paginatedData.length;
-  }, [paginatedData, selectAllMode, excludedGcNos, selectedGcNos]);
+  }, [paginatedData, selectAllMode, excludedGcNos, selectedGcNos, selectAllSnapshot]);
 
-  const finalCount = selectAllMode ? Math.max(0, totalItems - excludedGcNos.length) : selectedGcNos.length;
+  const finalCount = selectAllMode && selectAllSnapshot.active
+    ? Math.max(0, (selectAllSnapshot.total || totalItems) - excludedGcNos.length)
+    : selectedGcNos.length;
+
   const printButtonText = `Print (${finalCount})`;
-  const isAllSelected = selectAllMode || (totalItems > 0 && !selectAllMode && selectedGcNos.length === totalItems);
-  const multipleSelected = finalCount > 1;
+
+  const isAllSelected = selectAllMode && selectAllSnapshot.active
+    ? excludedGcNos.length === 0
+    : (totalItems > 0 && selectedGcNos.length === totalItems);
+
+  const multipleSelected = finalCount > 0;
+
   const bulkButtonText = isAllSelected ? "Clear Selection" : "Select All";
   const bulkButtonIcon = isAllSelected ? XCircle : PackageCheck;
   const bulkButtonVariant = isAllSelected ? "destructive" : "primary";
   const BulkIconComponent = bulkButtonIcon;
 
+  // ---------------------------------------------------------------------------
+  // Selection handlers
+  // ---------------------------------------------------------------------------
   const handleSelectAllVisible = (e: React.ChangeEvent<HTMLInputElement>) => {
     const visibleGcNos = paginatedData.map((gc) => gc.gcNo);
     const checked = e.target.checked;
 
     if (checked) {
-      if (selectAllMode) {
+      if (selectAllMode && selectAllSnapshot.active) {
         setExcludedGcNos((prev) => prev.filter((id) => !visibleGcNos.includes(id)));
       } else {
         setSelectedGcNos((prev) => Array.from(new Set([...prev, ...visibleGcNos])));
       }
     } else {
-      if (selectAllMode) {
+      if (selectAllMode && selectAllSnapshot.active) {
         setExcludedGcNos((prev) => Array.from(new Set([...prev, ...visibleGcNos])));
       } else {
         setSelectedGcNos((prev) => prev.filter((id) => !visibleGcNos.includes(id)));
@@ -211,7 +321,7 @@ export const GcEntryList = () => {
   };
 
   const handleSelectRow = (gcNo: string, checked: boolean) => {
-    if (selectAllMode) {
+    if (selectAllMode && selectAllSnapshot.active) {
       if (checked) {
         setExcludedGcNos((prev) => prev.filter((id) => id !== gcNo));
       } else {
@@ -231,36 +341,80 @@ export const GcEntryList = () => {
     setExcludedGcNos([]);
     setSelectedGcNos([]);
     setExclusionFilter({ isActive: false, filterKey: "" });
+    setSelectAllSnapshot({
+      active: false,
+      total: 0,
+      filters: createCompleteFilters({})
+    });
   };
 
+  // FIXED: Create complete filter snapshot
   const handleCombinedBulkSelect = () => {
     if (totalItems === 0) {
       toast.error("No items found to select based on current filters.");
       return;
     }
+
+    const completeFilters = createCompleteFilters(filters);
+
     setSelectAllMode(true);
     setExcludedGcNos([]);
     setSelectedGcNos([]);
     setExclusionFilter({ isActive: false, filterKey: "" });
+    setSelectAllSnapshot({
+      active: true,
+      total: totalItems,
+      filters: completeFilters,
+    });
   };
 
-  const handleExcludeFilteredData = () => {
-    if (!selectAllMode) {
-      toast.error("You must first click 'Select All' to use the exclusion feature.");
+  const handleExcludeFilteredData = async () => {
+    // CASE 1: Manual Selection Mode
+    if (!selectAllMode || !selectAllSnapshot.active) {
+      if (selectedGcNos.length === 0) {
+        toast.error("Select at least one GC to exclude.");
+        return;
+      }
+
+      setExcludedGcNos(prev =>
+        Array.from(new Set([...prev, ...selectedGcNos]))
+      );
+      setSelectedGcNos([]);
+      setExclusionFilter({ isActive: true, filterKey: "Manual Selection" });
+      toast.success(`Excluded ${selectedGcNos.length} selected items.`);
       return;
     }
 
-    const visibleGcNos = paginatedData.map((gc) => gc.gcNo);
-    setExcludedGcNos((prev) => Array.from(new Set([...prev, ...visibleGcNos])));
+    // CASE 2: Select-All Mode (Bulk exclusion)
+    try {
+      const allMatching = await fetchGcPrintData([], true, {
+        ...createCompleteFilters(filters),
+        page: 1,
+        perPage: 0
+      });
 
-    let filterKey: string | undefined;
-    if (filters.consignor) filterKey = "Consignor";
-    else if (filters.destination) filterKey = "Destination";
-    else if (filters.consignee && filters.consignee.length > 0) filterKey = "Consignee";
+      if (!allMatching || allMatching.length === 0) {
+        toast.error("No items found to exclude.");
+        return;
+      }
 
-    setExclusionFilter({ isActive: true, filterKey });
+      const idsToExclude = allMatching.map((gc: any) => gc.gcNo);
+
+      setExcludedGcNos(prev =>
+        Array.from(new Set([...prev, ...idsToExclude]))
+      );
+
+      setExclusionFilter({ isActive: true, filterKey: "Filter" });
+      toast.success(`Excluded ${idsToExclude.length} filtered items.`);
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to exclude filtered records.");
+    }
   };
 
+  // ---------------------------------------------------------------------------
+  // Print handlers - FIXED: Keep selection after print
+  // ---------------------------------------------------------------------------
   const handlePrintSelected = async () => {
     if (finalCount === 0) {
       toast.error("No GC entries selected for printing.");
@@ -269,8 +423,14 @@ export const GcEntryList = () => {
 
     try {
       let printData: any[] = [];
-      if (selectAllMode) {
-        printData = await fetchGcPrintData([], true, { ...filters, excludeIds: excludedGcNos });
+
+      if (selectAllMode && selectAllSnapshot.active) {
+        const filtersForPrint: GcFilter = {
+          ...selectAllSnapshot.filters,
+          excludeIds: excludedGcNos.length > 0 ? excludedGcNos : undefined,
+        } as any;
+
+        printData = await fetchGcPrintData([], true, filtersForPrint);
       } else {
         printData = await fetchGcPrintData(selectedGcNos);
       }
@@ -279,16 +439,18 @@ export const GcEntryList = () => {
         .map((item: any): GcPrintJob | null => {
           const { consignor, consignee, ...gcData } = item;
           if (!gcData || !consignor || !consignee) return null;
-          return { gc: gcData as GcEntry, consignor: consignor as Consignor, consignee: consignee as Consignee };
+          return {
+            gc: gcData as GcEntry,
+            consignor: consignor as Consignor,
+            consignee: consignee as Consignee,
+          };
         })
         .filter((job): job is GcPrintJob => job !== null);
 
       if (jobs.length > 0) {
         setPrintingJobs(jobs);
-        setSelectedGcNos([]);
-        setSelectAllMode(false);
-        setExcludedGcNos([]);
-        setExclusionFilter({ isActive: false, filterKey: "" });
+        toast.success(`Prepared ${jobs.length} print job(s).`);
+        // FIXED: Selection is NOT reset after print - keeping it visible
       } else {
         toast.error("Failed to prepare print jobs. No GCs matched criteria.");
       }
@@ -304,7 +466,13 @@ export const GcEntryList = () => {
       if (printData && printData.length > 0) {
         const item = printData[0];
         const { consignor, consignee, ...gcData } = item;
-        setPrintingJobs([{ gc: gcData as GcEntry, consignor: consignor as Consignor, consignee: consignee as Consignee }]);
+        setPrintingJobs([
+          {
+            gc: gcData as GcEntry,
+            consignor: consignor as Consignor,
+            consignee: consignee as Consignee,
+          },
+        ]);
       } else {
         toast.error("Failed to fetch GC details for printing.");
       }
@@ -314,6 +482,9 @@ export const GcEntryList = () => {
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // CRUD handlers
+  // ---------------------------------------------------------------------------
   const handleEdit = (gcNo: string) => navigate(`/gc-entry/edit/${gcNo}`);
 
   const handleDelete = (gcNo: string) => {
@@ -332,6 +503,7 @@ export const GcEntryList = () => {
     setIsConfirmOpen(false);
     setDeletingId(null);
   };
+
 
   return (
     <div className="space-y-4">
@@ -444,7 +616,7 @@ export const GcEntryList = () => {
               {multipleSelected && (
                 <button onClick={handleExcludeFilteredData} disabled={paginatedData.length === 0} className="inline-flex items-center gap-1 text-xs text-destructive hover:text-destructive/80 font-medium">
                   <XCircle className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Exclude Visible</span>
+                  <span className="hidden sm:inline">Exclude</span>
                 </button>
               )}
               <button onClick={clearAllFilters} className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium">
@@ -457,15 +629,15 @@ export const GcEntryList = () => {
             </div>
           </div>
 
-          {exclusionFilter.isActive && selectAllMode && (
+          {/* {excludedGcNos.length > 0 && (
             <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-start gap-3">
               <XCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
               <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
                 Exclusion Active: {excludedGcNos.length} GCs excluded
-                {exclusionFilter.filterKey && <> (filtered by <strong>{exclusionFilter.filterKey}</strong>)</>}
+
               </p>
             </div>
-          )}
+          )} */}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
             <AsyncAutocomplete label="Destination" placeholder="Search destination..." value={destinationOption} onChange={(val) => { setDestinationOption(val); setFilters({ destination: (val as any)?.value || "" }); }} loadOptions={loadDestinationOptions} defaultOptions />

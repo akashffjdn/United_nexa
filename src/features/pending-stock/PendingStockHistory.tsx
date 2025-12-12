@@ -26,14 +26,16 @@ import { Button } from '../../components/shared/Button';
 import { AsyncAutocomplete } from '../../components/shared/AsyncAutocomplete';
 import { StockReportPrint } from './StockReportView';
 import { GcPrintManager, type GcPrintJob } from '../gc-entry/GcPrintManager';
-import type { GcEntry, Consignor, Consignee } from '../../types';
+import type { GcEntry, Consignor, Consignee, PendingStockFilter, ExclusionFilterState } from '../../types';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import { Pagination } from '../../components/shared/Pagination';
 import { useToast } from '../../contexts/ToastContext';
 
-type ExclusionFilterState = {
-  isActive: boolean;
-  filterKey?: string;
+
+type SelectAllSnapshot = {
+  active: boolean;
+  total: number;
+  filters: PendingStockFilter;
 };
 
 export const PendingStockHistory = () => {
@@ -63,7 +65,17 @@ export const PendingStockHistory = () => {
     refresh,
   } = useServerPagination<GcEntry>({
     endpoint: '/operations/pending-stock',
-    initialFilters: { search: '', filterType: 'all' },
+    initialFilters: {
+      search: '',
+      filterType: 'all',
+      startDate: '',
+      endDate: '',
+      customStart: '',
+      customEnd: '',
+      destination: '',
+      consignor: '',
+      consignee: []
+    } as PendingStockFilter,
   });
 
   const [showFilters, setShowFilters] = useState(false);
@@ -71,9 +83,25 @@ export const PendingStockHistory = () => {
   const [consignorOption, setConsignorOption] = useState<any>(null);
   const [consigneeOptions, setConsigneeOptions] = useState<any[]>([]);
 
-  const [selectedGcIds, setSelectedGcIds] = useState<string[]>([]);
+  const [selectedGcNos, setSelectedGcNos] = useState<string[]>([]);
   const [selectAllMode, setSelectAllMode] = useState(false);
-  const [excludedGcIds, setExcludedGcIds] = useState<string[]>([]);
+  const [excludedGcNos, setExcludedGcNos] = useState<string[]>([]);
+
+  const [selectAllSnapshot, setSelectAllSnapshot] = useState<SelectAllSnapshot>({
+    active: false,
+    total: 0,
+    filters: {
+      search: '',
+      filterType: 'all',
+      startDate: '',
+      endDate: '',
+      customStart: '',
+      customEnd: '',
+      destination: '',
+      consignor: '',
+      consignee: []
+    },
+  });
 
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -82,15 +110,33 @@ export const PendingStockHistory = () => {
   const [reportPrintingData, setReportPrintingData] = useState<any[] | null>(null);
   const [gcPrintingJobs, setGcPrintingJobs] = useState<GcPrintJob[] | null>(null);
 
-  const [exclusionFilter, setExclusionFilter] = useState<ExclusionFilterState>({
+  const [, setExclusionFilter] = useState<ExclusionFilterState>({
     isActive: false,
     filterKey: '',
   });
 
+  const createCompleteFilters = (sourceFilters: PendingStockFilter): PendingStockFilter => {
+    return {
+      search: sourceFilters.search || '',
+      filterType: sourceFilters.filterType || 'all',
+      startDate: sourceFilters.startDate || '',
+      endDate: sourceFilters.endDate || '',
+      customStart: sourceFilters.customStart || '',
+      customEnd: sourceFilters.customEnd || '',
+      destination: sourceFilters.destination || '',
+      consignor: sourceFilters.consignor || '',
+      consignee: sourceFilters.consignee || [],
+    };
+  };
+
   const loadDestinationOptions = useCallback(
     async (search: string, _prevOptions: any, { page }: any) => {
       const result = await searchToPlaces(search, page);
-      return { options: result.data.map((p: any) => ({ value: p.placeName, label: p.placeName })), hasMore: result.hasMore, additional: { page: page + 1 } };
+      return {
+        options: result.data.map((p: any) => ({ value: p.placeName, label: p.placeName })),
+        hasMore: result.hasMore,
+        additional: { page: page + 1 },
+      };
     },
     [searchToPlaces],
   );
@@ -98,7 +144,11 @@ export const PendingStockHistory = () => {
   const loadConsignorOptions = useCallback(
     async (search: string, _prevOptions: any, { page }: any) => {
       const result = await searchConsignors(search, page);
-      return { options: result.data.map((c: any) => ({ value: c.id, label: c.name })), hasMore: result.hasMore, additional: { page: page + 1 } };
+      return {
+        options: result.data.map((c: any) => ({ value: c.id, label: c.name })),
+        hasMore: result.hasMore,
+        additional: { page: page + 1 },
+      };
     },
     [searchConsignors],
   );
@@ -106,7 +156,11 @@ export const PendingStockHistory = () => {
   const loadConsigneeOptions = useCallback(
     async (search: string, _prevOptions: any, { page }: any) => {
       const result = await searchConsignees(search, page);
-      return { options: result.data.map((c: any) => ({ value: c.id, label: c.name })), hasMore: result.hasMore, additional: { page: page + 1 } };
+      return {
+        options: result.data.map((c: any) => ({ value: c.id, label: c.name })),
+        hasMore: result.hasMore,
+        additional: { page: page + 1 },
+      };
     },
     [searchConsignees],
   );
@@ -132,76 +186,117 @@ export const PendingStockHistory = () => {
       end = getTodayDate();
     }
 
-    setFilters({ filterType: type, startDate: start, endDate: end, customStart: '', customEnd: '' });
+    setFilters({
+      filterType: type,
+      startDate: start,
+      endDate: end,
+      customStart: '',
+      customEnd: '',
+    });
   };
 
   const handleCustomDateChange = (start: string, end: string) => {
-    setFilters({ filterType: 'custom', customStart: start, customEnd: end, startDate: start, endDate: end });
+    setFilters({
+      filterType: 'custom',
+      customStart: start,
+      customEnd: end,
+      startDate: start,
+      endDate: end,
+    });
   };
 
   const clearAllFilters = () => {
     setDestinationOption(null);
     setConsignorOption(null);
     setConsigneeOptions([]);
-    setFilters({ search: '', filterType: 'all', startDate: '', endDate: '', destination: '', consignor: '', consignee: [] });
+
+    setFilters({
+      search: '',
+      filterType: 'all',
+      startDate: '',
+      endDate: '',
+      destination: '',
+      consignor: '',
+      consignee: [],
+    });
+
     setSelectAllMode(false);
-    setSelectedGcIds([]);
-    setExcludedGcIds([]);
+    setExcludedGcNos([]);
+    setSelectedGcNos([]);
     setExclusionFilter({ isActive: false, filterKey: '' });
+    setSelectAllSnapshot({
+      active: false,
+      total: 0,
+      filters: createCompleteFilters({})
+    });
   };
 
-  const hasActiveFilters = !!filters.destination || !!filters.consignor || (filters.consignee && filters.consignee.length > 0) || filters.filterType !== 'all' || !!filters.search;
+  const hasActiveFilters =
+    !!filters.destination ||
+    !!filters.consignor ||
+    (filters.consignee && filters.consignee.length > 0) ||
+    filters.filterType !== 'all' ||
+    !!filters.search;
 
   const isRowSelected = (gcNo: string): boolean => {
-    if (selectAllMode) return !excludedGcIds.includes(gcNo);
-    return selectedGcIds.includes(gcNo);
+    if (selectAllMode && selectAllSnapshot.active) {
+      return !excludedGcNos.includes(gcNo);
+    }
+    return selectedGcNos.includes(gcNo);
   };
 
-  const isAllVisibleSelected = paginatedData.length > 0 && paginatedData.every((gc) => isRowSelected(gc.gcNo));
+  const isAllVisibleSelected =
+    paginatedData.length > 0 && paginatedData.every((gc) => isRowSelected(gc.gcNo));
 
   const isIndeterminate = useMemo(() => {
     if (paginatedData.length === 0) return false;
     const selectedCount = paginatedData.filter((gc) => isRowSelected(gc.gcNo)).length;
     return selectedCount > 0 && selectedCount < paginatedData.length;
-  }, [paginatedData, selectAllMode, excludedGcIds, selectedGcIds]);
+  }, [paginatedData, selectAllMode, excludedGcNos, selectedGcNos, selectAllSnapshot]);
 
-  const finalCount = selectAllMode ? Math.max(0, totalItems - excludedGcIds.length) : selectedGcIds.length;
-  const isAllSelected = selectAllMode || (totalItems > 0 && !selectAllMode && selectedGcIds.length === totalItems);
-  const multipleSelected = finalCount > 1;
+  const finalCount = selectAllMode && selectAllSnapshot.active
+    ? Math.max(0, (selectAllSnapshot.total || totalItems) - excludedGcNos.length)
+    : selectedGcNos.length;
+
+  const isAllSelected = selectAllMode && selectAllSnapshot.active
+    ? excludedGcNos.length === 0
+    : (totalItems > 0 && selectedGcNos.length === totalItems);
+
+  const multipleSelected = finalCount > 0;
 
   const handleSelectAllVisible = (e: React.ChangeEvent<HTMLInputElement>) => {
     const visibleGcNos = paginatedData.map((gc) => gc.gcNo);
     const checked = e.target.checked;
 
     if (checked) {
-      if (selectAllMode) {
-        setExcludedGcIds((prev) => prev.filter((id) => !visibleGcNos.includes(id)));
+      if (selectAllMode && selectAllSnapshot.active) {
+        setExcludedGcNos((prev) => prev.filter((id) => !visibleGcNos.includes(id)));
       } else {
-        setSelectedGcIds((prev) => Array.from(new Set([...prev, ...visibleGcNos])));
+        setSelectedGcNos((prev) => Array.from(new Set([...prev, ...visibleGcNos])));
       }
     } else {
-      if (selectAllMode) {
-        setExcludedGcIds((prev) => Array.from(new Set([...prev, ...visibleGcNos])));
+      if (selectAllMode && selectAllSnapshot.active) {
+        setExcludedGcNos((prev) => Array.from(new Set([...prev, ...visibleGcNos])));
       } else {
-        setSelectedGcIds((prev) => prev.filter((id) => !visibleGcNos.includes(id)));
+        setSelectedGcNos((prev) => prev.filter((id) => !visibleGcNos.includes(id)));
       }
     }
   };
 
-  const handleSelectRow = (e: React.ChangeEvent<HTMLInputElement>, id: string) => {
+  const handleSelectRow = (e: React.ChangeEvent<HTMLInputElement>, gcNo: string) => {
     const checked = e.target.checked;
 
-    if (selectAllMode) {
+    if (selectAllMode && selectAllSnapshot.active) {
       if (checked) {
-        setExcludedGcIds((prev) => prev.filter((gcId) => gcId !== id));
+        setExcludedGcNos((prev) => prev.filter((id) => id !== gcNo));
       } else {
-        setExcludedGcIds((prev) => Array.from(new Set([...prev, id])));
+        setExcludedGcNos((prev) => Array.from(new Set([...prev, gcNo])));
       }
     } else {
       if (checked) {
-        setSelectedGcIds((prev) => Array.from(new Set([...prev, id])));
+        setSelectedGcNos((prev) => Array.from(new Set([...prev, gcNo])));
       } else {
-        setSelectedGcIds((prev) => prev.filter((gcId) => gcId !== id));
+        setSelectedGcNos((prev) => prev.filter((id) => id !== gcNo));
       }
     }
   };
@@ -211,46 +306,87 @@ export const PendingStockHistory = () => {
       toast.error('No items found to select based on current filters.');
       return;
     }
+
+    const completeFilters = createCompleteFilters(filters);
+
     setSelectAllMode(true);
-    setExcludedGcIds([]);
-    setSelectedGcIds([]);
+    setExcludedGcNos([]);
+    setSelectedGcNos([]);
     setExclusionFilter({ isActive: false, filterKey: '' });
+    setSelectAllSnapshot({
+      active: true,
+      total: totalItems,
+      filters: completeFilters,
+    });
   };
 
   const handleCombinedBulkDeselect = () => {
     setSelectAllMode(false);
-    setExcludedGcIds([]);
-    setSelectedGcIds([]);
+    setExcludedGcNos([]);
+    setSelectedGcNos([]);
     setExclusionFilter({ isActive: false, filterKey: '' });
+    setSelectAllSnapshot({
+      active: false,
+      total: 0,
+      filters: createCompleteFilters({})
+    });
   };
 
-  const bulkButtonText = isAllSelected ? 'Clear Selection' : 'Select All';
-  const BulkIconComponent = isAllSelected ? XCircle : PackageCheck;
-  const bulkButtonVariant = isAllSelected ? 'destructive' : 'primary';
-  const handleBulkAction = isAllSelected ? handleCombinedBulkDeselect : handleCombinedBulkSelect;
+  const handleExcludeFilteredData = async () => {
+    if (!selectAllMode || !selectAllSnapshot.active) {
+      const selectedVisible = paginatedData
+        .map(gc => gc.gcNo)
+        .filter(id => selectedGcNos.includes(id));
 
-  const handleExcludeFilteredData = () => {
-    if (!selectAllMode) {
-      toast.error("You must first click 'Select All' to use the exclusion feature.");
+      if (selectedVisible.length === 0) {
+        return;
+      }
+
+      setExcludedGcNos(prev =>
+        Array.from(new Set([...prev, ...selectedVisible]))
+      );
+      setSelectedGcNos(prev => prev.filter(id => !selectedVisible.includes(id)));
+      setExclusionFilter({ isActive: true, filterKey: "Manual Selection" });
+      
       return;
     }
 
-    const visibleGcNos = paginatedData.map((gc) => gc.gcNo);
-    setExcludedGcIds((prev) => Array.from(new Set([...prev, ...visibleGcNos])));
+    try {
+      const allMatching = await fetchGcPrintData([], true, {
+        ...createCompleteFilters(filters),
+        page: 1,
+        perPage: 0,
+        pendingStockView: true,
+      });
 
-    let filterKey: string | undefined;
-    if (filters.consignor) filterKey = 'Consignor';
-    else if (filters.destination) filterKey = 'Destination';
-    else if (filters.consignee && filters.consignee.length > 0) filterKey = 'Consignee';
+      if (!allMatching || allMatching.length === 0) {
+        return;
+      }
 
-    setExclusionFilter({ isActive: true, filterKey });
+      const idsToExclude = allMatching.map((gc: any) => gc.gcNo);
+
+      setExcludedGcNos(prev =>
+        Array.from(new Set([...prev, ...idsToExclude]))
+      );
+
+      setExclusionFilter({ isActive: true, filterKey: "Filter" });
+      toast.success(`Excluded ${idsToExclude.length} items from bulk selection.`);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const handleEdit = (gcNo: string) => navigate('/gc-entry/edit/' + gcNo);
+  const bulkButtonText = isAllSelected ? 'Clear Selection' : 'Select All';
+  const bulkButtonIcon = isAllSelected ? XCircle : PackageCheck;
+  const bulkButtonVariant = isAllSelected ? 'destructive' : 'primary';
+  const handleBulkAction = isAllSelected ? handleCombinedBulkDeselect : handleCombinedBulkSelect;
+  const BulkIconComponent = bulkButtonIcon;
+
+  const handleEdit = (gcNo: string) => navigate(`/gc-entry/edit/${gcNo}`);
 
   const handleDelete = (gcNo: string) => {
     setDeletingId(gcNo);
-    setDeleteMessage('Are you sure you want to delete GC #' + gcNo + '?');
+    setDeleteMessage(`Are you sure you want to delete GC #${gcNo}?`);
     setIsConfirmOpen(true);
   };
 
@@ -258,8 +394,8 @@ export const PendingStockHistory = () => {
     if (deletingId) {
       await deleteGcEntry(deletingId);
       refresh();
-      setSelectedGcIds((prev) => prev.filter((id) => id !== deletingId));
-      setExcludedGcIds((prev) => prev.filter((id) => id !== deletingId));
+      setSelectedGcNos((prev) => prev.filter((id) => id !== deletingId));
+      setExcludedGcNos((prev) => prev.filter((id) => id !== deletingId));
     }
     setIsConfirmOpen(false);
     setDeletingId(null);
@@ -271,7 +407,13 @@ export const PendingStockHistory = () => {
       if (printData && printData.length > 0) {
         const item = printData[0];
         const { consignor, consignee, ...gcData } = item;
-        setGcPrintingJobs([{ gc: gcData as GcEntry, consignor: consignor as Consignor, consignee: consignee as Consignee }]);
+        setGcPrintingJobs([
+          {
+            gc: gcData as GcEntry,
+            consignor: consignor as Consignor,
+            consignee: consignee as Consignee,
+          },
+        ]);
       } else {
         toast.error('Failed to fetch GC details.');
       }
@@ -281,17 +423,26 @@ export const PendingStockHistory = () => {
     }
   };
 
+  // FIXED: Keep selection after print
   const handlePrintSelected = async () => {
-    if (finalCount === 0) return;
+    if (finalCount === 0) {
+      toast.error('No GCs selected for printing.');
+      return;
+    }
 
     try {
       let printData: any[] = [];
 
-      if (selectAllMode) {
-        const printFilters = { ...filters, pendingStockView: true, excludeIds: excludedGcIds };
-        printData = await fetchGcPrintData([], true, printFilters);
+      if (selectAllMode && selectAllSnapshot.active) {
+        const filtersForPrint: PendingStockFilter = {
+          ...selectAllSnapshot.filters,
+          excludeIds: excludedGcNos.length > 0 ? excludedGcNos : undefined,
+          pendingStockView: true,
+        } as any;
+
+        printData = await fetchGcPrintData([], true, filtersForPrint);
       } else {
-        printData = await fetchGcPrintData(selectedGcIds);
+        printData = await fetchGcPrintData(selectedGcNos);
       }
 
       if (!printData || printData.length === 0) {
@@ -303,16 +454,18 @@ export const PendingStockHistory = () => {
         .map((item: any): GcPrintJob | null => {
           const { consignor, consignee, ...gcData } = item;
           if (!consignor || !consignee) return null;
-          return { gc: gcData as GcEntry, consignor: consignor as Consignor, consignee: consignee as Consignee };
+          return {
+            gc: gcData as GcEntry,
+            consignor: consignor as Consignor,
+            consignee: consignee as Consignee,
+          };
         })
         .filter((job): job is GcPrintJob => job !== null);
 
       if (jobs.length > 0) {
         setGcPrintingJobs(jobs);
-        setSelectAllMode(false);
-        setSelectedGcIds([]);
-        setExcludedGcIds([]);
-        setExclusionFilter({ isActive: false, filterKey: '' });
+        toast.success(`Prepared ${jobs.length} print jobs.`);
+        // FIXED: Selection is NOT reset after print - keeping it visible
       } else {
         toast.error('Could not prepare print jobs.');
       }
@@ -325,18 +478,20 @@ export const PendingStockHistory = () => {
   const handleShowReport = async () => {
     try {
       const reportData = await fetchPendingStockReport(filters);
+
       if (!reportData || reportData.length === 0) {
         toast.error('No pending stock found for current filters.');
         return;
       }
+
       setReportPrintingData(reportData);
     } catch (error) {
       console.error('Error fetching report data', error);
       toast.error('Failed to generate report.');
     }
   };
-
-  const printButtonText = 'Print (' + finalCount + ')';
+  
+  const printButtonText = `Print (${finalCount})`;
 
   return (
     <div className="space-y-4">
@@ -388,9 +543,15 @@ export const PendingStockHistory = () => {
     </Button>
 
     <Button 
-      variant={bulkButtonVariant} 
-      onClick={handleBulkAction} 
-      disabled={!selectAllMode && selectedGcIds.length === 0 && totalItems === 0} 
+variant={bulkButtonVariant}
+            onClick={handleBulkAction}
+            disabled={!selectAllMode && selectedGcNos.length === 0 && totalItems === 0}
+            title={
+              bulkButtonText === 'Clear Selection'
+                ? 'Click to remove all items from selection'
+                : 'Select all filtered items'
+            }
+
       className="h-10"
     >
       <BulkIconComponent className="w-4 h-4" />
@@ -433,7 +594,15 @@ export const PendingStockHistory = () => {
               <span className="ml-1">({finalCount})</span>
             </Button>
 
-            <Button variant={bulkButtonVariant} onClick={handleBulkAction} disabled={!selectAllMode && selectedGcIds.length === 0 && totalItems === 0} className="flex-1 h-9 text-xs sm:text-sm">
+            <Button variant={bulkButtonVariant}
+            onClick={handleBulkAction}
+            disabled={!selectAllMode && selectedGcNos.length === 0 && totalItems === 0}
+            title={
+              bulkButtonText === 'Clear Selection'
+                ? 'Click to remove all items from selection'
+                : 'Select all filtered items'
+            }
+ className="flex-1 h-9 text-xs sm:text-sm">
               <BulkIconComponent className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline ml-1">{isAllSelected ? "Clear" : "Select All"}</span>
               <span className="sm:hidden ml-1">{isAllSelected ? "Clear" : "All"}</span>
@@ -470,7 +639,7 @@ export const PendingStockHistory = () => {
             </div>
           </div>
 
-          {exclusionFilter.isActive && selectAllMode && (
+          {/* {exclusionFilter.isActive && selectAllMode && (
             <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-start gap-3">
               <XCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
               <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
@@ -478,7 +647,7 @@ export const PendingStockHistory = () => {
                 {exclusionFilter.filterKey && <> (filtered by <strong>{exclusionFilter.filterKey}</strong>)</>}
               </p>
             </div>
-          )}
+          )} */}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
             <AsyncAutocomplete label="Destination" loadOptions={loadDestinationOptions} value={destinationOption} onChange={(val) => { setDestinationOption(val); setFilters({ destination: (val as any)?.value || '' }); }} placeholder="Search destination..." defaultOptions />

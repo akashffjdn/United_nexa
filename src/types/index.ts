@@ -355,3 +355,70 @@ export interface HistoryLog {
   snapshot?: any;
   timestamp: string;
 }
+export type GcFilter = {
+  search?: string;
+  filterType?: string;
+  startDate?: string;
+  endDate?: string;
+  customStart?: string;
+  customEnd?: string;
+  destination?: string;
+  consignor?: string;
+  consignee?: string[];
+};
+
+export type ExclusionFilterState = {
+  isActive: boolean;
+  filterKey?: string;
+};
+ 
+export type SelectAllSnapshot = {
+  active: boolean;
+  total: number;
+  filters: GcFilter;
+};
+
+export type LoadingSheetFilter = {
+  search?: string;
+  filterType?: string;
+  startDate?: string;
+  endDate?: string;
+  customStart?: string;
+  customEnd?: string;
+  destination?: string;
+  consignor?: string;
+  consignee?: string[];
+  godown?: string;
+};
+export type SelectAllSnapshotLS = {
+  active: boolean;
+  total: number;
+  filters: LoadingSheetFilter;
+};
+export type PendingStockFilter = {
+  search?: string;
+  filterType?: string;
+  startDate?: string;
+  endDate?: string;
+  customStart?: string;
+  customEnd?: string;
+  destination?: string;
+  consignor?: string;
+  consignee?: string[];
+};
+
+export type TripSheetFilter = {
+  search?: string;
+  filterType?: string;
+  startDate?: string;
+  endDate?: string;
+  customStart?: string;
+  customEnd?: string;
+  toPlace?: string;
+  consignor?: string;
+  consignee?: string[];
+  excludeIds?: string[];
+};
+
+
+
