@@ -234,11 +234,17 @@ export const ConsigneeList = () => {
             onImport={handleImport}
             existingData={consignees}
             label="Import"
-            checkDuplicate={(newItem, existing) =>
-              newItem.name.trim().toLowerCase() === existing.name.trim().toLowerCase() &&
+            checkDuplicate={(newItem, existing) => 
+              newItem.name.trim().toLowerCase() === existing.name.trim().toLowerCase() && 
               newItem.destination.trim().toLowerCase() === existing.destination.trim().toLowerCase()
             }
             mapRow={csvMapRow}
+            // 泙 NEW: Added Template
+            template={{
+              filename: 'consignee_import_template.csv',
+              columns: ['Name', 'Mobile', 'Destination', 'Address', 'GST', 'PAN', 'Aadhar'],
+              sampleRow: ['John Doe', '9876543210', 'Mumbai', '123 Market St', '27ABCDE1234F1Z5', 'ABCDE1234F', '123456789012']
+            }}
           />
           <Button variant="primary" onClick={handleCreateNew} className="h-10">
             <Plus className="w-4 h-4" />
@@ -280,16 +286,21 @@ export const ConsigneeList = () => {
               Export
             </Button>
             <CsvImporter<Consignee>
-              onImport={handleImport}
-              existingData={consignees}
-              label="Import"
-              className="flex-1 h-9 text-xs sm:text-sm"
-              checkDuplicate={(newItem, existing) =>
-                newItem.name.trim().toLowerCase() === existing.name.trim().toLowerCase() &&
-                newItem.destination.trim().toLowerCase() === existing.destination.trim().toLowerCase()
-              }
-              mapRow={csvMapRow}
-            />
+            onImport={handleImport}
+            existingData={consignees}
+            label="Import"
+            checkDuplicate={(newItem, existing) => 
+              newItem.name.trim().toLowerCase() === existing.name.trim().toLowerCase() && 
+              newItem.destination.trim().toLowerCase() === existing.destination.trim().toLowerCase()
+            }
+            mapRow={csvMapRow}
+            // 泙 NEW: Added Template
+            template={{
+              filename: 'consignee_import_template.csv',
+              columns: ['Name', 'Mobile', 'Destination', 'Address', 'GST', 'PAN', 'Aadhar'],
+              sampleRow: ['John Doe', '9876543210', 'Mumbai', '123 Market St', '27ABCDE1234F1Z5', 'ABCDE1234F', '123456789012']
+            }}
+          />
             <Button variant="primary" onClick={handleCreateNew} className="flex-1 h-9 text-xs sm:text-sm">
               <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="hidden xs:inline">Add</span>

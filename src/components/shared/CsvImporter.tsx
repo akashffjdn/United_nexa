@@ -11,7 +11,8 @@ import {
   FileCheck,
   XCircle,
   Copy,
-  Sparkles
+  Sparkles,
+  FileSpreadsheet // NEW icon
 } from 'lucide-react';
 
 interface CsvImporterProps<T> {
@@ -21,8 +22,13 @@ interface CsvImporterProps<T> {
   checkDuplicate: (newItem: T, existingItem: T) => boolean;
   label?: string;
   className?: string;
-  // 泙 NEW: Added size prop
   size?: 'default' | 'sm' | 'lg';
+  // 泙 NEW: Prop to define the downloadable template
+  template?: {
+    columns: string[];
+    sampleRow?: string[];
+    filename?: string;
+  };
 }
 
 interface FailedRecord {
@@ -37,8 +43,8 @@ export const CsvImporter = <T,>({
   checkDuplicate, 
   label = "Import CSV",
   className,
-  // 泙 NEW: Default to 'default' (h-10)
-  size = 'default'
+  size = 'default',
+  template // 泙 NEW
 }: CsvImporterProps<T>) => {
   const [isOpen, setIsOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -68,6 +74,28 @@ export const CsvImporter = <T,>({
   const handleClose = () => {
     setIsOpen(false);
     handleReset();
+  };
+
+  // 泙 NEW: Function to generate and download the sample CSV
+  const handleDownloadTemplate = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering upload click
+    if (!template) return;
+
+    const headers = template.columns.join(',');
+    const row = template.sampleRow 
+      ? '\n' + template.sampleRow.map(item => `"${item}"`).join(',') 
+      : '';
+    
+    const csvContent = headers + row;
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', template.filename || 'import_template.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const parseCSVLine = (text: string): string[] => {
@@ -226,7 +254,6 @@ export const CsvImporter = <T,>({
 
   return (
     <>
-      {/* 泙 NEW: Pass the size prop here */}
       <Button variant="outline" onClick={() => setIsOpen(true)} size={size} className={className}>
         <Upload size={16} className="mr-1.5 sm:mr-2" />
         <span className="hidden xs:inline">{label}</span>
@@ -262,37 +289,58 @@ export const CsvImporter = <T,>({
             <div className="flex-1 overflow-y-auto p-4 sm:p-6">
               {!file ? (
                 /* Upload Area */
-                <div 
-                  className={`relative border-2 border-dashed rounded-xl p-6 sm:p-10 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-200 ${
-                    isDragging 
-                      ? 'border-primary bg-primary/5 scale-[1.02]' 
-                      : 'border-border hover:border-primary/50 hover:bg-muted/30'
-                  }`}
-                  onClick={() => fileInputRef.current?.click()}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                >
-                  <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center mb-4 transition-colors ${
-                    isDragging ? 'bg-primary/20' : 'bg-muted'
-                  }`}>
-                    <Upload className={`w-6 h-6 sm:w-7 sm:h-7 transition-colors ${
-                      isDragging ? 'text-primary' : 'text-muted-foreground'
-                    }`} />
+                <div className="space-y-4">
+                  {/* 泙 NEW: Template Download Section (Only if template prop provided) */}
+                  {template && (
+                    <div className="flex items-center justify-between p-3 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <FileSpreadsheet className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                        <span className="text-xs text-blue-700 dark:text-blue-300 font-medium">
+                          Unsure about the format?
+                        </span>
+                      </div>
+                      <button 
+                        onClick={handleDownloadTemplate}
+                        className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                      >
+                        <Download className="w-3 h-3" />
+                        Download Template
+                      </button>
+                    </div>
+                  )}
+
+                  <div 
+                    className={`relative border-2 border-dashed rounded-xl p-6 sm:p-10 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-200 ${
+                      isDragging 
+                        ? 'border-primary bg-primary/5 scale-[1.02]' 
+                        : 'border-border hover:border-primary/50 hover:bg-muted/30'
+                    }`}
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                  >
+                    <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center mb-4 transition-colors ${
+                      isDragging ? 'bg-primary/20' : 'bg-muted'
+                    }`}>
+                      <Upload className={`w-6 h-6 sm:w-7 sm:h-7 transition-colors ${
+                        isDragging ? 'text-primary' : 'text-muted-foreground'
+                      }`} />
+                    </div>
+                    <p className="text-sm sm:text-base font-medium text-foreground mb-1">
+                      {isDragging ? 'Drop your file here' : 'Click or drag to upload'}
+                    </p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
+                      Supports CSV files only
+                    </p>
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      onChange={handleFileChange} 
+                      accept=".csv" 
+                      className="hidden" 
+                    />
                   </div>
-                  <p className="text-sm sm:text-base font-medium text-foreground mb-1">
-                    {isDragging ? 'Drop your file here' : 'Click or drag to upload'}
-                  </p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">
-                    Supports CSV files only
-                  </p>
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    onChange={handleFileChange} 
-                    accept=".csv" 
-                    className="hidden" 
-                  />
                 </div>
               ) : (
                 /* File Selected - Analysis View */

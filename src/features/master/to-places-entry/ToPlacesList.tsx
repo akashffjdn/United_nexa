@@ -198,6 +198,12 @@ export const ToPlacesList = () => {
               newItem.shortName.toLowerCase() === existing.shortName.toLowerCase()
             }
             mapRow={csvMapRow}
+            // 泙 NEW: Added Template
+            template={{
+              filename: 'to_places_import_template.csv',
+              columns: ['Place Name', 'Short Name'],
+              sampleRow: ['Chennai', 'MAA']
+            }}
           />
           <Button variant="primary" onClick={handleCreateNew} className="h-10">
             <Plus className="w-4 h-4" />
@@ -229,16 +235,21 @@ export const ToPlacesList = () => {
               Export
             </Button>
             <CsvImporter<ToPlace>
-              onImport={handleImport}
-              existingData={toPlaces}
-              label="Import"
-              className="flex-1 h-9 text-xs sm:text-sm"
-              checkDuplicate={(newItem, existing) =>
-                newItem.placeName.toLowerCase() === existing.placeName.toLowerCase() ||
-                newItem.shortName.toLowerCase() === existing.shortName.toLowerCase()
-              }
-              mapRow={csvMapRow}
-            />
+            onImport={handleImport}
+            existingData={toPlaces}
+            label="Import"
+            checkDuplicate={(newItem, existing) =>
+              newItem.placeName.toLowerCase() === existing.placeName.toLowerCase() ||
+              newItem.shortName.toLowerCase() === existing.shortName.toLowerCase()
+            }
+            mapRow={csvMapRow}
+            // 泙 NEW: Added Template
+            template={{
+              filename: 'to_places_import_template.csv',
+              columns: ['Place Name', 'Short Name'],
+              sampleRow: ['Chennai', 'MAA']
+            }}
+          />
             <Button variant="primary" onClick={handleCreateNew} className="flex-1 h-9 text-xs sm:text-sm">
               <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="hidden xs:inline">Add</span>

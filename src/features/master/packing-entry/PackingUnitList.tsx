@@ -169,7 +169,7 @@ export const PackingEntryList = () => {
             <Download className="w-4 h-4" />
             Export
           </Button>
-          <CsvImporter<PackingEntry>
+         <CsvImporter<PackingEntry>
             onImport={handleImport}
             existingData={packingEntries}
             label="Import"
@@ -178,6 +178,12 @@ export const PackingEntryList = () => {
               newItem.shortName.toLowerCase() === existing.shortName.toLowerCase()
             }
             mapRow={csvMapRow}
+            // 泙 NEW: Added Template
+            template={{
+              filename: 'packing_units_import_template.csv',
+              columns: ['Packing Name', 'Short Name'],
+              sampleRow: ['Box', 'BX']
+            }}
           />
           <Button variant="primary" onClick={handleCreateNew} className="h-10">
             <Plus className="w-4 h-4" />
@@ -219,16 +225,21 @@ export const PackingEntryList = () => {
               Export
             </Button>
             <CsvImporter<PackingEntry>
-              onImport={handleImport}
-              existingData={packingEntries}
-              label="Import"
-              className="flex-1 h-9 text-xs sm:text-sm"
-              checkDuplicate={(newItem, existing) =>
-                newItem.packingName.toLowerCase() === existing.packingName.toLowerCase() ||
-                newItem.shortName.toLowerCase() === existing.shortName.toLowerCase()
-              }
-              mapRow={csvMapRow}
-            />
+            onImport={handleImport}
+            existingData={packingEntries}
+            label="Import"
+            checkDuplicate={(newItem, existing) =>
+              newItem.packingName.toLowerCase() === existing.packingName.toLowerCase() ||
+              newItem.shortName.toLowerCase() === existing.shortName.toLowerCase()
+            }
+            mapRow={csvMapRow}
+            // 泙 NEW: Added Template
+            template={{
+              filename: 'packing_units_import_template.csv',
+              columns: ['Packing Name', 'Short Name'],
+              sampleRow: ['Box', 'BX']
+            }}
+          />
             <Button variant="primary" onClick={handleCreateNew} className="flex-1 h-9 text-xs sm:text-sm">
               <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="hidden xs:inline">Add</span>

@@ -189,7 +189,7 @@ export const DriverList = () => {
             <Download className="w-4 h-4" />
             Export
           </Button>
-          <CsvImporter<DriverEntry>
+         <CsvImporter<DriverEntry>
             onImport={handleImport}
             existingData={driverEntries}
             label="Import"
@@ -197,6 +197,12 @@ export const DriverList = () => {
               newItem.dlNo.trim().toLowerCase() === existing.dlNo.trim().toLowerCase()
             }
             mapRow={csvMapRow}
+            // 泙 NEW: Added Template
+            template={{
+              filename: 'driver_import_template.csv',
+              columns: ['Driver Name', 'DL No', 'Mobile'],
+              sampleRow: ['Ramesh Kumar', 'TN0120200012345', '9876543210']
+            }}
           />
           <Button variant="primary" onClick={handleCreateNew} className="h-10">
             <Plus className="w-4 h-4" />
@@ -237,16 +243,21 @@ export const DriverList = () => {
               <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               Export
             </Button>
-            <CsvImporter<DriverEntry>
-              onImport={handleImport}
-              existingData={driverEntries}
-              label="Import"
-              className="flex-1 h-9 text-xs sm:text-sm"
-              checkDuplicate={(newItem, existing) =>
-                newItem.dlNo.trim().toLowerCase() === existing.dlNo.trim().toLowerCase()
-              }
-              mapRow={csvMapRow}
-            />
+           <CsvImporter<DriverEntry>
+            onImport={handleImport}
+            existingData={driverEntries}
+            label="Import"
+            checkDuplicate={(newItem, existing) =>
+              newItem.dlNo.trim().toLowerCase() === existing.dlNo.trim().toLowerCase()
+            }
+            mapRow={csvMapRow}
+            // 泙 NEW: Added Template
+            template={{
+              filename: 'driver_import_template.csv',
+              columns: ['Driver Name', 'DL No', 'Mobile'],
+              sampleRow: ['Ramesh Kumar', 'TN0120200012345', '9876543210']
+            }}
+          />
             <Button variant="primary" onClick={handleCreateNew} className="flex-1 h-9 text-xs sm:text-sm">
               <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="hidden xs:inline">Add</span>

@@ -190,6 +190,12 @@ export const UserList = () => {
               newItem.email.trim().toLowerCase() === existing.email.trim().toLowerCase()
             }
             mapRow={csvMapRow}
+            // 泙 NEW: Added Template
+            template={{
+              filename: 'users_import_template.csv',
+              columns: ['Name', 'Email', 'Password', 'Mobile', 'Role'],
+              sampleRow: ['Demo User', 'demo@example.com', 'pass123', '9876543210', 'user']
+            }}
           />
           <Button variant="primary" onClick={handleCreateNew} className="h-10">
             <UserPlus className="w-4 h-4" />
@@ -219,15 +225,20 @@ export const UserList = () => {
               Export
             </Button>
             <CsvImporter<AppUser>
-              onImport={handleImport}
-              existingData={users}
-              label="Import"
-              className="flex-1 h-9 text-xs sm:text-sm"
-              checkDuplicate={(newItem, existing) =>
-                newItem.email.trim().toLowerCase() === existing.email.trim().toLowerCase()
-              }
-              mapRow={csvMapRow}
-            />
+            onImport={handleImport}
+            existingData={users}
+            label="Import"
+            checkDuplicate={(newItem, existing) =>
+              newItem.email.trim().toLowerCase() === existing.email.trim().toLowerCase()
+            }
+            mapRow={csvMapRow}
+            // 泙 NEW: Added Template
+            template={{
+              filename: 'users_import_template.csv',
+              columns: ['Name', 'Email', 'Password', 'Mobile', 'Role'],
+              sampleRow: ['Demo User', 'demo@example.com', 'pass123', '9876543210', 'user']
+            }}
+          />
             <Button variant="primary" onClick={handleCreateNew} className="flex-1 h-9 text-xs sm:text-sm">
               <UserPlus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="hidden xs:inline">Add</span>

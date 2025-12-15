@@ -219,10 +219,16 @@ export const ConsignorList = () => {
             onImport={handleImport}
             existingData={consignors}
             label="Import"
-            checkDuplicate={(newItem, existing) =>
+            checkDuplicate={(newItem, existing) => 
               newItem.gst.trim().toLowerCase() === existing.gst.trim().toLowerCase()
             }
             mapRow={csvMapRow}
+            // 泙 NEW: Add template prop here
+            template={{
+              filename: 'consignor_import_template.csv',
+              columns: ['Name', 'GST', 'Address', 'Mobile', 'From', 'PAN', 'Aadhar'],
+              sampleRow: ['ABC Traders', '33ABCDE1234F1Z5', '123 Main St, City', '9876543210', 'Sivakasi', 'ABCDE1234F', '123456789012']
+            }}
           />
           <Button variant="primary" onClick={handleCreateNew} className="h-10">
             <Plus className="w-4 h-4" />
@@ -264,15 +270,20 @@ export const ConsignorList = () => {
               Export
             </Button>
             <CsvImporter<Consignor>
-              onImport={handleImport}
-              existingData={consignors}
-              label="Import"
-              className="flex-1 h-9 text-xs sm:text-sm"
-              checkDuplicate={(newItem, existing) =>
-                newItem.gst.trim().toLowerCase() === existing.gst.trim().toLowerCase()
-              }
-              mapRow={csvMapRow}
-            />
+            onImport={handleImport}
+            existingData={consignors}
+            label="Import"
+            checkDuplicate={(newItem, existing) => 
+              newItem.gst.trim().toLowerCase() === existing.gst.trim().toLowerCase()
+            }
+            mapRow={csvMapRow}
+            // 泙 NEW: Add template prop here
+            template={{
+              filename: 'consignor_import_template.csv',
+              columns: ['Name', 'GST', 'Address', 'Mobile', 'From', 'PAN', 'Aadhar'],
+              sampleRow: ['ABC Traders', '33ABCDE1234F1Z5', '123 Main St, City', '9876543210', 'Sivakasi', 'ABCDE1234F', '123456789012']
+            }}
+          />
             <Button variant="primary" onClick={handleCreateNew} className="flex-1 h-9 text-xs sm:text-sm">
               <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="hidden xs:inline">Add</span>

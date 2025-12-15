@@ -199,6 +199,12 @@ export const VehicleList = () => {
               newItem.vehicleNo.trim().toLowerCase() === existing.vehicleNo.trim().toLowerCase()
             }
             mapRow={csvMapRow}
+            // 泙 NEW: Add template prop here
+            template={{
+              filename: 'vehicle_import_template.csv',
+              columns: ['Vehicle No', 'Vehicle Name', 'Owner Name', 'Owner Mobile'],
+              sampleRow: ['TN01AB1234', 'Tata Ace', 'John Doe', '9876543210']
+            }}
           />
           <Button variant="primary" onClick={handleCreateNew} className="h-10">
             <Plus className="w-4 h-4" />
@@ -229,16 +235,21 @@ export const VehicleList = () => {
               <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               Export
             </Button>
-            <CsvImporter<VehicleEntry>
-              onImport={handleImport}
-              existingData={vehicleEntries}
-              label="Import"
-              className="flex-1 h-9 text-xs sm:text-sm"
-              checkDuplicate={(newItem, existing) =>
-                newItem.vehicleNo.trim().toLowerCase() === existing.vehicleNo.trim().toLowerCase()
-              }
-              mapRow={csvMapRow}
-            />
+           <CsvImporter<VehicleEntry>
+            onImport={handleImport}
+            existingData={vehicleEntries}
+            label="Import"
+            checkDuplicate={(newItem, existing) =>
+              newItem.vehicleNo.trim().toLowerCase() === existing.vehicleNo.trim().toLowerCase()
+            }
+            mapRow={csvMapRow}
+            // 泙 NEW: Add template prop here
+            template={{
+              filename: 'vehicle_import_template.csv',
+              columns: ['Vehicle No', 'Vehicle Name', 'Owner Name', 'Owner Mobile'],
+              sampleRow: ['TN01AB1234', 'Tata Ace', 'John Doe', '9876543210']
+            }}
+          />
             <Button variant="primary" onClick={handleCreateNew} className="flex-1 h-9 text-xs sm:text-sm">
               <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="hidden xs:inline">Add</span>
