@@ -259,9 +259,9 @@ export const DriverList = () => {
             }}
           />
             <Button variant="primary" onClick={handleCreateNew} className="flex-1 h-9 text-xs sm:text-sm">
-              <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span className="hidden xs:inline">Add</span>
-              <span className="hidden sm:inline ml-1">Driver</span>
+              <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />Add
+              {/* <span className="hidden xs:inline">Add</span>
+              <span className="hidden sm:inline ml-1">Driver</span> */}
             </Button>
           </div>
         </div>
@@ -313,13 +313,13 @@ export const DriverList = () => {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="font-medium text-foreground">{entry.driverName}</span>
+                      <span className="text-sm text-foreground font-medium">{entry.driverName}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-sm text-muted-foreground font-mono">{entry.dlNo}</span>
+                      <span className="text-sm text-foreground font-medium">{entry.dlNo}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-sm text-foreground">{entry.mobile || "-"}</span>
+                      <span className="text-sm text-foreground font-medium">{entry.mobile || "-"}</span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
@@ -385,8 +385,8 @@ export const DriverList = () => {
                     </td>
                     <td className="px-3 py-3">
                       <div>
-                        <span className="font-medium text-foreground block">{entry.driverName}</span>
-                        <span className="text-xs text-muted-foreground font-mono mt-0.5 block">{entry.dlNo}</span>
+                        <span className="text-sm font-medium text-foreground block">{entry.driverName}</span>
+                        <span className="text-xs font-medium text-foreground font-medium mt-0.5 block">{entry.dlNo}</span>
                       </div>
                     </td>
                     <td className="px-3 py-3">
@@ -443,19 +443,19 @@ export const DriverList = () => {
                   <div className="flex-1 min-w-0">
                     {/* Header */}
                     <div className="mb-2">
-                      <h3 className="font-semibold text-foreground truncate">{entry.driverName}</h3>
-                      <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
+                      <h3 className="font-medium text-foreground truncate font-medium">{entry.driverName}</h3>
+                      <div className="flex items-center gap-1.5 mt-1 text-foreground font-medium">
                         <CreditCard className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span className="font-mono text-xs truncate">{entry.dlNo}</span>
+                        <span className="font-medium text-sm truncate">{entry.dlNo}</span>
                       </div>
                     </div>
 
                     {/* Mobile Details */}
                     <div className="space-y-1 text-sm mb-3">
                       <div className="flex items-center gap-2 text-foreground">
-                        <Phone className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                        <span className="text-muted-foreground">Mobile:</span>
-                        <span>{entry.mobile || "-"}</span>
+                        <Phone className="w-3.5 h-3.5 text-foreground flex-shrink-0 font-medium" />
+                        <span className="text-foreground font-medium">Mobile:</span>
+                        <span className="text-foreground font-medium">{entry.mobile || "-"}</span>
                       </div>
                     </div>
 

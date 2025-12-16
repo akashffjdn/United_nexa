@@ -285,9 +285,9 @@ export const ConsignorList = () => {
             }}
           />
             <Button variant="primary" onClick={handleCreateNew} className="flex-1 h-9 text-xs sm:text-sm">
-              <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span className="hidden xs:inline">Add</span>
-              <span className="hidden sm:inline ml-1">Consignor</span>
+              <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />Add
+              {/* <span className="hidden xs:inline">Add</span>
+              <span className="hidden sm:inline ml-1">Consignor</span> */}
             </Button>
           </div>
         </div>
@@ -365,10 +365,10 @@ export const ConsignorList = () => {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="font-medium text-foreground">{consignor.name}</span>
+                      <span className="text-sm text-foreground font-medium">{consignor.name}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-sm text-muted-foreground font-mono">{consignor.gst}</span>
+                      <span className="text-sm text-foreground font-medium">{consignor.gst}</span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
@@ -431,8 +431,8 @@ export const ConsignorList = () => {
                     </td>
                     <td className="px-3 py-3">
                       <div>
-                        <span className="font-medium text-foreground block">{consignor.name}</span>
-                        <span className="text-xs text-muted-foreground font-mono mt-0.5 block">{consignor.gst}</span>
+                        <span className="text-sm text-foreground block font-medium">{consignor.name}</span>
+                        <span className="text-xs text-foreground mt-0.5 block font-medium">{consignor.gst}</span>
                       </div>
                     </td>
                     <td className="px-3 py-3">
@@ -486,10 +486,10 @@ export const ConsignorList = () => {
                   <div className="flex-1 min-w-0">
                     {/* Header */}
                     <div className="mb-2">
-                      <h3 className="font-semibold text-foreground truncate">{consignor.name}</h3>
-                      <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
+                      <h3 className="text-md text-foreground truncate font-medium">{consignor.name}</h3>
+                      <div className="flex items-center gap-1.5 mt-1 text-foreground">
                         <Store className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span className="font-mono text-xs truncate">{consignor.gst}</span>
+                        <span className="font-medium text-xs truncate">{consignor.gst}</span>
                       </div>
                     </div>
 
