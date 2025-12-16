@@ -794,9 +794,16 @@ export const GcEntryList = () => {
                       <div className="space-y-1.5 text-sm mb-3">
                         <div className="flex items-center gap-2 text-foreground"><User className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /><span className="text-muted-foreground">From:</span><span className="truncate">{consignorName}</span></div>
                         <div className="flex items-center gap-2 text-foreground"><ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /><span className="text-muted-foreground">To:</span><span className="truncate">{consigneeName}</span></div>
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-2 text-foreground"><MapPin className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /><span>{gc.destination}</span></div>
-                          <div className="flex items-center gap-2 text-foreground"><Package className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /><span>{gc.totalQty}</span></div>
+                       {/* Modified Destination and Qty Row */}
+                        <div className="flex items-center justify-between gap-2 mt-1">
+                          <div className="flex items-center gap-2 text-foreground min-w-0">
+                            <MapPin className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                            <span className="truncate">{gc.destination}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-foreground flex-shrink-0 bg-secondary/50 px-2 py-1 rounded text-xs font-medium">
+                            <Package className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                            <span>Qty: {gc.totalQty}</span>
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 pt-3 border-t border-border">

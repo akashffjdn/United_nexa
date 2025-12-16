@@ -58,5 +58,5 @@ export function numberToWordsInRupees(num: number): string {
   const wholePart = Math.floor(num);
   const words = toWords(wholePart);
   // Format as UPPERCASE to match the PDF example
-  return `RUPEES ${words} ONLY`;
+  return `${words} ONLY`;
 }

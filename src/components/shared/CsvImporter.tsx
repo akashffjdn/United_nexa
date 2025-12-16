@@ -273,7 +273,7 @@ export const CsvImporter = <T,>({
                   <FileUp className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                 </div>
                 <div>
-                  <h3 className="text-base sm:text-lg font-semibold text-foreground">Import Data</h3>
+                  <h3 className="text-base sm:text-lg font-semibold text-foreground">{label}</h3>
                   <p className="text-[10px] sm:text-xs text-muted-foreground hidden sm:block">Upload a CSV file to import records</p>
                 </div>
               </div>

@@ -211,7 +211,7 @@ export const FromPlaceList = () => {
           <CsvImporter<FromPlace>
             onImport={handleImport}
             existingData={fromPlaces}
-            label="Import"
+            label="Import From Places"
             checkDuplicate={(newItem, existing) =>
               newItem.placeName.toLowerCase() === existing.placeName.toLowerCase() ||
               newItem.shortName.toLowerCase() === existing.shortName.toLowerCase()
@@ -266,7 +266,7 @@ export const FromPlaceList = () => {
            <CsvImporter<FromPlace>
             onImport={handleImport}
             existingData={fromPlaces}
-            label="Import"
+            label="Import From Places"
             checkDuplicate={(newItem, existing) =>
               newItem.placeName.toLowerCase() === existing.placeName.toLowerCase() ||
               newItem.shortName.toLowerCase() === existing.shortName.toLowerCase()

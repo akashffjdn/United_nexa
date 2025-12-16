@@ -218,7 +218,7 @@ export const ConsignorList = () => {
           <CsvImporter<Consignor>
             onImport={handleImport}
             existingData={consignors}
-            label="Import"
+            label="Import Consignors"
             checkDuplicate={(newItem, existing) => 
               newItem.gst.trim().toLowerCase() === existing.gst.trim().toLowerCase()
             }
@@ -272,7 +272,7 @@ export const ConsignorList = () => {
             <CsvImporter<Consignor>
             onImport={handleImport}
             existingData={consignors}
-            label="Import"
+            label="Import Consignors"
             checkDuplicate={(newItem, existing) => 
               newItem.gst.trim().toLowerCase() === existing.gst.trim().toLowerCase()
             }

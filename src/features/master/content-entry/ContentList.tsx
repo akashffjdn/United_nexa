@@ -172,7 +172,7 @@ export const ContentList = () => {
           <CsvImporter<ContentEntry>
             onImport={handleImport}
             existingData={contentEntries}
-            label="Import"
+            label="Import Contents"
             checkDuplicate={(newItem, existing) =>
               newItem.contentName.toLowerCase() === existing.contentName.toLowerCase() ||
               newItem.shortName.toLowerCase() === existing.shortName.toLowerCase()
@@ -227,7 +227,7 @@ export const ContentList = () => {
            <CsvImporter<ContentEntry>
             onImport={handleImport}
             existingData={contentEntries}
-            label="Import"
+            label="Import Contents"
             checkDuplicate={(newItem, existing) =>
               newItem.contentName.toLowerCase() === existing.contentName.toLowerCase() ||
               newItem.shortName.toLowerCase() === existing.shortName.toLowerCase()

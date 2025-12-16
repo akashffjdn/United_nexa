@@ -194,7 +194,7 @@ export const VehicleList = () => {
           <CsvImporter<VehicleEntry>
             onImport={handleImport}
             existingData={vehicleEntries}
-            label="Import"
+            label="Import Vehicles"
             checkDuplicate={(newItem, existing) =>
               newItem.vehicleNo.trim().toLowerCase() === existing.vehicleNo.trim().toLowerCase()
             }
@@ -238,7 +238,7 @@ export const VehicleList = () => {
            <CsvImporter<VehicleEntry>
             onImport={handleImport}
             existingData={vehicleEntries}
-            label="Import"
+            label="Import Vehicles"
             checkDuplicate={(newItem, existing) =>
               newItem.vehicleNo.trim().toLowerCase() === existing.vehicleNo.trim().toLowerCase()
             }

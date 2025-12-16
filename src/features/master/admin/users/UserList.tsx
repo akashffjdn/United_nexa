@@ -185,7 +185,7 @@ export const UserList = () => {
           <CsvImporter<AppUser>
             onImport={handleImport}
             existingData={users}
-            label="Import"
+            label="Import Users"
             checkDuplicate={(newItem, existing) =>
               newItem.email.trim().toLowerCase() === existing.email.trim().toLowerCase()
             }
@@ -227,7 +227,7 @@ export const UserList = () => {
             <CsvImporter<AppUser>
             onImport={handleImport}
             existingData={users}
-            label="Import"
+            label="Import Users"
             checkDuplicate={(newItem, existing) =>
               newItem.email.trim().toLowerCase() === existing.email.trim().toLowerCase()
             }
