@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Eye, EyeOff, ChevronRight, Box, ArrowUpRight } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { loginSchema } from '../../schemas';
@@ -9,9 +9,16 @@ export const LoginScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isFocused, setIsFocused] = useState<'email' | 'password' | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [isLoaded, setIsLoaded] = useState(false);
   const validationTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const { login, loading } = useAuth();
+
+  useEffect(() => {
+    // Trigger animations after mount
+    const timer = setTimeout(() => setIsLoaded(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   const getCurrentFinancialYear = () => {
     const today = new Date();
@@ -99,6 +106,12 @@ export const LoginScreen = () => {
             linear-gradient(hsl(var(--primary) / 0.06) 1px, transparent 1px),
             linear-gradient(90deg, hsl(var(--primary) / 0.06) 1px, transparent 1px);
           background-size: 50px 50px;
+          opacity: 0;
+          transition: opacity 1.2s ease-out;
+        }
+        
+        .grid-pattern.loaded {
+          opacity: 1;
         }
         
         /* Gradient glow - Light Mode */
@@ -109,8 +122,15 @@ export const LoginScreen = () => {
           background: radial-gradient(circle, hsl(var(--primary) / 0.15) 0%, transparent 70%);
           top: 50%;
           right: -200px;
-          transform: translateY(-50%);
+          transform: translateY(-50%) scale(0.8);
           pointer-events: none;
+          opacity: 0;
+          transition: all 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        .glow-effect.loaded {
+          opacity: 1;
+          transform: translateY(-50%) scale(1);
         }
         
         /* Corner decorations - Light Mode */
@@ -119,6 +139,12 @@ export const LoginScreen = () => {
           width: 100px;
           height: 100px;
           border: 2px solid hsl(var(--primary) / 0.2);
+          opacity: 0;
+          transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        .corner-deco.loaded {
+          opacity: 1;
         }
         
         .corner-deco-tl {
@@ -126,6 +152,11 @@ export const LoginScreen = () => {
           left: 40px;
           border-right: none;
           border-bottom: none;
+          transform: translate(-20px, -20px);
+        }
+        
+        .corner-deco-tl.loaded {
+          transform: translate(0, 0);
         }
         
         .corner-deco-br {
@@ -133,6 +164,11 @@ export const LoginScreen = () => {
           right: 40px;
           border-left: none;
           border-top: none;
+          transform: translate(20px, 20px);
+        }
+        
+        .corner-deco-br.loaded {
+          transform: translate(0, 0);
         }
         
         /* Left panel text colors - Light Mode (light text on dark) */
@@ -158,10 +194,21 @@ export const LoginScreen = () => {
           justify-content: center;
           border-radius: 14px;
           box-shadow: 0 8px 24px hsl(var(--primary) / 0.3);
+          transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .logo-mark:hover {
+          transform: scale(1.05) rotate(-3deg);
+          box-shadow: 0 12px 32px hsl(var(--primary) / 0.4);
         }
         
         .logo-mark .logo-icon {
           color: #ffffff;
+          transition: transform 0.3s ease;
+        }
+        
+        .logo-mark:hover .logo-icon {
+          transform: rotate(12deg);
         }
         
         /* Status badge - Light Mode */
@@ -171,6 +218,12 @@ export const LoginScreen = () => {
           border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 100px;
           padding: 10px 18px;
+          transition: all 0.3s ease;
+        }
+        
+        .status-badge:hover {
+          background: rgba(255, 255, 255, 0.12);
+          transform: translateY(-2px);
         }
         
         /* Stat divider - Light Mode */
@@ -260,6 +313,11 @@ export const LoginScreen = () => {
         .stat-item {
           text-align: center;
           padding: 0 20px;
+          transition: transform 0.3s ease;
+        }
+        
+        .stat-item:hover {
+          transform: translateY(-4px);
         }
         
         .stat-value {
@@ -267,6 +325,11 @@ export const LoginScreen = () => {
           font-weight: 700;
           color: #f8fafc;
           line-height: 1;
+          transition: all 0.3s ease;
+        }
+        
+        .stat-item:hover .stat-value {
+          color: hsl(var(--primary));
         }
         
         .stat-label {
@@ -286,6 +349,11 @@ export const LoginScreen = () => {
         .form-container {
           background: hsl(var(--card));
           border: 1px solid hsl(var(--border));
+          transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .form-container:hover {
+          box-shadow: 0 20px 60px -20px hsl(var(--foreground) / 0.1);
         }
         
         /* ===== INPUT STYLING WITH ANIMATED UNDERLINE ===== */
@@ -308,6 +376,12 @@ export const LoginScreen = () => {
         
         .input-minimal::placeholder {
           color: hsl(var(--muted-foreground) / 0.6);
+          transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        
+        .input-minimal:focus::placeholder {
+          opacity: 0.4;
+          transform: translateX(10px);
         }
         
         /* Remove all focus styles from input itself */
@@ -366,11 +440,12 @@ export const LoginScreen = () => {
           color: hsl(var(--muted-foreground));
           margin-bottom: 8px;
           display: block;
-          transition: color 0.3s ease;
+          transition: all 0.3s ease;
         }
         
         .input-label.active {
           color: hsl(var(--primary));
+          transform: translateX(4px);
         }
         
         /* Button */
@@ -391,6 +466,10 @@ export const LoginScreen = () => {
         .btn-main:hover:not(:disabled) {
           transform: translateY(-2px);
           box-shadow: 0 12px 40px hsl(var(--foreground) / 0.2);
+        }
+        
+        .btn-main:active:not(:disabled) {
+          transform: translateY(0);
         }
         
         .btn-main:disabled {
@@ -420,7 +499,15 @@ export const LoginScreen = () => {
           gap: 12px;
         }
         
-        /* Entrance animations */
+        .btn-main span svg {
+          transition: transform 0.3s ease;
+        }
+        
+        .btn-main:hover:not(:disabled) span svg {
+          transform: translateX(4px);
+        }
+        
+        /* ===== ENHANCED ENTRANCE ANIMATIONS ===== */
         @keyframes fadeUp {
           from { opacity: 0; transform: translateY(30px); }
           to { opacity: 1; transform: translateY(0); }
@@ -434,6 +521,49 @@ export const LoginScreen = () => {
         @keyframes slideIn {
           from { opacity: 0; transform: translateX(-20px); }
           to { opacity: 1; transform: translateX(0); }
+        }
+        
+        @keyframes slideInRight {
+          from { opacity: 0; transform: translateX(20px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+        
+        @keyframes scaleIn {
+          from { opacity: 0; transform: scale(0.9); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        
+        @keyframes float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-10px); }
+        }
+        
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        
+        @keyframes textReveal {
+          from { 
+            opacity: 0; 
+            transform: translateY(20px);
+            filter: blur(10px);
+          }
+          to { 
+            opacity: 1; 
+            transform: translateY(0);
+            filter: blur(0);
+          }
+        }
+        
+        @keyframes letterSpacing {
+          from { letter-spacing: 0.5em; opacity: 0; }
+          to { letter-spacing: 0.25em; opacity: 1; }
+        }
+        
+        @keyframes pulseGlow {
+          0%, 100% { box-shadow: 0 8px 24px hsl(var(--primary) / 0.3); }
+          50% { box-shadow: 0 8px 40px hsl(var(--primary) / 0.5); }
         }
         
         .anim-fadeUp {
@@ -451,6 +581,26 @@ export const LoginScreen = () => {
           animation: slideIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
         
+        .anim-slideInRight {
+          opacity: 0;
+          animation: slideInRight 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        
+        .anim-scaleIn {
+          opacity: 0;
+          animation: scaleIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        
+        .anim-textReveal {
+          opacity: 0;
+          animation: textReveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        
+        .anim-letterSpacing {
+          opacity: 0;
+          animation: letterSpacing 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        
         .delay-1 { animation-delay: 0.1s; }
         .delay-2 { animation-delay: 0.2s; }
         .delay-3 { animation-delay: 0.3s; }
@@ -458,6 +608,9 @@ export const LoginScreen = () => {
         .delay-5 { animation-delay: 0.5s; }
         .delay-6 { animation-delay: 0.6s; }
         .delay-7 { animation-delay: 0.7s; }
+        .delay-8 { animation-delay: 0.8s; }
+        .delay-9 { animation-delay: 0.9s; }
+        .delay-10 { animation-delay: 1s; }
         
         /* Status dot */
         @keyframes blink {
@@ -471,6 +624,7 @@ export const LoginScreen = () => {
           background: #22c55e;
           border-radius: 50%;
           animation: blink 2s ease-in-out infinite;
+          box-shadow: 0 0 10px #22c55e;
         }
         
         /* Hover line effect */
@@ -504,6 +658,12 @@ export const LoginScreen = () => {
           display: flex;
           align-items: center;
           justify-content: center;
+          transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .logo-mark-dark:hover {
+          transform: scale(1.05) rotate(-3deg);
+          box-shadow: 0 8px 24px hsl(var(--foreground) / 0.2);
         }
         
         /* Password toggle button */
@@ -517,16 +677,77 @@ export const LoginScreen = () => {
           background: transparent;
           border: none;
           cursor: pointer;
-          transition: color 0.2s ease;
+          transition: all 0.2s ease;
           z-index: 2;
         }
         
         .password-toggle:hover {
           color: hsl(var(--foreground));
+          transform: translateY(-50%) scale(1.1);
+        }
+        
+        .password-toggle:active {
+          transform: translateY(-50%) scale(0.95);
         }
         
         .password-toggle:focus {
           outline: none;
+        }
+        
+        /* Error message animation */
+        @keyframes errorShake {
+          0%, 100% { transform: translateX(0); }
+          20%, 60% { transform: translateX(-4px); }
+          40%, 80% { transform: translateX(4px); }
+        }
+        
+        .error-message {
+          animation: errorShake 0.4s ease, fadeIn 0.3s ease;
+        }
+        
+        /* Staggered stat animations */
+        .stat-item-animated {
+          opacity: 0;
+          animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        
+        .stat-item-animated:nth-child(1) { animation-delay: 0.5s; }
+        .stat-item-animated:nth-child(2) { animation-delay: 0.6s; }
+        .stat-item-animated:nth-child(3) { animation-delay: 0.7s; }
+        .stat-item-animated:nth-child(4) { animation-delay: 0.8s; }
+        
+        /* Hero text line animations */
+        .hero-line {
+          overflow: hidden;
+        }
+        
+        .hero-line-inner {
+          display: block;
+          opacity: 0;
+          transform: translateY(100%);
+          animation: heroLineReveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        
+        @keyframes heroLineReveal {
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .hero-line-inner:nth-child(1) { animation-delay: 0.2s; }
+        .hero-line-inner:nth-child(2) { animation-delay: 0.35s; }
+        .hero-line-inner:nth-child(3) { animation-delay: 0.5s; }
+        
+        /* Compliance badges hover */
+        .compliance-badge {
+          transition: all 0.3s ease;
+          cursor: default;
+        }
+        
+        .compliance-badge:hover {
+          color: hsl(var(--primary));
+          transform: translateY(-2px);
         }
       `}</style>
 
@@ -537,12 +758,12 @@ export const LoginScreen = () => {
         <div className="hidden lg:flex desktop-brand-panel lg:w-[55%] xl:w-[58%] 2xl:w-[60%] flex-col justify-between p-10 xl:p-14 2xl:p-16 relative">
           
           {/* Background Elements */}
-          <div className="grid-pattern" />
-          <div className="glow-effect" />
+          <div className={`grid-pattern ${isLoaded ? 'loaded' : ''}`} />
+          <div className={`glow-effect ${isLoaded ? 'loaded' : ''}`} />
           
           {/* Corner Decorations */}
-          <div className="corner-deco corner-deco-tl" />
-          <div className="corner-deco corner-deco-br" />
+          <div className={`corner-deco corner-deco-tl ${isLoaded ? 'loaded' : ''}`} style={{ transitionDelay: '0.3s' }} />
+          <div className={`corner-deco corner-deco-br ${isLoaded ? 'loaded' : ''}`} style={{ transitionDelay: '0.5s' }} />
           
           {/* Top Section - Logo & Badge */}
           <div className="relative z-10 flex items-start justify-between">
@@ -560,7 +781,7 @@ export const LoginScreen = () => {
               </div>
             </div>
             
-            <div className="status-badge flex items-center gap-2 anim-fadeIn delay-3">
+            <div className="status-badge flex items-center gap-2 anim-slideInRight delay-3">
               <div className="status-dot" />
               <span className="text-[11px] font-medium panel-text-secondary">
                 All systems operational
@@ -573,45 +794,51 @@ export const LoginScreen = () => {
             
             {/* Tagline */}
             <div className="space-y-6">
-              <div className="anim-fadeUp delay-1">
+              <div className="anim-letterSpacing delay-1">
                 <span className="text-[11px] font-semibold tracking-[0.25em] uppercase highlight-text">
                   Fleet Management Platform
                 </span>
               </div>
               
-              <h1 className="anim-fadeUp delay-2">
-                <span className="text-[clamp(2.8rem,4.5vw,4.5rem)] font-bold leading-[1.05] tracking-tight panel-text-primary block">
-                  Streamline your
+              <h1>
+                <span className="hero-line">
+                  <span className="hero-line-inner text-[clamp(2.8rem,4.5vw,4.5rem)] font-bold leading-[1.05] tracking-tight panel-text-primary block">
+                    Streamline your
+                  </span>
                 </span>
-                <span className="text-[clamp(2.8rem,4.5vw,4.5rem)] font-bold leading-[1.05] tracking-tight highlight-text block">
-                  logistics operations
+                <span className="hero-line">
+                  <span className="hero-line-inner text-[clamp(2.8rem,4.5vw,4.5rem)] font-bold leading-[1.05] tracking-tight highlight-text block" style={{ animationDelay: '0.35s' }}>
+                    logistics operations
+                  </span>
                 </span>
-                <span className="text-[clamp(2.8rem,4.5vw,4.5rem)] font-bold leading-[1.05] tracking-tight panel-text-primary block">
-                  at scale.
+                <span className="hero-line">
+                  <span className="hero-line-inner text-[clamp(2.8rem,4.5vw,4.5rem)] font-bold leading-[1.05] tracking-tight panel-text-primary block" style={{ animationDelay: '0.5s' }}>
+                    at scale.
+                  </span>
                 </span>
               </h1>
               
-              <p className="text-lg panel-text-secondary leading-relaxed max-w-lg anim-fadeUp delay-3">
+              <p className="text-lg panel-text-secondary leading-relaxed max-w-lg anim-fadeUp delay-6">
                 Real-time visibility across your entire supply chain. Track, manage, 
                 and optimize every delivery with enterprise-grade precision.
               </p>
             </div>
             
             {/* Stats Row */}
-            <div className="flex anim-fadeUp delay-4">
-              <div className="stat-item">
+            <div className="flex">
+              <div className="stat-item stat-item-animated">
                 <div className="stat-value">2.4M+</div>
                 <div className="stat-label">Deliveries</div>
               </div>
-              <div className="stat-item">
+              <div className="stat-item stat-item-animated">
                 <div className="stat-value">150+</div>
                 <div className="stat-label">Cities</div>
               </div>
-              <div className="stat-item">
+              <div className="stat-item stat-item-animated">
                 <div className="stat-value">99.9%</div>
                 <div className="stat-label">Uptime</div>
               </div>
-              <div className="stat-item">
+              <div className="stat-item stat-item-animated">
                 <div className="stat-value">24/7</div>
                 <div className="stat-label">Support</div>
               </div>
@@ -620,11 +847,11 @@ export const LoginScreen = () => {
           
           {/* Bottom Section - Footer */}
           <div className="relative z-10">
-            <div className="flex items-center justify-between pt-4 panel-footer-border anim-fadeIn delay-5">
+            <div className="flex items-center justify-between pt-4 panel-footer-border anim-fadeIn delay-7">
               <div className="flex items-center gap-6">
-                <span className="text-[11px] font-medium panel-text-muted">ISO 27001</span>
-                <span className="text-[11px] font-medium panel-text-muted">SOC 2</span>
-                <span className="text-[11px] font-medium panel-text-muted">GDPR</span>
+                <span className="text-[11px] font-medium panel-text-muted compliance-badge">ISO 27001</span>
+                <span className="text-[11px] font-medium panel-text-muted compliance-badge">SOC 2</span>
+                <span className="text-[11px] font-medium panel-text-muted compliance-badge">GDPR</span>
               </div>
               <span className="text-[11px] panel-text-muted">
                 © {new Date().getFullYear()} United Transport
@@ -654,20 +881,20 @@ export const LoginScreen = () => {
             </div>
             
             {/* Form Card */}
-            <div className="form-container p-8 sm:p-10 anim-fadeUp delay-1 lg:delay-2">
+            <div className="form-container p-8 sm:p-10 anim-scaleIn delay-1 lg:delay-2">
               
               {/* Form Header */}
               <div className="mb-10">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-1.5 h-1.5 bg-primary" />
+                <div className="flex items-center gap-2 mb-3 anim-slideIn delay-2 lg:delay-3">
+                  <div className="w-1.5 h-1.5 bg-primary" style={{ animation: 'pulseGlow 2s ease-in-out infinite' }} />
                   <span className="text-[10px] font-semibold tracking-[0.2em] uppercase text-muted-foreground">
                     Account Login
                   </span>
                 </div>
-                <h2 className="text-2xl sm:text-3xl font-semibold text-foreground">
+                <h2 className="text-2xl sm:text-3xl font-semibold text-foreground anim-textReveal delay-3 lg:delay-4">
                   Welcome back
                 </h2>
-                <p className="text-sm text-muted-foreground mt-2">
+                <p className="text-sm text-muted-foreground mt-2 anim-fadeUp delay-4 lg:delay-5">
                   Enter your credentials to access your dashboard
                 </p>
               </div>
@@ -676,7 +903,7 @@ export const LoginScreen = () => {
               <form onSubmit={handleSubmit} className="space-y-8" autoComplete="off">
                 
                 {/* Email */}
-                <div className="anim-fadeUp delay-2 lg:delay-3">
+                <div className="anim-fadeUp delay-4 lg:delay-5">
                   <label 
                     htmlFor="email" 
                     className={`input-label ${isFocused === 'email' ? 'active' : ''}`}
@@ -703,7 +930,7 @@ export const LoginScreen = () => {
                     <div className={`input-underline ${formErrors.email ? 'has-error' : ''}`} />
                   </div>
                   {formErrors.email && (
-                    <p className="text-[12px] text-destructive mt-2 flex items-center gap-2">
+                    <p className="text-[12px] text-destructive mt-2 flex items-center gap-2 error-message">
                       <span className="w-1 h-1 bg-destructive rounded-full" />
                       {formErrors.email}
                     </p>
@@ -711,7 +938,7 @@ export const LoginScreen = () => {
                 </div>
                 
                 {/* Password */}
-                <div className="anim-fadeUp delay-3 lg:delay-4">
+                <div className="anim-fadeUp delay-5 lg:delay-6">
                   <label 
                     htmlFor="password" 
                     className={`input-label ${isFocused === 'password' ? 'active' : ''}`}
@@ -747,7 +974,7 @@ export const LoginScreen = () => {
                     </button>
                   </div>
                   {formErrors.password && (
-                    <p className="text-[12px] text-destructive mt-2 flex items-center gap-2">
+                    <p className="text-[12px] text-destructive mt-2 flex items-center gap-2 error-message">
                       <span className="w-1 h-1 bg-destructive rounded-full" />
                       {formErrors.password}
                     </p>
@@ -755,7 +982,7 @@ export const LoginScreen = () => {
                 </div>
                 
                 {/* Submit */}
-                <div className="pt-4 anim-fadeUp delay-4 lg:delay-5">
+                <div className="pt-4 anim-fadeUp delay-6 lg:delay-7">
                   <button
                     type="submit"
                     disabled={loading || !email || !password || Object.keys(formErrors).length > 0}
@@ -778,7 +1005,7 @@ export const LoginScreen = () => {
             </div>
             
             {/* Bottom Links - MOBILE ONLY */}
-            <div className="lg:hidden mt-8 flex items-center justify-between text-[12px] text-muted-foreground anim-fadeIn delay-5">
+            <div className="lg:hidden mt-8 flex items-center justify-between text-[12px] text-muted-foreground anim-fadeIn delay-7">
               <div className="flex items-center gap-4">
                 <span className="hover-line cursor-pointer">Privacy</span>
                 <span className="hover-line cursor-pointer">Terms</span>

@@ -192,7 +192,7 @@ export const DriverList = () => {
          <CsvImporter<DriverEntry>
             onImport={handleImport}
             existingData={driverEntries}
-            label="Import"
+            label="Import Drivers"
             checkDuplicate={(newItem, existing) =>
               newItem.dlNo.trim().toLowerCase() === existing.dlNo.trim().toLowerCase()
             }
@@ -246,7 +246,7 @@ export const DriverList = () => {
            <CsvImporter<DriverEntry>
             onImport={handleImport}
             existingData={driverEntries}
-            label="Import"
+            label="Import Drivers"
             checkDuplicate={(newItem, existing) =>
               newItem.dlNo.trim().toLowerCase() === existing.dlNo.trim().toLowerCase()
             }

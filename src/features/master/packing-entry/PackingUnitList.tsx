@@ -172,7 +172,7 @@ export const PackingEntryList = () => {
          <CsvImporter<PackingEntry>
             onImport={handleImport}
             existingData={packingEntries}
-            label="Import"
+            label="Import Packing Units"
             checkDuplicate={(newItem, existing) =>
               newItem.packingName.toLowerCase() === existing.packingName.toLowerCase() ||
               newItem.shortName.toLowerCase() === existing.shortName.toLowerCase()
@@ -227,7 +227,7 @@ export const PackingEntryList = () => {
             <CsvImporter<PackingEntry>
             onImport={handleImport}
             existingData={packingEntries}
-            label="Import"
+            label="Import Packing Units"
             checkDuplicate={(newItem, existing) =>
               newItem.packingName.toLowerCase() === existing.packingName.toLowerCase() ||
               newItem.shortName.toLowerCase() === existing.shortName.toLowerCase()
