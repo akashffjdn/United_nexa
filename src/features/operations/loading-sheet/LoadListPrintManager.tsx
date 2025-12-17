@@ -161,7 +161,7 @@ export const LoadListPrintManager: React.FC<LoadListPrintManagerProps> = ({ jobs
                    1. PRINT STYLES (The Output Paper)
                    ========================================= */
                 @media print {
-                    /* Remove browser default margins */
+                    /* Remove browser default margins to HIDE "localhost" headers */
                     @page {
                         size: A4;
                         margin: 0; 
@@ -207,24 +207,19 @@ export const LoadListPrintManager: React.FC<LoadListPrintManagerProps> = ({ jobs
                     /* Hide Toolbar */
                     .print-actions { display: none !important; }
 
-                    /* Paper Style Reset for Print */
+                    /* 🟢 TABLE LAYOUT FOR REPEATING HEADERS ON EVERY PAGE */
+                    table { width: 100% !important; border-collapse: collapse; border: none; }
+                    thead { display: table-header-group; } 
+                    tfoot { display: table-footer-group; } 
+                    
+                    /* The main container for print */
                     .print-paper {
                         width: 100% !important;
                         box-shadow: none !important;
                         margin: 0 !important;
-                        padding: 10mm !important; /* Maintain internal padding */
-                        min-height: 296mm !important; /* Force A4 height */
-                        transform: none !important;
-                        display: flex !important;
-                        flex-direction: column !important;
-                    }
-
-                    /* Footer Alignment */
-                    .print-split-footer {
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: flex-end;
-                        width: 100%;
+                        padding: 0 !important;
+                        min-height: auto !important;
+                        display: block !important;
                     }
                 }
                 
@@ -236,48 +231,32 @@ export const LoadListPrintManager: React.FC<LoadListPrintManagerProps> = ({ jobs
                         position: fixed;
                         top: 0; left: 0; right: 0; bottom: 0;
                         width: 100vw;
-                        height: 100dvh; /* Mobile-friendly viewport height */
-                        
-                        /* Theme-aware background color */
+                        height: 100dvh;
                         background-color: hsl(var(--muted)); 
-                        
-                        z-index: 2147483647; /* Max Z-Index */
+                        z-index: 2147483647;
                         overflow-y: auto;
                         overflow-x: hidden;
-                        
-                        /* Layout for centering pages */
-                        padding-top: 80px; /* Space for fixed header */
+                        padding-top: 80px; 
                         padding-bottom: 40px;
                         box-sizing: border-box;
                         display: flex;
                         flex-direction: column;
                         align-items: center;
-                        
                         -webkit-overflow-scrolling: touch;
                     }
                     
                     /* Desktop Page Preview Style */
                     .print-paper {
                         background: white;
-                        color: black; /* Preview text always black */
+                        color: black;
                         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
                         margin-bottom: 24px;
-                        transform-origin: top center;
-                        transition: transform 0.2s ease;
-                        width: 210mm; /* Fixed A4 width */
+                        width: 210mm; 
                         min-height: 297mm;
-                        padding: 10mm;
+                        padding: 0; /* Margin simulated by table spacers */
                         box-sizing: border-box;
                         display: flex;
                         flex-direction: column;
-                    }
-
-                    /* Show standard flex for footer on screen too */
-                    .print-split-footer {
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: flex-end;
-                        width: 100%;
                     }
                 }
 
@@ -287,15 +266,10 @@ export const LoadListPrintManager: React.FC<LoadListPrintManagerProps> = ({ jobs
                 @media screen and (max-width: 800px) {
                     .load-list-print-wrapper {
                         padding-top: 70px;
-                        padding-left: 0;
-                        padding-right: 0;
-                        background-color: #1f2937; /* Darker background on mobile */
+                        background-color: #1f2937;
                     }
-
                     .print-paper {
-                        /* Scale A4 (794px) down to fit ~375px screens */
                         transform: scale(0.46); 
-                        /* Pull up the whitespace caused by scaling */
                         margin-bottom: -140mm; 
                         margin-top: 10px;
                         box-shadow: 0 4px 6px rgba(0,0,0,0.3);
@@ -303,7 +277,6 @@ export const LoadListPrintManager: React.FC<LoadListPrintManagerProps> = ({ jobs
                 }
 
                 @media screen and (min-width: 450px) and (max-width: 800px) {
-                   /* Tablets */
                    .print-paper {
                      transform: scale(0.65);
                      margin-bottom: -90mm;
@@ -318,12 +291,9 @@ export const LoadListPrintManager: React.FC<LoadListPrintManagerProps> = ({ jobs
                     top: 0; left: 0;
                     width: 100%;
                     height: 64px;
-                    
-                    /* Theme variables for colors */
                     background-color: hsl(var(--card));
                     color: hsl(var(--foreground));
                     border-bottom: 1px solid hsl(var(--border));
-                    
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
@@ -331,7 +301,6 @@ export const LoadListPrintManager: React.FC<LoadListPrintManagerProps> = ({ jobs
                     box-shadow: 0 4px 12px rgba(0,0,0,0.05);
                     z-index: 2147483648;
                 }
-
                 .preview-title {
                     font-weight: 700;
                     font-size: 16px;
@@ -339,40 +308,19 @@ export const LoadListPrintManager: React.FC<LoadListPrintManagerProps> = ({ jobs
                     overflow: hidden;
                     text-overflow: ellipsis;
                 }
-
-                .action-group {
-                    display: flex;
-                    gap: 10px;
-                }
-
+                .action-group { display: flex; gap: 10px; }
                 .btn-base {
                     display: flex; align-items: center; gap: 8px;
-                    padding: 8px 16px;
-                    border-radius: 6px;
-                    font-weight: 600;
-                    font-size: 14px;
-                    border: none;
-                    cursor: pointer;
-                    transition: all 0.2s;
+                    padding: 8px 16px; border-radius: 6px;
+                    font-weight: 600; font-size: 14px;
+                    border: none; cursor: pointer; transition: all 0.2s;
                 }
-                
-                /* Themed Primary Button */
-                .print-btn {
-                    background-color: hsl(var(--primary));
-                    color: hsl(var(--primary-foreground));
-                }
+                .print-btn { background-color: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
                 .print-btn:active { transform: scale(0.96); }
                 .print-btn:hover { opacity: 0.9; }
-
-                /* Themed Destructive Button */
-                .close-btn {
-                    background-color: hsl(var(--destructive));
-                    color: hsl(var(--destructive-foreground));
-                }
+                .close-btn { background-color: hsl(var(--destructive)); color: hsl(var(--destructive-foreground)); }
                 .close-btn:active { transform: scale(0.96); }
                 .close-btn:hover { opacity: 0.9; }
-
-                /* Small screen adjustments for toolbar */
                 @media screen and (max-width: 480px) {
                     .preview-title { font-size: 14px; max-width: 120px; }
                     .btn-base { padding: 6px 12px; font-size: 13px; }
@@ -382,17 +330,13 @@ export const LoadListPrintManager: React.FC<LoadListPrintManagerProps> = ({ jobs
             
             {/* HEADER TOOLBAR */}
             <div className="print-actions">
-                <span className="preview-title">
-                    Load List Preview
-                </span>
+                <span className="preview-title">Load List Preview</span>
                 <div className="action-group">
                     <button onClick={handleManualPrint} className="btn-base print-btn">
-                        <Printer size={18} />
-                        <span>Print</span>
+                        <Printer size={18} /> <span>Print</span>
                     </button>
                     <button onClick={onClose} className="btn-base close-btn">
-                        <X size={18} />
-                        <span>Close</span>
+                        <X size={18} /> <span>Close</span>
                     </button>
                 </div>
             </div>
@@ -403,54 +347,74 @@ export const LoadListPrintManager: React.FC<LoadListPrintManagerProps> = ({ jobs
                 {/* THE PAPER */}
                 <div className="print-paper font-sans text-[11pt]">
                     
-                    {/* CONTENT SECTION (Grows to fill space) */}
-                    <div className="flex-1">
-                        <div className="text-center mb-6">
-                            {/* 泙 Dynamic Company Name */}
-                            <h2 className="text-xl font-extrabold mb-1 uppercase">{label.companyName}</h2>
-                            {/* 泙 Dynamic Main Header with Date */}
-                            <h3 className="text-lg font-extrabold uppercase">{label.mainHeader} {getCurrentDate()}</h3>
-                        </div>
+                    {/* 🟢 TABLE STRUCTURE: Ensures spacing repeats on every page */}
+                    <table style={{ width: '100%' }}>
+                        
+                        {/* 🟢 TOP MARGIN SPACER (50mm) - REPEATS ON EVERY PAGE */}
+                        <thead>
+                            <tr>
+                                <td style={{ height: '20mm', display: 'block' }}></td>
+                            </tr>
+                        </thead>
 
-                        {printData.map((data, index) => (
-                            <div key={index} className="mb-6 leading-snug">
-                                <p className="font-bold text-base whitespace-nowrap">
-                                    {data.godown} &nbsp;&nbsp;
-                                    {data.consignorName}
-                                    &nbsp;({data.primaryGcId})
-                                    &nbsp;[{data.totalQuantity} {data.packingDetails} {data.contentDetails}]
-                                    &nbsp;-&nbsp; {data.consigneeName}
-                                </p>
+                        {/* 🟢 BOTTOM MARGIN SPACER (25mm) - REPEATS ON EVERY PAGE */}
+                        <tfoot>
+                            <tr>
+                                <td style={{ height: '20mm', display: 'block' }}></td>
+                            </tr>
+                        </tfoot>
 
-                                {/* 🟢 Updated Number Rendering */}
-                                {data.numbersToDisplay && data.numbersToDisplay.length > 0 && (
-                                    <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 pl-5 text-left">
-                                        {data.numbersToDisplay.map((num) => (
-                                                <span key={num} className="font-normal">{num}</span>
-                                        ))}
+                        {/* 🟢 CONTENT BODY */}
+                        <tbody>
+                            <tr>
+                                {/* 🟢 SIDE MARGINS (25mm) applied here */}
+                                <td style={{ padding: '0 15mm 15mm', verticalAlign: 'top' }}>
+                                    
+                                    {/* Header Info (Appears only once at start of content flow) */}
+                                    <div className="text-center mb-6">
+                                        <h2 className="text-xl font-extrabold mb-1 uppercase">{label.companyName}</h2>
+                                        <h3 className="text-lg font-extrabold uppercase">{label.mainHeader} {getCurrentDate()}</h3>
                                     </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
 
-                    {/* FOOTER (Pushed to bottom via flex-1 above) */}
-                    <div className="mt-auto pt-4">
-                        <div className="border-t-2 border-black w-full my-2"></div>
-                        <div className="py-1 print-split-footer">
-                            <div className="font-bold text-lg">
-                                {/* 泙 Dynamic Total Label */}
-                                {label.totalLabel} {grandTotalQuantity}
-                            </div>
-                            <div className="text-xs text-center">
-                                <p className="italic font-bold mr-1 mb-1">{userName}</p>
-                                {/* 泙 Dynamic Signature Line */}
-                                <p className="italic font-bold mr-1">{label.companySignatureLine}</p>
-                            </div>
-                        </div>
-                        <div className="border-t-2 border-black w-full my-2"></div>
-                    </div>
+                                    {printData.map((data, index) => (
+                                        <div key={index} className="mb-6 leading-snug w-full">
+                                            {/* 🟢 REMOVED whitespace-nowrap to allow text wrapping */}
+                                            <p className="font-bold text-base">
+                                                {data.godown} &nbsp;&nbsp;
+                                                {data.consignorName}
+                                                &nbsp;({data.primaryGcId})
+                                                &nbsp;[{data.totalQuantity} {data.packingDetails} {data.contentDetails}]
+                                                &nbsp;-&nbsp; {data.consigneeName}
+                                            </p>
 
+                                            {data.numbersToDisplay && data.numbersToDisplay.length > 0 && (
+                                                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 pl-5 text-left">
+                                                    {data.numbersToDisplay.map((num) => (
+                                                            <span key={num} className="font-normal">{num}</span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+
+                                    {/* Footer Info (Appears at the very end of the content flow) */}
+                                    <div className="mt-8 pt-4 w-full">
+                                        <div className="border-t-2 border-black w-full my-2"></div>
+                                        <div className="py-1 flex justify-between items-end w-full">
+                                            <div className="font-bold text-lg">
+                                                {label.totalLabel} {grandTotalQuantity}
+                                            </div>
+                                            <div className="text-xs text-center">
+                                                <p className="italic font-bold mr-1 mb-1">{userName}</p>
+                                                <p className="italic font-bold mr-1">{label.companySignatureLine}</p>
+                                            </div>
+                                        </div>
+                                        <div className="border-t-2 border-black w-full my-2"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
