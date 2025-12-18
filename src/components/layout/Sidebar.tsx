@@ -83,14 +83,6 @@ export const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) => {
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
-  // Helper to check if any link in a group is active
-  const checkGroupActive = (links: { href: string }[]) => links.some(link => isRouteActive(link.href, location.pathname));
-
-  const isOperationsActive = checkGroupActive(operationLinks);
-  const isMastersActive = checkGroupActive(masterLinks);
-  const isMonitoringActive = checkGroupActive(monitoringLinks);
-  const isConfigActive = checkGroupActive(configLinks);
-
   // Reusable NavItem Component
   const NavItem = ({ item }: { item: { name: string; href: string; icon: any } }) => {
     const active = isRouteActive(item.href, location.pathname);
@@ -118,12 +110,13 @@ export const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) => {
   };
 
   // Section Header Component
-  const SectionHeader = ({ title, isOpen, onToggle, active }: { title: string, isOpen: boolean, onToggle: () => void, active?: boolean }) => (
+  // UPDATED: Removed conditional color logic, now always 'text-primary'
+  const SectionHeader = ({ title, isOpen, onToggle }: { title: string, isOpen: boolean, onToggle: () => void }) => (
     <button
       onClick={onToggle}
       className="w-full flex items-center justify-between px-3 pt-4 pb-2 group"
     >
-      <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${active ? 'text-primary' : 'text-muted-foreground/60'}`}>
+      <span className="text-[10px] font-bold uppercase tracking-widest text-primary">
         {title}
       </span>
       <ChevronRight
@@ -173,7 +166,8 @@ export const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) => {
             {/* 1. OPERATIONS (Always Open) */}
             <div className="mb-2">
               <div className="px-3 pt-3 pb-2">
-                <span className={`text-[10px] font-bold uppercase tracking-widest ${isOperationsActive ? 'text-primary' : 'text-muted-foreground/60'}`}>
+                {/* UPDATED: Always text-primary */}
+                <span className="text-[10px] font-bold uppercase tracking-widest text-primary">
                   Operations
                 </span>
               </div>
@@ -189,7 +183,6 @@ export const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) => {
               title="Master Data"
               isOpen={isMastersExpanded}
               onToggle={() => setIsMastersExpanded(!isMastersExpanded)}
-              active={isMastersActive}
             />
             <div className={`space-y-0.5 overflow-hidden transition-all duration-300 ${isMastersExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
               {masterLinks.map((item) => (
@@ -205,7 +198,6 @@ export const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) => {
                   title="Monitoring & Logs"
                   isOpen={isReportsExpanded}
                   onToggle={() => setIsReportsExpanded(!isReportsExpanded)}
-                  active={isMonitoringActive}
                 />
                 <div className={`space-y-0.5 overflow-hidden transition-all duration-300 ${isReportsExpanded ? 'max-h-[200px] opacity-100' : 'max-h-0 opacity-0'}`}>
                   {monitoringLinks.map((item) => (
@@ -218,7 +210,6 @@ export const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) => {
                   title="Configuration"
                   isOpen={isAdminExpanded}
                   onToggle={() => setIsAdminExpanded(!isAdminExpanded)}
-                  active={isConfigActive}
                 />
                 <div className={`space-y-0.5 overflow-hidden transition-all duration-300 ${isAdminExpanded ? 'max-h-[200px] opacity-100' : 'max-h-0 opacity-0'}`}>
                   {configLinks.map((item) => (
