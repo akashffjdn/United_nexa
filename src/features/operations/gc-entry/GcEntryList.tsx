@@ -490,7 +490,7 @@ export const GcEntryList = () => {
 
   const handleDelete = (gcNo: string) => {
     setDeletingId(gcNo);
-    setDeleteMessage(`Are you sure you want to delete GC Entry #${gcNo}?`);
+    setDeleteMessage(`Are you sure you want to delete GC #${gcNo}?`);
     setIsConfirmOpen(true);
   };
 
@@ -784,7 +784,7 @@ export const GcEntryList = () => {
                     <div className="pt-0.5 flex-shrink-0"><input type="checkbox" className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer" checked={isSelected} onChange={(e) => handleSelectRow(gc.gcNo, e.target.checked)} /></div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-1.5"><Hash className="w-4 h-4 text-primary/60" /><span className="font-bold text-primary">GC #{gc.gcNo}</span></div>
+                        <div className="flex items-center gap-1.5"><span className="font-bold text-primary">GC #{gc.gcNo}</span></div>
                         {isAssigned ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-600"><Truck className="w-3 h-3" />TS# {tripSheetId}</span>
                         ) : (

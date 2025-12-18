@@ -774,7 +774,7 @@ export const PendingStockHistory = () => {
                     <div className="pt-0.5 flex-shrink-0"><input type="checkbox" className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer" checked={isSelected} onChange={(e) => handleSelectRow(e, gc.gcNo)} /></div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-1.5"><Hash className="w-4 h-4 text-primary/60" /><span className="font-bold text-primary">GC #{gc.gcNo}</span></div>
+                        <div className="flex items-center gap-1.5"><span className="font-bold text-primary">GC #{gc.gcNo}</span></div>
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-500/10 text-amber-600"><Clock className="w-3 h-3" />Pending</span>
                       </div>
                       <div className="space-y-1.5 text-sm mb-3">

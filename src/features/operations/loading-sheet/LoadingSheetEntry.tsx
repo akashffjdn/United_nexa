@@ -863,7 +863,7 @@ export const LoadingSheetEntry = () => {
                     /></div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-1.5"><Hash className="w-4 h-4 text-primary/60" /><span className="font-bold text-primary">GC #{gc.gcNo}</span></div>
+                        <div className="flex items-center gap-1.5"><span className="font-bold text-primary">GC #{gc.gcNo}</span></div>
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${isFullyPending ? 'bg-muted text-foreground' : isPartiallyPending ? 'bg-orange-500/10 text-orange-600' : 'bg-emerald-500/10 text-emerald-600'}`}>{pendingCount} Pending</span>
                       </div>
                       <div className="space-y-1.5 text-sm mb-3">

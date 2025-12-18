@@ -400,7 +400,7 @@ export const TripSheetList = () => {
 
   const onDelete = (mfNo: string) => {
     setDelId(mfNo);
-    setDeleteMessage(`Are you sure you want to delete Trip Sheet #${mfNo}?`);
+    setDeleteMessage(`Are you sure you want to delete TS #${mfNo}?`);
     setConfirmOpen(true);
   };
 
@@ -409,13 +409,13 @@ export const TripSheetList = () => {
     setConfirmOpen(false);
     try {
       await deleteTripSheet(delId);
-      toast.success(`Trip Sheet #${delId} deleted successfully.`);
+      toast.success(`TS #${delId} deleted successfully.`);
       refresh();
       setSelectedMfNos((prev) => prev.filter((id) => id !== delId));
       setExcludedMfNos((prev) => prev.filter((id) => id !== delId));
     } catch (error) {
       console.error("Deletion failed:", error);
-      toast.error(`Failed to delete Trip Sheet #${delId}.`);
+      toast.error(`Failed to delete TS #${delId}.`);
     } finally {
       setDelId(null);
     }
@@ -786,7 +786,7 @@ export const TripSheetList = () => {
                     <div className="pt-0.5 flex-shrink-0"><input type="checkbox" className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer" checked={isSelected} onChange={(e) => handleSelectRow(ts.mfNo, e.target.checked)} /></div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-1.5"><Hash className="w-4 h-4 text-primary/60" /><span className="font-bold text-primary">TS #{ts.mfNo}</span></div>
+                        <div className="flex items-center gap-1.5"><span className="font-bold text-primary">TS #{ts.mfNo}</span></div>
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-500/10 text-emerald-600"><IndianRupee className="w-3 h-3" />{ts.totalAmount.toLocaleString("en-IN")}</span>
                       </div>
                       <div className="space-y-1.5 text-sm mb-3">
