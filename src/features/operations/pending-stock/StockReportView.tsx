@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import type { StockLabels } from '../../types';
+import type { StockLabels } from '../../../types';
 import { X, Printer } from 'lucide-react';
-import { useDataContext } from '../../contexts/DataContext';
+import { useDataContext } from '../../../contexts/DataContext';
 
 // --- Date Formatter ---
 const formatDate = (dateString?: string) => {
