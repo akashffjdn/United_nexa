@@ -26,6 +26,11 @@ import { Pagination } from '../../../../components/shared/Pagination';
 import LoadingScreen from '../../../../components/shared/LoadingScreen';
 import { useDataContext } from '../../../../contexts/DataContext';
 
+// 🟢 Extend the type locally to include the dynamically joined reason
+interface ExtendedHistoryLog extends HistoryLog {
+  reason?: string;
+}
+
 const AuditLogPage = () => {
   // 1. Destructure fetchers to ensure we have data for lookups
   const { fetchGcById, consignors, consignees, fetchConsignors, fetchConsignees } = useDataContext();
@@ -42,7 +47,7 @@ const AuditLogPage = () => {
     setFilters,
     filters,
     refresh
-  } = useServerPagination<HistoryLog>({
+  } = useServerPagination<ExtendedHistoryLog>({
     endpoint: '/users/history',
     initialFilters: {
       search: '',
@@ -55,7 +60,7 @@ const AuditLogPage = () => {
   });
 
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedLog, setSelectedLog] = useState<HistoryLog | null>(null);
+  const [selectedLog, setSelectedLog] = useState<ExtendedHistoryLog | null>(null);
   const [logContext, setLogContext] = useState<GcEntry | null>(null);
   const [loadingContext, setLoadingContext] = useState(false);
 
@@ -116,6 +121,12 @@ const AuditLogPage = () => {
   // --- Effects ---
   useEffect(() => {
     if (selectedLog && (selectedLog.collectionName === 'LoadingSheet' || selectedLog.collectionName === 'GcEntry')) {
+      // Don't fetch context if it's a deletion (record might not be fully retrievable via standard API)
+      if (selectedLog.action === 'DELETE') {
+         setLogContext(null);
+         return;
+      }
+      
       setLoadingContext(true);
       fetchGcById(selectedLog.documentId)
         .then((data) => {
@@ -206,7 +217,6 @@ const AuditLogPage = () => {
   const formatValue = (val: any, fieldName?: string) => {
     if (val === null || val === undefined) return <span className="text-muted-foreground italic text-xs">Empty</span>;
 
-    // 4. Check for both string and number types for ID fields
     if ((typeof val === 'string' || typeof val === 'number') && fieldName && (fieldName.toLowerCase().includes('consignor') || fieldName.toLowerCase().includes('consignee'))) {
       const resolvedName = resolveIdToName(val, fieldName);
       return (
@@ -825,6 +835,19 @@ const AuditLogPage = () => {
                     This record was {selectedLog.action.toLowerCase()} by <span className="font-semibold text-foreground">{selectedLog.changedBy}</span>.
                     {selectedLog.action === 'DELETE' && " Data is preserved in history but hidden from active views."}
                   </p>
+
+                  {/* 🟢 DISPLAY REASON if available */}
+                  {selectedLog.action === 'DELETE' && selectedLog.reason && (
+                    <div className="mt-4 max-w-sm mx-auto p-3 bg-red-50 border border-red-200 rounded-md text-left">
+                      <span className="text-xs font-bold text-red-800 uppercase tracking-wide block mb-1">
+                        Deletion Reason
+                      </span>
+                      <p className="text-sm text-red-700 italic">
+                        "{selectedLog.reason}"
+                      </p>
+                    </div>
+                  )}
+
                 </div>
               )}
             </div>

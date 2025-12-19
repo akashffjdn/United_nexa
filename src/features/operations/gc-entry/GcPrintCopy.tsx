@@ -157,7 +157,7 @@ export const GcPrintCopy: React.FC<Props> = ({
         </div>
 
         <div className="flex flex-col items-center justify-center w-1/4 pt-1">
-          <QRCodeSVG value={directApiUrl} size={54} level="M" />
+          <QRCodeSVG value={directApiUrl} size={74} level="M" />
           <span className="text-[8px] font-bold mt-1 uppercase">
             {label.scanLabel}
           </span>
