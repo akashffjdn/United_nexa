@@ -5,6 +5,8 @@ interface ToastContextType {
   success: (message: string, options?: ToastOptions) => void;
   error: (message: string, options?: ToastOptions) => void;
   loading: (message: string, options?: ToastOptions) => string;
+  // 🟢 NEW: Info method added to match usage in WarehouseManagementPage
+  info: (message: string, options?: ToastOptions) => void; 
   dismiss: (toastId?: string) => void;
 }
 
@@ -30,12 +32,24 @@ export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
     });
   };
 
+  // 🟢 NEW: Implementation for info toast
+  const info = (message: string, options?: ToastOptions) => {
+    toast(message, {
+      icon: 'ℹ️', // Simple icon to distinguish info messages
+      style: {
+        border: '1px solid hsl(var(--primary))',
+        ...options?.style,
+      },
+      ...options,
+    });
+  };
+
   const dismiss = (toastId?: string) => {
     toast.dismiss(toastId);
   };
 
   return (
-    <ToastContext.Provider value={{ success, error, loading, dismiss }}>
+    <ToastContext.Provider value={{ success, error, loading, info, dismiss }}>
       {/* Global Toaster Configuration */}
       <Toaster 
         position="top-center"

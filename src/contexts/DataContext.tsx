@@ -228,6 +228,9 @@ interface DataContextType {
   searchToPlaces: (search: string, page: number) => Promise<any>;
   searchPackings: (search: string, page: number) => Promise<any>;
   searchContents: (search: string, page: number) => Promise<any>;
+  
+  // 🟢 NEW: Search GC Entries (Required for Warehouse Panel)
+  searchGcEntries: (search: string, page: number) => Promise<any>;
 }
 
 export const useDataContext = () => {
@@ -431,6 +434,15 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (e) { return { data: [], hasMore: false }; }
   };
 
+  // 🟢 NEW: Search GC Entries Implementation
+  const searchGcEntries = async (search: string, page: number) => {
+    try {
+        // Assuming your backend supports /operations/gc with search/page params
+        const { data } = await api.get('/operations/gc', { params: { search, page }, skipLoader: true } as any);
+        return data;
+    } catch (e) { return { data: [], hasMore: false }; }
+  };
+
   // GC Actions (Real API calls)
   const getNextGcNo = async () => {
     try { const { data } = await api.get('/operations/gc/next-no'); return data.nextGcNo; } catch (e) { return "Error"; }
@@ -612,7 +624,8 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     fetchConsignors, fetchConsignees, fetchFromPlaces, fetchToPlaces, fetchPackingEntries, fetchContentEntries, fetchVehicleEntries, fetchDriverEntries,
     searchConsignors, searchConsignees, searchVehicles, searchDrivers, searchFromPlaces, searchToPlaces, searchPackings, searchContents,
     importConsignors, importConsignees, importFromPlaces, importToPlaces, importPackings, importContents, importVehicles, importDrivers,
-    fetchHistoryLogs // 🟢 ADDED TO EXPORT
+    fetchHistoryLogs, // 🟢 ADDED TO EXPORT
+    searchGcEntries // 🟢 ADDED TO EXPORT
   }), [consignors, consignees, fromPlaces, toPlaces, packingEntries, contentEntries, vehicleEntries, driverEntries, printSettings, fetchAllData, fetchConsignors, fetchConsignees, fetchFromPlaces, fetchToPlaces, fetchPackingEntries, fetchContentEntries, fetchVehicleEntries, fetchDriverEntries, fetchPrintSettings]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

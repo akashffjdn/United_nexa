@@ -18,7 +18,8 @@ import {
   LogOut,
   ScrollText,
   Printer,
-  ChevronRight
+  ChevronRight,
+  Warehouse // 🟢 NEW ICON
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -44,6 +45,8 @@ export const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) => {
     { name: 'Loading Sheet', href: '/loading-sheet', icon: ClipboardList },
     { name: 'Trip Sheet', href: '/tripsheet', icon: Truck },
     { name: 'Pending Stock', href: '/pending-stock', icon: Archive },
+    // 🟢 NEW LINK
+    { name: 'Warehouse', href: '/warehouse', icon: Warehouse },
   ];
 
   const masterLinks = [

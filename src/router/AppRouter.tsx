@@ -24,6 +24,9 @@ const TripSheetList = lazy(() => load(import('../features/operations/trip-sheet-
 const TripSheetForm = lazy(() => load(import('../features/operations/trip-sheet-entry/TripSheetForm'), 'TripSheetForm'));
 const PendingStockHistory = lazy(() => load(import('../features/operations/pending-stock/PendingStockHistory'), 'PendingStockHistory'));
 
+// 🟢 NEW: Warehouse Management
+const WarehouseManagementPage = lazy(() => load(import('../features/operations/warehouse/WarehouseManagementPage'), 'WarehouseManagementPage'));
+
 // Features -> Masters
 const ConsignorList = lazy(() => load(import('../features/master/consignors/ConsignorList'), 'ConsignorList'));
 const ConsigneeList = lazy(() => load(import('../features/master/consignees/ConsigneeList'), 'ConsigneeList'));
@@ -87,6 +90,8 @@ const AppRouter = () => {
       {/* General Protected Routes (User & Admin) */}
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<DashboardPage />} />
+        
+        {/* Operations */}
         <Route path="/gc-entry" element={<GcEntryList />} />
         <Route path="/gc-entry/new" element={<GcEntryForm />} />
         <Route path="/gc-entry/edit/:gcNo" element={<GcEntryForm />} />
@@ -95,6 +100,9 @@ const AppRouter = () => {
         <Route path="/tripsheet" element={<TripSheetList />} />
         <Route path="/tripsheet/new" element={<TripSheetForm />} />
         <Route path="/tripsheet/edit/:id" element={<TripSheetForm />} />
+        
+        {/* 🟢 NEW: Warehouse Route */}
+        <Route path="/warehouse" element={<WarehouseManagementPage />} />
         
         {/* Master Data Routes */}
         <Route path="/master" element={<MasterDashboardPage />} />

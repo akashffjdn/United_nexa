@@ -48,6 +48,7 @@ export interface GcContentItem {
   contents: string;
   prefix: string;
   fromNo: number | string;
+  weight: number | string; // NEW: Added Weight field
 }
 
 export interface GcEntry {
@@ -420,5 +421,28 @@ export type TripSheetFilter = {
   excludeIds?: string[];
 };
 
+// --- NEW: Warehouse Management Types ---
 
+export interface WarehouseRoom {
+  id: string;
+  name: string;
+  shortCode: string; // e.g., 'A', 'B'
+  rows: number;
+  columns: number;
+  capacity: number;
+}
 
+export interface WarehouseSlot {
+  id: string; // e.g., "A-R01-C01"
+  roomId: string;
+  rowId: number;
+  colId: number;
+  status: 'empty' | 'occupied';
+  contentId?: string; // Links to GcContentItem.id
+  gcNo?: string;
+  displayLabel?: string; // "105" or "Fireworks"
+  // NEW: Additional fields for slot detail modal
+    contents?: string;      // Item contents description
+    packing?: string;       // Packing type
+    allocatedAt?: string; 
+}
