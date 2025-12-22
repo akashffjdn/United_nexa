@@ -122,14 +122,14 @@ export const GcPrintCopy: React.FC<Props> = ({
           <div className="uppercase text-[15px] whitespace-nowrap font-bold w-fit mb-1">
             {copyType}
           </div>
-          <div className="font-bold text-[11px] leading-snug">
-            <div className="whitespace-nowrap">{label.gcNoLabel} : <span className="text-[12px]">{gc.gcNo}</span></div>
+          <div className="font-bold text-[13px] leading-snug">
+            <div className="whitespace-nowrap">{label.gcNoLabel} : <span className="text-[13px]">{gc.gcNo}</span></div>
             <div className="whitespace-nowrap">{label.dateLabel} : {gc.gcDate}</div>
           </div>
         </div>
 
         <div className="flex flex-col items-center w-[60%] px-1 text-center">
-          <div className="text-[10px] font-bold flex gap-3 mb-1">
+          <div className="text-[12px] font-bold flex gap-3 mb-1">
             <span>{label.fixedGstinLabel}:{label.fixedGstinValue}</span>
             <span>{label.mobileLabel} : {label.mobileNumberValue}</span>
           </div>
@@ -234,7 +234,7 @@ export const GcPrintCopy: React.FC<Props> = ({
                     </div>
                   </div>
                   
-                  <div className="text-right text-[11px] px-2 pb-2 pt-1 border-t border-black bg-gray-50 mt-auto">
+                  <div className="text-right text-[11px] px-2 pb-2 pt-1 border-t border-black  mt-auto">
                     <div className="flex justify-between items-center mb-1">
                       <span className="font-normal text-[10px]">{label.labelAdvancePaid}</span>
                       <span className="font-bold">{gc.advanceNone || "NIL"}</span>
@@ -257,7 +257,7 @@ export const GcPrintCopy: React.FC<Props> = ({
                   {label.marksLabel} : <span className="ml-1 font-normal italic">{marks}</span>
                 </div>
               </td>
-              <td colSpan={2} className="border-r border-black align-middle p-1 text-center bg-gray-50">
+              <td colSpan={2} className="border-r border-black align-middle p-1 text-center">
                 <div className="text-[12px] font-extrabold mb-0.5 inline-block uppercase leading-none">
                   {paymentStatusLabel}
                 </div>
@@ -269,39 +269,50 @@ export const GcPrintCopy: React.FC<Props> = ({
                 </div>
               </td>
             </tr>
-            <tr className="border-t border-black">
-              <td colSpan={2} className="border-r border-black p-1 h-8 align-middle">
-                <span className="font-normal text-[10px] mr-2">{label.deliveryAtLabel}:</span>
-                <span className="font-bold text-[12px] uppercase">{gc.deliveryAt}</span>
-              </td>
-              <td colSpan={3} className="border-r border-black p-1 align-middle">
-                <div className="flex items-baseline gap-2 pl-2">
-                  <span className="text-[10px] font-normal whitespace-nowrap">{label.toPayRsLabel}</span>
-                  <span className="text-[10px] font-extrabold whitespace-nowrap uppercase leading-none italic">
-                    {numberToWordsInRupees(balanceToPayNum)}
-                  </span>
-                </div>
-              </td>
-            </tr>
+            <tr className="border-t border-black h-12">
+  <td colSpan={2} className="border-r border-black px-1 align-middle">
+    <span className="font-normal text-[10px] mr-2">{label.deliveryAtLabel}:</span>
+    <span className="font-bold text-[12px] uppercase">{gc.deliveryAt}</span>
+  </td>
+
+  <td colSpan={3} className="border-r border-black align-middle">
+    <div className="flex items-center gap-2 pl-2">
+      <span className="text-[10px] font-normal whitespace-nowrap">
+        {label.toPayRsLabel}
+      </span>
+      <span className="text-[10px] font-extrabold whitespace-nowrap uppercase italic">
+        {numberToWordsInRupees(balanceToPayNum)}
+      </span>
+    </div>
+  </td>
+</tr>
+
           </tbody>
         </table>
       </div>
 
       {/* --- FOOTER --- */}
-      <div className="border-x border-b border-black pt-0 pb-2 px-2 flex justify-between items-end min-h-[0.5rem] relative bg-white">
-        <div className="w-1/3">
+      <div className="border-x border-b border-black flex min-h-[40px] bg-white">
+        <div className="w-1/3 border-r border-black p-2 flex flex-col justify-end items-center text-center">
           <div className="text-[10px] font-bold leading-tight">
             <span className="font-normal block text-[9px] text-gray-600 mb-0.5 italic">{label.freightFixedUptoLabel}</span>
             <span className="uppercase text-[11px]">{gc.freightUptoAt}</span>
           </div>
         </div>
-        <div className="absolute left-1/2 -translate-x-1/2 bottom-2 text-center text-[9px] leading-tight font-bold w-1/3 text-gray-500">
-          {label.footerUnloadingNote}
+        
+        <div className="w-1/3 border-r border-black p-2 flex flex-col justify-end text-center">
+          <div className="text-[9px] leading-tight font-bold text-gray-500">
+            <div className="mb-1">FOR 'TO PAY' FREIGHT AMOUNT SERVICE TAX PAYABLE BY "CONSIGNEE"</div>
+            <div>{label.footerUnloadingNote}</div>
+          </div>
         </div>
-        <div className="text-[10px] flex flex-col items-center w-1/3 text-right">
-          <div className="h-4"></div>
-          <span className="font-extrabold uppercase text-[10px]">{user?.name || 'Admin'}</span>
-          <span className="italic font-bold text-[8px] pt-1 border-t border-black w-3/4 text-center mt-1">{label.footerSignatureLine}</span>
+
+        <div className="w-1/3 p-2 flex flex-col justify-between items-center text-center">
+             <div className="h-4"></div>
+             <div className="flex flex-col items-center w-full">
+                <span className="font-extrabold uppercase text-[10px]">{user?.name || 'Admin'}</span>
+                <span className="italic font-bold text-[8px] pt-1 border-t border-black w-3/4 text-center mt-1">{label.footerSignatureLine}</span>
+             </div>
         </div>
       </div>
 
