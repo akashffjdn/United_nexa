@@ -309,7 +309,7 @@ export const ConsigneeForm = ({ initialData, onClose, onSave }: ConsigneeFormPro
 
             <div className="md:col-span-2">
               <label htmlFor="address" className="block text-sm font-medium text-muted-foreground">
-                Address <span className="text-destructive">*</span>
+                Address 
               </label>
              <textarea 
                 id="address" 
@@ -318,7 +318,7 @@ export const ConsigneeForm = ({ initialData, onClose, onSave }: ConsigneeFormPro
                 onChange={handleChange} 
                 rows={3} 
                 className="w-full mt-1 px-3 py-2 bg-transparent text-foreground border border-muted-foreground/30 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary" 
-                required 
+                 
               />
               {formErrors.address && <p className="text-xs text-red-500 mt-1">{formErrors.address}</p>}
              </div>
