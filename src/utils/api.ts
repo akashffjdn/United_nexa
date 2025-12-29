@@ -3,7 +3,7 @@ import axios from 'axios';
 import { loadingManager } from './loadingManager';
 
 // Use environment variable or default to localhost
-export const API_URL = 'http://united-transport-backend-env.eba-zja2kvf3.ap-south-1.elasticbeanstalk.com/api';
+export const API_URL = 'https://d3m3hz0zmfb228.cloudfront.net/api';
 //export const API_URL = 'http://localhost:5000/api';
 
 const api = axios.create({
