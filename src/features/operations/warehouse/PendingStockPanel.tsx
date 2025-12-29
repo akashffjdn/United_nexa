@@ -134,22 +134,22 @@ export const PendingStockPanel = ({
 
     return (
         <div className="flex flex-col h-full bg-card">
-            {/* Header */}
-            <div className="p-3 sm:p-4 border-b border-border bg-card">
-                <div className="flex items-center justify-between mb-3">
+            {/* Header - Responsive */}
+            <div className="p-2.5 sm:p-3 md:p-4 border-b border-border bg-card">
+                <div className="flex items-center justify-between mb-2 sm:mb-3">
                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <PackageOpen className="w-4 h-4 text-primary" />
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <PackageOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
                         </div>
                         <div>
-                            <h2 className="text-sm font-bold text-foreground">Pending Stock</h2>
-                            <p className="text-[10px] text-muted-foreground">Drag items to warehouse grid</p>
+                            <h2 className="text-xs sm:text-sm font-bold text-foreground">Pending Stock</h2>
+                            <p className="text-[9px] sm:text-[10px] text-muted-foreground hidden xs:block">Drag items to warehouse grid</p>
                         </div>
                     </div>
                     {items.length > 0 && (
                         <div className="text-right">
-                            <span className="text-lg font-bold text-primary">{items.length}</span>
-                            <p className="text-[10px] text-muted-foreground">Items</p>
+                            <span className="text-base sm:text-lg font-bold text-primary">{items.length}</span>
+                            <p className="text-[9px] sm:text-[10px] text-muted-foreground">Items</p>
                         </div>
                     )}
                 </div>
@@ -167,14 +167,14 @@ export const PendingStockPanel = ({
 
             {/* Stats Bar - Only show when items exist */}
             {items.length > 0 && (
-                <div className="px-3 sm:px-4 py-2 bg-muted/30 border-b border-border">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
+                <div className="px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-muted/30 border-b border-border">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2 sm:gap-3">
                             {/* Select All */}
                             <button
                                 onClick={() => onSelectAll(!allSelected)}
                                 className={`
-                                    flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-colors
+                                    flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-medium transition-colors
                                     ${allSelected || someSelected 
                                         ? 'bg-primary/10 text-primary' 
                                         : 'text-muted-foreground hover:bg-muted'
@@ -182,35 +182,36 @@ export const PendingStockPanel = ({
                                 `}
                             >
                                 {allSelected ? (
-                                    <CheckSquare className="w-3.5 h-3.5" />
+                                    <CheckSquare className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                                 ) : someSelected ? (
-                                    <div className="w-3.5 h-3.5 border-2 border-primary rounded bg-primary/30" />
+                                    <div className="w-3 h-3 sm:w-3.5 sm:h-3.5 border-2 border-primary rounded bg-primary/30" />
                                 ) : (
-                                    <Square className="w-3.5 h-3.5" />
+                                    <Square className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                                 )}
-                                {allSelected ? 'Deselect' : 'Select All'}
+                                <span className="hidden xs:inline">{allSelected ? 'Deselect' : 'Select All'}</span>
+                                <span className="xs:hidden">{allSelected ? 'All' : 'All'}</span>
                             </button>
 
                             {/* Filter Toggle */}
                             <button
                                 onClick={() => setIsFilterOpen(!isFilterOpen)}
                                 className={`
-                                    flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors
+                                    flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-medium transition-colors
                                     ${isFilterOpen ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'}
                                 `}
                             >
-                                <Filter className="w-3.5 h-3.5" />
-                                Filter
+                                <Filter className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                                <span className="hidden xs:inline">Filter</span>
                             </button>
                         </div>
 
                         {/* Selection Info */}
                         {selectedIds.size > 0 && (
-                            <div className="flex items-center gap-2 px-2 py-1 bg-primary/10 rounded-md">
-                                <span className="text-xs font-medium text-primary">
+                            <div className="flex items-center gap-1.5 sm:gap-2 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-primary/10 rounded-md">
+                                <span className="text-[10px] sm:text-xs font-medium text-primary">
                                     {selectedIds.size} selected
                                 </span>
-                                <span className="text-[10px] text-primary/70">
+                                <span className="text-[9px] sm:text-[10px] text-primary/70 hidden xs:inline">
                                     ({totalSelectedQty} slots)
                                 </span>
                             </div>
@@ -222,43 +223,43 @@ export const PendingStockPanel = ({
                         <div className="mt-2 pt-2 border-t border-border space-y-2">
                             {/* Search */}
                             <div className="relative">
-                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                                <Search className="absolute left-2 sm:left-2.5 top-1/2 -translate-y-1/2 w-3 sm:w-3.5 h-3 sm:h-3.5 text-muted-foreground" />
                                 <input
                                     type="text"
                                     placeholder="Search contents..."
                                     value={searchFilter}
                                     onChange={(e) => setSearchFilter(e.target.value)}
-                                    className="w-full h-8 pl-8 pr-3 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+                                    className="w-full h-7 sm:h-8 pl-7 sm:pl-8 pr-2 sm:pr-3 text-[11px] sm:text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
                                 />
                             </div>
 
                             {/* Sort Buttons */}
-                            <div className="flex items-center gap-2">
-                                <span className="text-[10px] text-muted-foreground">Sort:</span>
+                            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                                <span className="text-[9px] sm:text-[10px] text-muted-foreground">Sort:</span>
                                 <button
                                     onClick={() => toggleSort('qty')}
                                     className={`
-                                        flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors
+                                        flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[9px] sm:text-[10px] font-medium transition-colors
                                         ${sortBy === 'qty' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}
                                     `}
                                 >
                                     Qty
-                                    {sortBy === 'qty' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
+                                    {sortBy === 'qty' && (sortOrder === 'asc' ? <ChevronUp className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> : <ChevronDown className="w-2.5 h-2.5 sm:w-3 sm:h-3" />)}
                                 </button>
                                 <button
                                     onClick={() => toggleSort('weight')}
                                     className={`
-                                        flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors
+                                        flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[9px] sm:text-[10px] font-medium transition-colors
                                         ${sortBy === 'weight' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}
                                     `}
                                 >
                                     Weight
-                                    {sortBy === 'weight' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
+                                    {sortBy === 'weight' && (sortOrder === 'asc' ? <ChevronUp className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> : <ChevronDown className="w-2.5 h-2.5 sm:w-3 sm:h-3" />)}
                                 </button>
                                 {sortBy !== 'default' && (
                                     <button
                                         onClick={() => setSortBy('default')}
-                                        className="text-[10px] text-muted-foreground hover:text-foreground underline"
+                                        className="text-[9px] sm:text-[10px] text-muted-foreground hover:text-foreground underline"
                                     >
                                         Reset
                                     </button>
@@ -269,25 +270,25 @@ export const PendingStockPanel = ({
                 </div>
             )}
 
-            {/* Content List */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {/* Content List - Responsive */}
+            <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-1.5 sm:space-y-2">
                 {!selectedGcId ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center px-4">
-                        <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-3">
-                            <Search className="w-7 h-7 text-muted-foreground/50" />
+                    <div className="flex flex-col items-center justify-center h-full text-center px-3 sm:px-4">
+                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-muted/50 flex items-center justify-center mb-2 sm:mb-3">
+                            <Search className="w-5 h-5 sm:w-7 sm:h-7 text-muted-foreground/50" />
                         </div>
-                        <p className="text-sm font-medium text-muted-foreground">Select a GC Number</p>
-                        <p className="text-xs text-muted-foreground/70 mt-1">Use the dropdown above to load pending items</p>
+                        <p className="text-xs sm:text-sm font-medium text-muted-foreground">Select a GC Number</p>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground/70 mt-0.5 sm:mt-1">Use the dropdown above to load pending items</p>
                     </div>
                 ) : filteredItems.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center px-4">
-                        <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-3">
-                            <Package className="w-7 h-7 text-muted-foreground/50" />
+                    <div className="flex flex-col items-center justify-center h-full text-center px-3 sm:px-4">
+                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-muted/50 flex items-center justify-center mb-2 sm:mb-3">
+                            <Package className="w-5 h-5 sm:w-7 sm:h-7 text-muted-foreground/50" />
                         </div>
-                        <p className="text-sm font-medium text-muted-foreground">
+                        <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                             {searchFilter ? 'No matching items' : 'No pending items'}
                         </p>
-                        <p className="text-xs text-muted-foreground/70 mt-1">
+                        <p className="text-[10px] sm:text-xs text-muted-foreground/70 mt-0.5 sm:mt-1">
                             {searchFilter ? 'Try a different search term' : 'All items have been allocated'}
                         </p>
                     </div>
@@ -308,34 +309,34 @@ export const PendingStockPanel = ({
                                     }
                                 `}
                             >
-                                {/* Drag Handle */}
-                                <div className="absolute left-0 top-0 bottom-0 w-6 flex items-center justify-center rounded-l-lg bg-muted/30 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <GripVertical className="w-3.5 h-3.5 text-muted-foreground" />
+                                {/* Drag Handle - Hidden on mobile touch */}
+                                <div className="absolute left-0 top-0 bottom-0 w-5 sm:w-6 hidden sm:flex items-center justify-center rounded-l-lg bg-muted/30 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <GripVertical className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-muted-foreground" />
                                 </div>
 
-                                <div className="p-3 pl-4">
+                                <div className="p-2.5 sm:p-3 sm:pl-4">
                                     {/* Top Row */}
-                                    <div className="flex items-start justify-between gap-2 mb-2">
-                                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                                    <div className="flex items-start justify-between gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+                                        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
                                             {/* Selection Checkbox */}
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); onToggleSelect(item.id); }}
-                                                className="shrink-0"
+                                                className="shrink-0 p-0.5"
                                             >
                                                 {isSelected ? (
-                                                    <CheckSquare className="w-5 h-5 text-primary" />
+                                                    <CheckSquare className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                                                 ) : (
-                                                    <Square className="w-5 h-5 text-muted-foreground/40 hover:text-primary transition-colors" />
+                                                    <Square className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground/40 hover:text-primary transition-colors" />
                                                 )}
                                             </button>
 
                                             {/* Prefix Badge */}
-                                            <span className="shrink-0 text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                                            <span className="shrink-0 text-[9px] sm:text-[10px] font-bold text-primary bg-primary/10 px-1 sm:px-1.5 py-0.5 rounded">
                                                 {item.prefix || 'PKG'}
                                             </span>
 
                                             {/* Contents */}
-                                            <span className="text-sm font-semibold text-foreground truncate">
+                                            <span className="text-xs sm:text-sm font-semibold text-foreground truncate">
                                                 {item.contents}
                                             </span>
                                         </div>
@@ -345,7 +346,7 @@ export const PendingStockPanel = ({
                                             type="button"
                                             onClick={(e) => { e.stopPropagation(); onAssist(item); }}
                                             className={`
-                                                shrink-0 p-1.5 rounded-lg transition-all
+                                                shrink-0 p-1 sm:p-1.5 rounded-lg transition-all
                                                 ${isSelected 
                                                     ? 'bg-amber-100 text-amber-600' 
                                                     : 'text-muted-foreground/50 hover:bg-amber-50 hover:text-amber-500'
@@ -353,24 +354,24 @@ export const PendingStockPanel = ({
                                             `}
                                             title="Find best spot"
                                         >
-                                            <Lightbulb className={`w-4 h-4 ${isSelected ? 'fill-amber-200' : ''}`} />
+                                            <Lightbulb className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isSelected ? 'fill-amber-200' : ''}`} />
                                         </button>
                                     </div>
 
-                                    {/* Details Grid */}
-                                    <div className="grid grid-cols-3 gap-2 text-xs">
-                                        <div className="flex items-center gap-1.5 px-2 py-1.5 bg-muted/50 rounded-md">
-                                            <Boxes className="w-3.5 h-3.5 text-muted-foreground" />
-                                            <span className="text-muted-foreground">Qty:</span>
+                                    {/* Details Grid - Responsive */}
+                                    <div className="grid grid-cols-3 gap-1.5 sm:gap-2 text-[10px] sm:text-xs">
+                                        <div className="flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-1 sm:py-1.5 bg-muted/50 rounded-md">
+                                            <Boxes className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-muted-foreground shrink-0" />
+                                            <span className="text-muted-foreground hidden xs:inline">Qty:</span>
                                             <span className="font-bold text-foreground">{item.qty}</span>
                                         </div>
-                                        <div className="flex items-center gap-1.5 px-2 py-1.5 bg-muted/50 rounded-md">
-                                            <Package className="w-3.5 h-3.5 text-muted-foreground" />
+                                        <div className="flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-1 sm:py-1.5 bg-muted/50 rounded-md overflow-hidden">
+                                            <Package className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-muted-foreground shrink-0" />
                                             <span className="truncate text-foreground">{item.packing}</span>
                                         </div>
-                                        <div className="flex items-center gap-1.5 px-2 py-1.5 bg-muted/50 rounded-md">
-                                            <Weight className="w-3.5 h-3.5 text-muted-foreground" />
-                                            <span className="font-medium text-foreground">{item.weight || '-'} kg</span>
+                                        <div className="flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-1 sm:py-1.5 bg-muted/50 rounded-md">
+                                            <Weight className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-muted-foreground shrink-0" />
+                                            <span className="font-medium text-foreground truncate">{item.weight || '-'}<span className="hidden xs:inline"> kg</span></span>
                                         </div>
                                     </div>
                                 </div>
@@ -380,10 +381,10 @@ export const PendingStockPanel = ({
                 )}
             </div>
 
-            {/* Footer Summary */}
+            {/* Footer Summary - Responsive */}
             {items.length > 0 && (
-                <div className="p-3 border-t border-border bg-muted/30">
-                    <div className="flex items-center justify-between text-xs">
+                <div className="p-2 sm:p-3 border-t border-border bg-muted/30">
+                    <div className="flex items-center justify-between text-[10px] sm:text-xs">
                         <span className="text-muted-foreground">
                             Total: <span className="font-semibold text-foreground">{items.length} items</span>
                         </span>
