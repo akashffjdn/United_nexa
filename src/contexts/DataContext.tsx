@@ -1,7 +1,8 @@
 import React, { createContext, useState, useMemo, useCallback, useEffect } from 'react';
 import type {
   Consignor, Consignee, GcEntry, FromPlace, ToPlace, PackingEntry,
-  ContentEntry, TripSheetEntry, VehicleEntry, DriverEntry, PrintTemplateData
+  ContentEntry, TripSheetEntry, VehicleEntry, DriverEntry, PrintTemplateData,
+  GcFilter, LoadingSheetFilter, PendingStockFilter, TripSheetFilter
 } from '../types';
 import api from '../utils/api';
 import { useAuth } from '../hooks/useAuth';
@@ -171,7 +172,14 @@ interface DataContextType {
   fetchTripSheetPrintData: (mfNos: string[], selectAll?: boolean, filters?: any) => Promise<TripSheetEntry[]>;
   fetchPendingStockReport: (filters: any) => Promise<any[]>;
   fetchTripSheetReport: (filters: any) => Promise<any[]>;
-  // 🟢 NEW: Fetch Audit Logs
+
+  // 🟢 NEW: Filtered IDs for Exclude functionality
+  fetchFilteredGcIds: (filters: GcFilter) => Promise<string[]>;
+  fetchFilteredLoadingSheetIds: (filters: LoadingSheetFilter) => Promise<string[]>;
+  fetchFilteredPendingStockIds: (filters: PendingStockFilter) => Promise<string[]>;
+  fetchFilteredTripSheetIds: (filters: TripSheetFilter) => Promise<string[]>;
+
+  // 🟢 Fetch Audit Logs
   fetchHistoryLogs: (filters: any) => Promise<any>;
 
   fetchGcDetailsForTripSheet: (gcNo: string) => Promise<any>;
@@ -330,7 +338,7 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   // NEW: Fetch Print Settings
   const fetchPrintSettings = useCallback(async () => {
     try {
-      // 泙 Add a timestamp to the request to bypass browser caching if necessary
+      // Add a timestamp to the request to bypass browser caching if necessary
       const { data } = await api.get(`/master/templates?_=${new Date().getTime()}`);
 
       // Merge with defaults to ensure all fields exist even if DB is partial
@@ -364,11 +372,11 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     // We execute these in parallel for speed
     await Promise.all([
 
-      fetchPrintSettings() // 泙 This fetches the latest labels from DB
+      fetchPrintSettings() // This fetches the latest labels from DB
     ]);
   }, [user, fetchConsignors, fetchConsignees, fetchFromPlaces, fetchToPlaces, fetchPackingEntries, fetchContentEntries, fetchVehicleEntries, fetchDriverEntries, fetchPrintSettings]);
 
-  // 泙泙 FIX: The missing trigger! This ensures fetchAllData runs on login/load. 泙泙
+  // FIX: The missing trigger! This ensures fetchAllData runs on login/load.
   useEffect(() => {
     if (user) {
       fetchAllData();
@@ -446,7 +454,7 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchGcDetailsForTripSheet = async (gcNo: string) => {
     try {
-      // 泙 Update: Added { skipLoader: true } to the config object
+      // Update: Added { skipLoader: true } to the config object
       const { data } = await api.get(`/operations/gc/details/${gcNo}`, {
         skipLoader: true
       } as any);
@@ -478,7 +486,108 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     try { const { data } = await api.get('/operations/tripsheet/report', { params: filters }); return data; } catch (e) { handleError(e, "Error fetching report"); return []; }
   };
 
-  // 🟢 NEW: History Log Fetcher
+  // =============================================================================
+  // 🟢 NEW: Filtered IDs for Exclude Functionality
+  // =============================================================================
+
+  // 1. Fetch filtered GC IDs for exclusion (GcEntryList)
+  const fetchFilteredGcIds = async (filters: GcFilter): Promise<string[]> => {
+    try {
+      const params = new URLSearchParams();
+
+      if (filters.search) params.append('search', filters.search);
+      if (filters.filterType && filters.filterType !== 'all') params.append('filterType', filters.filterType);
+      if (filters.startDate) params.append('startDate', filters.startDate);
+      if (filters.endDate) params.append('endDate', filters.endDate);
+      if (filters.destination) params.append('destination', filters.destination);
+      if (filters.consignor) params.append('consignor', filters.consignor);
+      if (filters.consignee && filters.consignee.length > 0) {
+        params.append('consignee', filters.consignee.join(','));
+      }
+
+      const { data } = await api.get(`/operations/gc/filtered-ids?${params.toString()}`, { skipLoader: true } as any);
+      return data.gcNos || [];
+    } catch (error) {
+      console.error('Error fetching filtered GC IDs:', error);
+      return [];
+    }
+  };
+
+  // 2. Fetch filtered Loading Sheet GC IDs for exclusion (LoadingSheetEntry)
+  const fetchFilteredLoadingSheetIds = async (filters: LoadingSheetFilter): Promise<string[]> => {
+    try {
+      const params = new URLSearchParams();
+
+      if (filters.search) params.append('search', filters.search);
+      if (filters.filterType && filters.filterType !== 'all') params.append('filterType', filters.filterType);
+      if (filters.startDate) params.append('startDate', filters.startDate);
+      if (filters.endDate) params.append('endDate', filters.endDate);
+      if (filters.destination) params.append('destination', filters.destination);
+      if (filters.consignor) params.append('consignor', filters.consignor);
+      if (filters.godown) params.append('godown', filters.godown);
+      if (filters.consignee && filters.consignee.length > 0) {
+        params.append('consignee', filters.consignee.join(','));
+      }
+      // Always filter for pending items in loading sheet
+      params.append('pending', 'true');
+
+      const { data } = await api.get(`/operations/loading-sheet/filtered-ids?${params.toString()}`, { skipLoader: true } as any);
+      return data.gcNos || [];
+    } catch (error) {
+      console.error('Error fetching filtered Loading Sheet IDs:', error);
+      return [];
+    }
+  };
+
+  // 3. Fetch filtered Pending Stock GC IDs for exclusion (PendingStockHistory)
+  const fetchFilteredPendingStockIds = async (filters: PendingStockFilter): Promise<string[]> => {
+    try {
+      const params = new URLSearchParams();
+
+      if (filters.search) params.append('search', filters.search);
+      if (filters.filterType && filters.filterType !== 'all') params.append('filterType', filters.filterType);
+      if (filters.startDate) params.append('startDate', filters.startDate);
+      if (filters.endDate) params.append('endDate', filters.endDate);
+      if (filters.destination) params.append('destination', filters.destination);
+      if (filters.consignor) params.append('consignor', filters.consignor);
+      if (filters.consignee && filters.consignee.length > 0) {
+        params.append('consignee', filters.consignee.join(','));
+      }
+
+      const { data } = await api.get(`/operations/pending-stock/filtered-ids?${params.toString()}`, { skipLoader: true } as any);
+      return data.gcNos || [];
+    } catch (error) {
+      console.error('Error fetching filtered Pending Stock IDs:', error);
+      return [];
+    }
+  };
+
+  // 4. Fetch filtered Trip Sheet MF Nos for exclusion (TripSheetList)
+  const fetchFilteredTripSheetIds = async (filters: TripSheetFilter): Promise<string[]> => {
+    try {
+      const params = new URLSearchParams();
+
+      if (filters.search) params.append('search', filters.search);
+      if (filters.filterType && filters.filterType !== 'all') params.append('filterType', filters.filterType);
+      if (filters.startDate) params.append('startDate', filters.startDate);
+      if (filters.endDate) params.append('endDate', filters.endDate);
+      if (filters.toPlace) params.append('toPlace', filters.toPlace);
+      if (filters.consignor) params.append('consignor', filters.consignor);
+      if (filters.consignee && filters.consignee.length > 0) {
+        params.append('consignee', filters.consignee.join(','));
+      }
+
+      const { data } = await api.get(`/operations/tripsheet/filtered-ids?${params.toString()}`, { skipLoader: true } as any);
+      return data.mfNos || [];
+    } catch (error) {
+      console.error('Error fetching filtered Trip Sheet IDs:', error);
+      return [];
+    }
+  };
+
+  // =============================================================================
+
+  // 🟢 History Log Fetcher
   const fetchHistoryLogs = async (params: any) => {
     try {
       const { data } = await api.get('/users/history', { params });
@@ -529,8 +638,8 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (e) { handleError(e, "Failed to update Trip Sheet"); }
   };
 
-  const deleteTripSheet = async (id: string,reason?: string) => {
-    try { await api.delete(`/operations/tripsheet/${id}`,{ data: { reason } }); toast.success("Trip Sheet deleted successfully"); } catch (e) { handleError(e, "Failed to delete Trip Sheet"); }
+  const deleteTripSheet = async (id: string, reason?: string) => {
+    try { await api.delete(`/operations/tripsheet/${id}`, { data: { reason } }); toast.success("Trip Sheet deleted successfully"); } catch (e) { handleError(e, "Failed to delete Trip Sheet"); }
   };
 
   // BULK IMPORT FUNCTIONS
@@ -608,6 +717,8 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     addConsignor, updateConsignor, deleteConsignor, addConsignee, updateConsignee, deleteConsignee,
     getNextGcNo, fetchGcById, fetchTripSheetById, addGcEntry, updateGcEntry, deleteGcEntry, saveLoadingProgress,
     fetchGcPrintData, fetchLoadingSheetPrintData, fetchTripSheetPrintData, fetchPendingStockReport, fetchTripSheetReport, fetchGcDetailsForTripSheet,
+    // 🟢 NEW: Export filtered IDs functions
+    fetchFilteredGcIds, fetchFilteredLoadingSheetIds, fetchFilteredPendingStockIds, fetchFilteredTripSheetIds,
     addFromPlace, updateFromPlace, deleteFromPlace, addToPlace, updateToPlace, deleteToPlace,
     addPackingEntry, updatePackingEntry, deletePackingEntry, addContentEntry, updateContentEntry, deleteContentEntry,
     addTripSheet, updateTripSheet, deleteTripSheet, addVehicleEntry, updateVehicleEntry, deleteVehicleEntry,
@@ -616,7 +727,7 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     fetchConsignors, fetchConsignees, fetchFromPlaces, fetchToPlaces, fetchPackingEntries, fetchContentEntries, fetchVehicleEntries, fetchDriverEntries,
     searchConsignors, searchConsignees, searchVehicles, searchDrivers, searchFromPlaces, searchToPlaces, searchPackings, searchContents,
     importConsignors, importConsignees, importFromPlaces, importToPlaces, importPackings, importContents, importVehicles, importDrivers,
-    fetchHistoryLogs // 🟢 ADDED TO EXPORT
+    fetchHistoryLogs
   }), [consignors, consignees, fromPlaces, toPlaces, packingEntries, contentEntries, vehicleEntries, driverEntries, printSettings, fetchAllData, fetchConsignors, fetchConsignees, fetchFromPlaces, fetchToPlaces, fetchPackingEntries, fetchContentEntries, fetchVehicleEntries, fetchDriverEntries, fetchPrintSettings]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
